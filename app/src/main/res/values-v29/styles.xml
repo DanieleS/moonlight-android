@@ -1,11 +1,12 @@
 <resources>
+    <!--
+        Everything else about the theme lives in res/values. Only forceDarkAllowed needs
+        API 29: without it some systems, MIUI among them, re-darken the app and break the
+        visibility of the game titles.
+    -->
     <style name="AppBaseTheme" parent="Theme.Material3.Dark.NoActionBar">
-        <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
-        <!-- Avoid some systems like MIUI which break the visibility of games title -->
+        <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:forceDarkAllowed">false</item>
-    </style>
-
-    <style name="SettingsTheme" parent="AppTheme">
     </style>
 </resources>

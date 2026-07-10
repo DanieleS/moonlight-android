@@ -1,4 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    The palette. Every colour the app draws comes from here.
+
+    The scale is the one the companion surface arrived at: a cold near-black ground,
+    content in four steps of prominence, hairlines rather than drop shadows, and exactly
+    one saturated hue, spent only on what is live or what is focused.
+-->
 <resources>
-    <color name="profileAccent">#FF4081</color>
+
+    <!-- Grounds, darkest first. -->
+    <color name="surface_deep">#FF07090C</color>
+    <color name="surface">#FF1A1A1A</color>
+    <color name="surface_raised">#FF212121</color>
+
+    <!-- Laid over the stream, where the game is the ground. -->
+    <color name="scrim">#80000000</color>
+
+    <!-- Content, most prominent first. -->
+    <color name="content_primary">#FFF2F5F8</color>
+    <color name="content_secondary">#FFBFC7D2</color>
+    <color name="content_muted">#FF8A94A6</color>
+    <color name="content_faint">#FF6E7A8A</color>
+
+    <!-- Hairline rules. -->
+    <color name="divider">#22FFFFFF</color>
+
+    <!-- The signal. -->
+    <color name="signal">#FF4FC3F7</color>
+
 </resources>

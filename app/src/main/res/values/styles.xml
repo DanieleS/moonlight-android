@@ -2,27 +2,23 @@
 <resources>
 
     <!--
-        Base application theme, dependent on API level. This theme is replaced
-        by AppBaseTheme from res/values-vXX/styles.xml on newer devices.
-
+        Base application theme. Material 3 is available from API 21, so there is one of
+        these rather than one per API level; res/values-v29 adds only what genuinely
+        needs API 29.
     -->
-    <style name="AppBaseTheme" parent="Theme.MaterialComponents.NoActionBar">
-        <!--
-            Theme customizations available in newer API levels can go in
-            res/values-vXX/styles.xml, while customizations related to
-            backward-compatibility can go here.
-        -->
+    <style name="AppBaseTheme" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
 
     <!-- Application theme. -->
     <style name="AppTheme" parent="AppBaseTheme">
-        <!-- All customizations that are NOT specific to a particular API-level can go here. -->
         <item name="android:windowActionBar">false</item>
         <item name="android:windowNoTitle">true</item>
-        <item name="android:statusBarColor">#1A1A1A</item>
-        <item name="android:navigationBarColor">#1A1A1A</item>
-        <item name="android:colorBackground">#1A1A1A</item>
-        <item name="android:windowBackground">#1A1A1A</item>
+        <item name="android:statusBarColor">@color/surface</item>
+        <item name="android:navigationBarColor">@color/surface</item>
+        <item name="android:colorBackground">@color/surface</item>
+        <item name="android:windowBackground">@color/surface</item>
     </style>
 
     <style name="StreamBaseTheme" parent="AppBaseTheme">
@@ -49,13 +45,13 @@
         <item name="colorButtonNormal">@android:color/white</item>
     </style>
 
-    <style name="SettingsTheme" parent="Theme.AppCompat.NoActionBar">
-        <item name="android:statusBarColor">@android:color/transparent</item>
-        <item name="android:navigationBarColor">@android:color/transparent</item>
-        <item name="android:colorBackground">@android:color/transparent</item>
-        <item name="android:windowBackground">@android:color/transparent</item>
-    </style>
+    <!-- Settings, profiles: the app theme, with nothing to add to it. -->
+    <style name="SettingsTheme" parent="AppTheme" />
 
+    <!--
+        The touchpad controller, drawn on a panel next to the game. Black rather than
+        @color/surface so the panel emits as little light as possible beside the picture.
+    -->
     <style name="ExternalDisplayControllerTheme" parent="AppTheme">
         <item name="android:statusBarColor">@android:color/black</item>
         <item name="android:navigationBarColor">@android:color/black</item>
@@ -76,7 +72,7 @@
     <style name="CompanionTileLabel">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:textColor">#FF8A94A6</item>
+        <item name="android:textColor">@color/content_muted</item>
         <item name="android:textSize">10sp</item>
         <item name="android:letterSpacing">0.16</item>
         <item name="android:textAllCaps">true</item>
@@ -86,7 +82,7 @@
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:layout_marginTop">2dp</item>
-        <item name="android:textColor">#FFF2F5F8</item>
+        <item name="android:textColor">@color/content_primary</item>
         <item name="android:textSize">22sp</item>
         <item name="android:fontFamily">sans-serif-light</item>
     </style>
@@ -95,14 +91,14 @@
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:layout_weight">1</item>
-        <item name="android:textColor">#FF6E7A8A</item>
+        <item name="android:textColor">@color/content_faint</item>
         <item name="android:textSize">12sp</item>
     </style>
 
     <style name="CompanionDetailValue">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:textColor">#FFBFC7D2</item>
+        <item name="android:textColor">@color/content_secondary</item>
         <item name="android:textSize">12sp</item>
     </style>
 

@@ -6,7 +6,7 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FF07090C">
+    android:background="@color/surface_deep">
 
     <TextView
         android:id="@+id/companionIdle"
@@ -14,7 +14,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:text="@string/app_label"
-        android:textColor="#FFF2F5F8"
+        android:textColor="@color/content_primary"
         android:textSize="28sp"
         android:letterSpacing="0.12"
         android:fontFamily="sans-serif-light" />
@@ -45,7 +45,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/companion_label_stream"
-                    android:textColor="#FF8A94A6"
+                    android:textColor="@color/content_muted"
                     android:textSize="10sp"
                     android:letterSpacing="0.16"
                     android:textAllCaps="true" />
@@ -55,7 +55,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:textColor="#FFF2F5F8"
+                    android:textColor="@color/content_primary"
                     android:textSize="20sp"
                     android:fontFamily="sans-serif-medium" />
             </LinearLayout>
@@ -70,7 +70,7 @@
                     android:id="@+id/companionFps"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textColor="#FF4FC3F7"
+                    android:textColor="@color/signal"
                     android:textSize="44sp"
                     android:fontFamily="sans-serif-light"
                     android:includeFontPadding="false" />
@@ -81,7 +81,7 @@
                     android:layout_marginStart="4dp"
                     android:layout_marginBottom="4dp"
                     android:text="@string/companion_label_fps"
-                    android:textColor="#FF8A94A6"
+                    android:textColor="@color/content_muted"
                     android:textSize="11sp"
                     android:letterSpacing="0.16"
                     android:textAllCaps="true"
@@ -94,7 +94,7 @@
             android:layout_height="1dp"
             android:layout_marginTop="16dp"
             android:layout_marginBottom="16dp"
-            android:background="#22FFFFFF" />
+            android:background="@color/divider" />
 
         <!-- The four numbers worth watching mid-game. -->
         <LinearLayout
@@ -177,7 +177,7 @@
             android:layout_height="1dp"
             android:layout_marginTop="16dp"
             android:layout_marginBottom="14dp"
-            android:background="#22FFFFFF" />
+            android:background="@color/divider" />
 
         <!-- Detail, for when something above looks wrong. -->
         <LinearLayout
