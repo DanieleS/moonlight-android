@@ -96,9 +96,9 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix ".debug"
-            resValue "string", "app_label", "Máni Debug"
-            resValue "string", "app_label_root", "Máni Debug (Root)"
-            resValue "string", "app_label_game", "Máni Debug (Game)"
+            resValue "string", "app_label", "Ratatoskr Debug"
+            resValue "string", "app_label_root", "Ratatoskr Debug (Root)"
+            resValue "string", "app_label_game", "Ratatoskr Debug (Game)"
 
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
@@ -135,9 +135,9 @@ android {
             //
             // TL;DR: don't publish under someone else's applicationId.
             // Ours is set per flavor above: dev.kylobyte.mani.
-            resValue "string", "app_label", "Máni"
-            resValue "string", "app_label_root", "Máni (Root)"
-            resValue "string", "app_label_game", "Máni (Game)"
+            resValue "string", "app_label", "Ratatoskr"
+            resValue "string", "app_label_root", "Ratatoskr (Root)"
+            resValue "string", "app_label_game", "Ratatoskr (Game)"
 
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
