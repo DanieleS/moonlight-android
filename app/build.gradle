@@ -95,10 +95,10 @@ android {
 
     buildTypes {
         debug {
-            applicationIdSuffix ".noirdebug"
-            resValue "string", "app_label", "Diana"
-            resValue "string", "app_label_root", "Diana (Root)"
-            resValue "string", "app_label_game", "Diana (Game)"
+            applicationIdSuffix ".manidebug"
+            resValue "string", "app_label", "Máni Debug"
+            resValue "string", "app_label_root", "Máni Debug (Root)"
+            resValue "string", "app_label_game", "Máni Debug (Game)"
 
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
@@ -134,10 +134,10 @@ android {
             // is to please change the applicationId before you publish.
             //
             // TL;DR: Leave the following line alone!
-            applicationIdSuffix ".noir"
-            resValue "string", "app_label", "Artemis"
-            resValue "string", "app_label_root", "Artemis (Root)"
-            resValue "string", "app_label_game", "Artemis (Game)"
+            applicationIdSuffix ".mani"
+            resValue "string", "app_label", "Máni"
+            resValue "string", "app_label_root", "Máni (Root)"
+            resValue "string", "app_label_game", "Máni (Game)"
 
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
