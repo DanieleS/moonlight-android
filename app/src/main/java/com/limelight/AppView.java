@@ -42,14 +42,19 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ContextMenu.ContextMenuInfo;
+import android.graphics.RenderEffect;
+import android.graphics.Shader;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.AdapterView.AdapterContextMenuInfo;
 
+import androidx.recyclerview.widget.LinearSnapHelper;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.limelight.grid.AutofitGridLayoutManager;
+import com.limelight.grid.CoverFlowLayoutManager;
 import com.limelight.grid.GridSpacingItemDecoration;
 
 import androidx.annotation.Nullable;
@@ -71,6 +76,10 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
     private boolean inForeground;
     private boolean showHiddenApps;
     private HashSet<Integer> hiddenAppIds = new HashSet<>();
+
+    // The carousel is the front door; the grid is "all games", one button away.
+    private boolean coverflowMode = true;
+    private int coverflowCentered = -1;
 
     private PreferenceConfiguration prefConfig;
 
@@ -318,6 +327,10 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         // Setup the profiles button
         findViewById(R.id.profilesButton)
             .setOnClickListener(v -> startActivity(new Intent(this, ProfilesActivity.class)));
+
+        // Toggle between the carousel and the "all games" grid.
+        findViewById(R.id.viewModeButton)
+            .setOnClickListener(v -> toggleViewMode());
 
         showHiddenApps = getIntent().getBooleanExtra(SHOW_HIDDEN_APPS_EXTRA, false);
         uuidString = getIntent().getStringExtra(UUID_EXTRA);
@@ -733,12 +746,31 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
 
     @Override
     public int getAdapterFragmentLayoutId() {
+        if (coverflowMode) {
+            return R.layout.app_coverflow_view;
+        }
         return PreferenceConfiguration.readPreferences(AppView.this).smallIconMode ?
                     R.layout.app_grid_view_small : R.layout.app_grid_view;
     }
 
     @Override
     public void receiveRecyclerView(RecyclerView recyclerView) {
+        recyclerView.setAdapter(appGridAdapter);
+        appGridAdapter.setOnItemClickListener(this::onAppClicked);
+
+        if (coverflowMode) {
+            setupCoverflow(recyclerView);
+        } else {
+            setupGrid(recyclerView);
+            UiHelper.applyStatusBarPadding(recyclerView);
+        }
+
+        registerForContextMenu(recyclerView);
+        recyclerView.requestFocus();
+    }
+
+    private void setupGrid(RecyclerView recyclerView) {
+        appGridAdapter.setCoverflowLayout(false, prefConfig);
         boolean small = PreferenceConfiguration.readPreferences(this).smallIconMode;
         int columnWidthPx = Math.round((small ? 100 : 150) * getResources().getDisplayMetrics().density);
         int spacingPx = getResources().getDimensionPixelSize(
@@ -748,34 +780,111 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         recyclerView.addItemDecoration(new GridSpacingItemDecoration(spacingPx));
         int half = spacingPx / 2;
         recyclerView.setPadding(half, half, half, half);
-        recyclerView.setAdapter(appGridAdapter);
+    }
 
-        appGridAdapter.setOnItemClickListener((view, pos) -> {
-            AppObject app = (AppObject) appGridAdapter.getItem(pos);
+    private void setupCoverflow(RecyclerView recyclerView) {
+        appGridAdapter.setCoverflowLayout(true, prefConfig);
+        coverflowCentered = -1;
+        float density = getResources().getDisplayMetrics().density;
+        int itemWidthPx = Math.round(180 * density);
+        int gapPx = Math.round(24 * density);
 
-            // Only open the context menu if something is running, otherwise start it
-            if (lastRunningAppId != 0) {
-                if (prefConfig.resumeWithoutConfirm && lastRunningAppId == app.app.getAppId()) {
-                    ServerHelper.doStart(AppView.this, app.app, computer, managerBinder, prefConfig.useVirtualDisplay);
-                } else {
-                    openContextMenu(view);
-                }
-            } else {
-                if (prefConfig.useVirtualDisplay && !(computer.vDisplaySupported && computer.vDisplayDriverReady)) {
-                    UiHelper.displayVdisplayConfirmationDialog(
-                            AppView.this,
-                            computer,
-                            () -> ServerHelper.doStart(AppView.this, app.app, computer, managerBinder, true),
-                            null
-                    );
-                } else {
-                    ServerHelper.doStart(AppView.this, app.app, computer, managerBinder, prefConfig.useVirtualDisplay);
-                }
+        recyclerView.setLayoutManager(new CoverFlowLayoutManager(this));
+        recyclerView.addItemDecoration(new GridSpacingItemDecoration(gapPx));
+        new LinearSnapHelper().attachToRecyclerView(recyclerView);
+
+        // Enough side padding that the first and last covers can still reach the centre.
+        recyclerView.post(() -> {
+            int side = Math.max(0, (recyclerView.getWidth() - itemWidthPx) / 2);
+            recyclerView.setPadding(side, recyclerView.getPaddingTop(),
+                    side, recyclerView.getPaddingBottom());
+        });
+
+        // The backdrop and title are siblings of the RecyclerView's container, not of the
+        // RecyclerView itself, so resolve them from the fragment's view tree.
+        View root = recyclerView.getRootView();
+        ImageView backdrop = root.findViewById(R.id.coverflowBackdrop);
+        TextView title = root.findViewById(R.id.coverflowTitle);
+        TextView count = root.findViewById(R.id.coverflowCount);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            backdrop.setRenderEffect(RenderEffect.createBlurEffect(64f, 64f, Shader.TileMode.CLAMP));
+        }
+        recyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(RecyclerView rv, int dx, int dy) {
+                updateCoverflowCenter(rv, backdrop, title, count);
             }
         });
-        UiHelper.applyStatusBarPadding(recyclerView);
-        registerForContextMenu(recyclerView);
-        recyclerView.requestFocus();
+        recyclerView.post(() -> updateCoverflowCenter(recyclerView, backdrop, title, count));
+    }
+
+    // Follow whichever cover is nearest the centre: name it, count it, and blur it behind.
+    private void updateCoverflowCenter(RecyclerView rv, ImageView backdrop, TextView title, TextView count) {
+        int center = rv.getWidth() / 2;
+        int bestPos = RecyclerView.NO_POSITION;
+        View bestChild = null;
+        int bestDist = Integer.MAX_VALUE;
+        for (int i = 0; i < rv.getChildCount(); i++) {
+            View c = rv.getChildAt(i);
+            int mid = (c.getLeft() + c.getRight()) / 2;
+            int dist = Math.abs(mid - center);
+            if (dist < bestDist) {
+                bestDist = dist;
+                bestChild = c;
+                bestPos = rv.getChildAdapterPosition(c);
+            }
+        }
+        if (bestPos == RecyclerView.NO_POSITION || bestPos == coverflowCentered) {
+            return;
+        }
+        coverflowCentered = bestPos;
+        AppObject app = (AppObject) appGridAdapter.getItem(bestPos);
+        title.setText(app.app.getAppName());
+        count.setText(getString(R.string.coverflow_count, bestPos + 1, appGridAdapter.getCount()));
+        ImageView art = bestChild.findViewById(R.id.grid_image);
+        if (art != null && art.getDrawable() != null) {
+            backdrop.setImageDrawable(art.getDrawable());
+        }
+    }
+
+    private void onAppClicked(View view, int pos) {
+        AppObject app = (AppObject) appGridAdapter.getItem(pos);
+
+        // Only open the context menu if something is running, otherwise start it
+        if (lastRunningAppId != 0) {
+            if (prefConfig.resumeWithoutConfirm && lastRunningAppId == app.app.getAppId()) {
+                ServerHelper.doStart(AppView.this, app.app, computer, managerBinder, prefConfig.useVirtualDisplay);
+            } else {
+                openContextMenu(view);
+            }
+        } else {
+            if (prefConfig.useVirtualDisplay && !(computer.vDisplaySupported && computer.vDisplayDriverReady)) {
+                UiHelper.displayVdisplayConfirmationDialog(
+                        AppView.this,
+                        computer,
+                        () -> ServerHelper.doStart(AppView.this, app.app, computer, managerBinder, true),
+                        null
+                );
+            } else {
+                ServerHelper.doStart(AppView.this, app.app, computer, managerBinder, prefConfig.useVirtualDisplay);
+            }
+        }
+    }
+
+    private void toggleViewMode() {
+        coverflowMode = !coverflowMode;
+        ImageButton button = findViewById(R.id.viewModeButton);
+        button.setImageResource(coverflowMode ? R.drawable.ic_view_grid : R.drawable.ic_view_carousel);
+        button.setContentDescription(getString(
+                coverflowMode ? R.string.action_all_games : R.string.action_carousel));
+
+        try {
+            getFragmentManager().beginTransaction()
+                    .replace(R.id.appFragmentContainer, new AdapterFragment())
+                    .commitAllowingStateLoss();
+        } catch (IllegalStateException e) {
+            e.printStackTrace();
+        }
     }
 
     public static class AppObject {

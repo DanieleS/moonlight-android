@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The carousel view of the library. The backdrop is the centred cover, blurred, over true
+    black; the covers and the title are one vertically-centred group, so the title always
+    sits directly under the hero and there is no dead space below it.
+
+    The RecyclerView carries the fragmentView id and the same tiles as the grid, so the
+    adapter, the click handling and the context menu are shared.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/surface_deep">
+
+    <ImageView
+        android:id="@+id/coverflowBackdrop"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:importantForAccessibility="no" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/coverflow_scrim" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:clipChildren="false">
+
+        <com.limelight.ui.ContextMenuRecyclerView
+            android:id="@+id/fragmentView"
+            android:layout_width="match_parent"
+            android:layout_height="296dp"
+            android:clipToPadding="false"
+            android:clipChildren="false"
+            android:focusable="true"
+            android:descendantFocusability="afterDescendants" />
+
+        <TextView
+            android:id="@+id/coverflowTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:maxWidth="640dp"
+            android:gravity="center"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:textColor="@color/content_primary"
+            android:textSize="26sp"
+            android:fontFamily="sans-serif-medium" />
+
+        <TextView
+            android:id="@+id/coverflowCount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:textColor="@color/content_muted"
+            android:textSize="12sp"
+            android:letterSpacing="0.16" />
+
+    </LinearLayout>
+
+</FrameLayout>

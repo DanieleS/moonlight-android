@@ -8,8 +8,10 @@
 -->
 <resources>
 
-    <!-- Grounds, darkest first. -->
-    <color name="surface_deep">#FF07090C</color>
+    <!-- Grounds, darkest first. surface_deep is true black: on the OLED panels it is the
+         void, pixels physically off, so a lifted near-black does not glow beside the game
+         or the bezel. -->
+    <color name="surface_deep">#FF000000</color>
     <color name="surface">#FF1A1A1A</color>
     <color name="surface_raised">#FF212121</color>
 

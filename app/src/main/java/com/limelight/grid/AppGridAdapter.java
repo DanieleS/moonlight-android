@@ -76,6 +76,8 @@ public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
         notifyDataSetChanged();
     }
 
+    private boolean coverflowLayout;
+
     private static int getLayoutIdForPreferences(PreferenceConfiguration prefs) {
         if (prefs.smallIconMode) {
             return R.layout.app_grid_item_small;
@@ -83,6 +85,19 @@ public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
         else {
             return R.layout.app_grid_item;
         }
+    }
+
+    // The layout the tiles should have right now: the carousel cover if the carousel is
+    // showing, otherwise the grid cell the preferences ask for.
+    private int currentLayoutId(PreferenceConfiguration prefs) {
+        return coverflowLayout ? R.layout.app_coverflow_item : getLayoutIdForPreferences(prefs);
+    }
+
+    // Swap the tile between the grid cell and the larger carousel cover; both carry the
+    // same view ids, so populateView is unchanged.
+    public void setCoverflowLayout(boolean coverflow, PreferenceConfiguration prefs) {
+        this.coverflowLayout = coverflow;
+        setLayoutId(currentLayoutId(prefs));
     }
 
     public void updateLayoutWithPreferences(Context context, PreferenceConfiguration prefs) {
@@ -115,7 +130,7 @@ public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
                 BitmapFactory.decodeResource(context.getResources(), R.drawable.no_app_image));
 
         // This will trigger the view to reload with the new layout
-        setLayoutId(getLayoutIdForPreferences(prefs));
+        setLayoutId(currentLayoutId(prefs));
     }
 
     public void cancelQueuedOperations() {

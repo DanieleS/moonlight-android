@@ -24,6 +24,12 @@
             style="@style/TopBarTitle"
             android:preferKeepClear="true" />
 
+        <ImageButton
+            android:id="@+id/viewModeButton"
+            style="@style/TopBarAction"
+            android:contentDescription="@string/action_all_games"
+            android:src="@drawable/ic_view_grid" />
+
         <com.google.android.material.button.MaterialButton
             android:id="@+id/profilesButton"
             style="@style/TopBarProfile"

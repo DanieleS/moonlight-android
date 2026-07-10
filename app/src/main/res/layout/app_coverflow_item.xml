@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    A cover in the carousel. The same ids as @layout/app_grid_item, so the adapter, the
+    click handling and the context menu are shared; only the size differs, since here the
+    cover is the hero rather than one of a grid.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="180dp"
+    android:layout_height="240dp"
+    android:foreground="@drawable/tile_focus_ring"
+    android:focusable="true"
+    android:clickable="true">
+
+    <com.google.android.material.imageview.ShapeableImageView
+        android:id="@+id/grid_image"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:cropToPadding="false"
+        android:scaleType="centerCrop"
+        app:shapeAppearanceOverlay="@style/TileShape" />
+
+    <View
+        android:id="@+id/grid_running_scrim"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/tile_running_scrim"
+        android:visibility="gone" />
+
+    <!-- The title only appears for a cover the host has no art for. -->
+    <RelativeLayout
+        android:id="@+id/grid_mask"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <ImageView
+            android:id="@+id/grid_overlay"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:layout_centerHorizontal="true"
+            android:layout_marginTop="64dp" />
+
+        <TextView
+            android:id="@+id/grid_text"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_below="@id/grid_overlay"
+            android:layout_margin="8dp"
+            android:gravity="center|center_vertical"
+            android:textAlignment="center"
+            android:textColor="@color/content_primary"
+            android:textSize="20sp" />
+    </RelativeLayout>
+
+</FrameLayout>
