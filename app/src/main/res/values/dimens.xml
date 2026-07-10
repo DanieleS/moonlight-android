@@ -20,4 +20,14 @@
     <!-- The PC cells are an icon over a label rather than art, and are ringed as a whole. -->
     <dimen name="pc_tile_corner">12dp</dimen>
 
+    <!--
+        The actions along the top. The icons are drawn fitCenter inside this padding rather
+        than stretched to fill it: the vectors declare themselves 256dp wide, and fitXY on a
+        70x65 button is what squashed them.
+    -->
+    <dimen name="top_bar_height">64dp</dimen>
+    <dimen name="top_bar_padding">12dp</dimen>
+    <dimen name="action_size">48dp</dimen>
+    <dimen name="action_icon_inset">12dp</dimen>
+
 </resources>

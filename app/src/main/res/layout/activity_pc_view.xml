@@ -1,4 +1,14 @@
-<!-- Portrait orientation only -->
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The actions sit in a bar along the top in both orientations, so this screen no longer
+    has a layout-land variant: that one existed only to stack the same buttons down the
+    left edge.
+
+    The grid is declared before the bar, though it is drawn below it. Declaration order is
+    focus order, and an AbsListView makes itself unfocusable while its adapter is empty, so
+    a grid declared second would hand the first press of the d-pad to the bar while the PCs
+    were still being discovered.
+-->
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -8,95 +18,73 @@
 
     <RelativeLayout
         android:id="@+id/pcFragmentContainer"
-        android:layout_width="fill_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center"
-        android:layout_below="@+id/settingsButton"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentStart="true"
-        android:layout_alignParentRight="true"
-        android:layout_alignParentEnd="true"
-        android:layout_alignParentBottom="true"
-        >
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@+id/topBar"
+        android:gravity="center">
 
         <RelativeLayout
             android:id="@+id/no_pc_found_layout"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:paddingLeft="@dimen/activity_horizontal_margin"
-            android:paddingRight="@dimen/activity_horizontal_margin"
             android:layout_centerInParent="true"
-            android:layout_centerVertical="true"
-            android:layout_centerHorizontal="true">
+            android:paddingLeft="@dimen/activity_horizontal_margin"
+            android:paddingRight="@dimen/activity_horizontal_margin">
+
             <ProgressBar
                 android:id="@+id/pcs_loading"
                 android:layout_width="75dp"
                 android:layout_height="75dp"
-                android:indeterminate="true"/>
+                android:indeterminate="true" />
+
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_toRightOf="@+id/pcs_loading"
                 android:layout_toEndOf="@+id/pcs_loading"
-                android:layout_marginLeft="10dp"
-                android:layout_marginStart="10dp"
+                android:layout_toRightOf="@+id/pcs_loading"
                 android:layout_centerVertical="true"
-                android:textAppearance="?android:attr/textAppearanceLarge"
+                android:layout_marginStart="10dp"
+                android:layout_marginLeft="10dp"
                 android:gravity="center"
-                android:text="@string/searching_pc"/>
+                android:text="@string/searching_pc"
+                android:textAppearance="?android:attr/textAppearanceLarge" />
         </RelativeLayout>
 
     </RelativeLayout>
 
-    <ImageButton
-        android:id="@+id/settingsButton"
-        android:layout_width="70dp"
-        android:layout_height="65dp"
-        android:cropToPadding="false"
-        android:scaleType="fitXY"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentStart="true"
-        android:layout_alignParentTop="true"
-        android:src="@drawable/ic_settings"
-        android:preferKeepClear="true"
-        style="?android:attr/borderlessButtonStyle"/>
+    <LinearLayout
+        android:id="@+id/topBar"
+        style="@style/TopBar"
+        android:layout_alignParentTop="true">
 
-    <ImageButton
-        android:id="@+id/helpButton"
-        android:layout_width="70dp"
-        android:layout_height="65dp"
-        android:cropToPadding="false"
-        android:scaleType="fitXY"
-        android:layout_alignParentTop="true"
-        android:layout_toRightOf="@+id/settingsButton"
-        android:layout_toEndOf="@+id/profilesButton"
-        android:src="@drawable/ic_help"
-        android:preferKeepClear="true"
-        style="?android:attr/borderlessButtonStyle"/>
+        <TextView
+            style="@style/TopBarTitle"
+            android:text="@string/app_label" />
 
-    <ImageButton
-        android:id="@+id/manuallyAddPc"
-        android:layout_width="70dp"
-        android:layout_height="65dp"
-        android:cropToPadding="false"
-        android:scaleType="fitXY"
-        android:layout_alignParentTop="true"
-        android:layout_alignParentEnd="true"
-        android:layout_alignParentRight="true"
-        android:src="@drawable/ic_add"
-        android:preferKeepClear="true"
-        style="?android:attr/borderlessButtonStyle"/>
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/profilesButton"
+            style="@style/TopBarProfile"
+            android:contentDescription="@string/profile_manager_choose_profile"
+            app:icon="@drawable/ic_profiles" />
 
-    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
-        android:id="@+id/profilesButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:layout_alignParentEnd="true"
-        android:layout_marginBottom="24dp"
-        android:layout_marginEnd="24dp"
-        android:contentDescription="@string/profile_manager_choose_profile"
-        android:layout_margin="16dp"
-        app:icon="@drawable/ic_profiles" />
+        <ImageButton
+            android:id="@+id/helpButton"
+            style="@style/TopBarAction"
+            android:contentDescription="@string/action_help"
+            android:src="@drawable/ic_help" />
+
+        <ImageButton
+            android:id="@+id/manuallyAddPc"
+            style="@style/TopBarAction"
+            android:contentDescription="@string/action_add_pc"
+            android:src="@drawable/ic_add" />
+
+        <ImageButton
+            android:id="@+id/settingsButton"
+            style="@style/TopBarAction"
+            android:contentDescription="@string/action_settings"
+            android:src="@drawable/ic_settings" />
+
+    </LinearLayout>
 
 </RelativeLayout>

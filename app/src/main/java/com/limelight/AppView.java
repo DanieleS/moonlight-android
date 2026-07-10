@@ -5,7 +5,7 @@ import java.io.StringReader;
 import java.util.HashSet;
 import java.util.List;
 
-import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
+import com.google.android.material.button.MaterialButton;
 import com.limelight.computers.ComputerManagerListener;
 import com.limelight.computers.ComputerManagerService;
 import com.limelight.grid.AppGridAdapter;
@@ -398,19 +398,14 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         inForeground = true;
         startComputerUpdates();
 
-        ExtendedFloatingActionButton profilesButton = findViewById(R.id.profilesButton);
+        MaterialButton profilesButton = findViewById(R.id.profilesButton);
         // User report Samsung and Xiaomi devices have this problem
         // Why just these two brands have the most problems?
         if (profilesButton == null) {
             return;
         }
-        String activeProfileName = ProfilesManager.getInstance().getActiveName();
-        if (activeProfileName.isEmpty()) {
-            profilesButton.shrink();
-        } else {
-            profilesButton.setText(activeProfileName);
-            profilesButton.extend();
-        }
+        // With no active profile the button is its icon alone, as the other actions are.
+        profilesButton.setText(ProfilesManager.getInstance().getActiveName());
     }
 
     @Override

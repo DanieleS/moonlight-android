@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The same grammar as @drawable/tile_focus_ring, on a round action: focus is a ring, a
+    press fills it. No shadow, no raised surface.
+-->
+<selector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:exitFadeDuration="120">
+
+    <item android:state_pressed="true">
+        <shape android:shape="oval">
+            <solid android:color="@color/signal_wash" />
+            <stroke
+                android:width="@dimen/tile_focus_stroke"
+                android:color="@color/signal" />
+        </shape>
+    </item>
+
+    <item android:state_focused="true">
+        <shape android:shape="oval">
+            <solid android:color="@android:color/transparent" />
+            <stroke
+                android:width="@dimen/tile_focus_stroke"
+                android:color="@color/signal" />
+        </shape>
+    </item>
+
+    <item android:drawable="@android:color/transparent" />
+
+</selector>

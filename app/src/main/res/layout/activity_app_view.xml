@@ -1,3 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The grid is declared before the bar it is drawn below; see @layout/activity_pc_view. -->
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -7,41 +9,27 @@
 
     <FrameLayout
         android:id="@+id/appFragmentContainer"
-        android:layout_width="fill_parent"
-        android:layout_height="wrap_content"
-        android:layout_below="@+id/appListText"
-        android:layout_alignParentStart="true"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentEnd="true"
-        android:layout_alignParentRight="true"
-        android:layout_alignParentBottom="true"
-        android:gravity="center" >
-    </FrameLayout>
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@+id/topBar" />
 
-    <TextView
-        android:id="@+id/appListText"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentTop="true"
-        android:layout_centerHorizontal="true"
-        android:gravity="center"
-        android:paddingTop="5dp"
-        android:paddingBottom="5dp"
-        android:preferKeepClear="true"
-        android:textSize="28sp" />
+    <LinearLayout
+        android:id="@+id/topBar"
+        style="@style/TopBar"
+        android:layout_alignParentTop="true">
 
-    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
-        android:id="@+id/profilesButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:layout_alignParentEnd="true"
-        android:layout_alignParentRight="true"
-        android:layout_marginBottom="24dp"
-        android:layout_marginEnd="24dp"
-        android:layout_marginRight="24dp"
-        android:contentDescription="@string/profile_manager_choose_profile"
-        android:layout_margin="16dp"
-        app:icon="@drawable/ic_profiles" />
+        <!-- The name of the PC these apps belong to. -->
+        <TextView
+            android:id="@+id/appListText"
+            style="@style/TopBarTitle"
+            android:preferKeepClear="true" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/profilesButton"
+            style="@style/TopBarProfile"
+            android:contentDescription="@string/profile_manager_choose_profile"
+            app:icon="@drawable/ic_profiles" />
+
+    </LinearLayout>
 
 </RelativeLayout>

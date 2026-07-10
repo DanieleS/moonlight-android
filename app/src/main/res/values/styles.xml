@@ -59,6 +59,51 @@
         <item name="android:windowBackground">@android:color/black</item>
     </style>
 
+    <!-- The bar of actions along the top of the library screens. -->
+    <style name="TopBar">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">@dimen/top_bar_height</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:paddingStart">@dimen/top_bar_padding</item>
+        <item name="android:paddingEnd">@dimen/top_bar_padding</item>
+    </style>
+
+    <style name="TopBarTitle">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:layout_marginStart">@dimen/action_icon_inset</item>
+        <item name="android:textColor">@color/content_muted</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:letterSpacing">0.16</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:singleLine">true</item>
+        <item name="android:ellipsize">end</item>
+    </style>
+
+    <style name="TopBarAction">
+        <item name="android:layout_width">@dimen/action_size</item>
+        <item name="android:layout_height">@dimen/action_size</item>
+        <item name="android:padding">@dimen/action_icon_inset</item>
+        <item name="android:scaleType">fitCenter</item>
+        <item name="android:background">@drawable/action_button_bg</item>
+        <item name="android:tint">@color/action_icon_tint</item>
+        <item name="android:focusable">true</item>
+    </style>
+
+    <!-- The profiles action carries the active profile's name, so it is a button, not an icon. -->
+    <style name="TopBarProfile" parent="Widget.Material3.Button.TextButton.Icon">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">@dimen/action_size</item>
+        <item name="android:textColor">@color/content_secondary</item>
+        <item name="android:letterSpacing">0.04</item>
+        <item name="iconTint">@color/action_icon_tint</item>
+        <item name="strokeColor">@color/action_stroke</item>
+        <item name="strokeWidth">@dimen/tile_focus_stroke</item>
+        <item name="rippleColor">@color/signal_wash</item>
+    </style>
+
     <!--
         Box art corners. The art is rounded by the ImageView itself rather than by a
         CardView, which would only be there to cast a shadow we do not want.

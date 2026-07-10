@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- An action's icon takes the signal colour when it is the thing the d-pad is pointing at. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_pressed="true" android:color="@color/signal" />
+    <item android:state_focused="true" android:color="@color/signal" />
+    <item android:color="@color/content_secondary" />
+</selector>

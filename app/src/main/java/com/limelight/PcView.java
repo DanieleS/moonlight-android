@@ -4,7 +4,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.UnknownHostException;
 
-import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
+import com.google.android.material.button.MaterialButton;
 import com.limelight.binding.PlatformBinding;
 import com.limelight.binding.crypto.AndroidCryptoProvider;
 import com.limelight.computers.ComputerManagerListener;
@@ -157,7 +157,7 @@ public class PcView extends AppCompatActivity implements AdapterFragmentCallback
         ImageButton settingsButton = findViewById(R.id.settingsButton);
         ImageButton addComputerButton = findViewById(R.id.manuallyAddPc);
         ImageButton helpButton = findViewById(R.id.helpButton);
-        ExtendedFloatingActionButton profilesButton = findViewById(R.id.profilesButton);
+        MaterialButton profilesButton = findViewById(R.id.profilesButton);
 
         settingsButton.setOnClickListener(new OnClickListener() {
             @Override
@@ -343,19 +343,14 @@ public class PcView extends AppCompatActivity implements AdapterFragmentCallback
     }
 
     private void refreshProfileButton() {
-        ExtendedFloatingActionButton profilesButton = findViewById(R.id.profilesButton);
+        MaterialButton profilesButton = findViewById(R.id.profilesButton);
         // User report Samsung and Xiaomi devices have this problem
         // Why just these two brands have the most problems?
         if (profilesButton == null) {
             return;
         }
-        String activeProfileName = ProfilesManager.getInstance().getActiveName();
-        if (activeProfileName.isEmpty()) {
-            profilesButton.shrink();
-        } else {
-            profilesButton.setText(activeProfileName);
-            profilesButton.extend();
-        }
+        // With no active profile the button is its icon alone, as the other actions are.
+        profilesButton.setText(ProfilesManager.getInstance().getActiveName());
     }
 
     @Override
@@ -909,6 +904,9 @@ public class PcView extends AppCompatActivity implements AdapterFragmentCallback
         });
         UiHelper.applyStatusBarPadding(listView);
         registerForContextMenu(listView);
+        // Otherwise the first press of the d-pad lands on the actions in the top bar
+        // rather than on the PCs, which are what this screen is for.
+        listView.requestFocus();
     }
 
     public static class ComputerObject {
