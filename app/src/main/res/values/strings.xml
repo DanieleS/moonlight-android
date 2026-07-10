@@ -760,4 +760,8 @@
     <string name="companion_value_frames">%1$.0f / %2$.0f fps</string>
     <string name="companion_value_host_latency">%1$.1f / %2$.1f / %3$.1f ms</string>
     <string name="companion_value_unavailable">—</string>
+    <string name="action_companion_show">Show companion screen</string>
+    <string name="action_companion_hide">Hide companion screen</string>
+    <string name="game_menu_companion_show">Show Companion Screen</string>
+    <string name="game_menu_companion_hide">Hide Companion Screen</string>
 </resources>

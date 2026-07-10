@@ -69,7 +69,9 @@ public class CompanionPresentation extends android.app.Presentation implements C
 
     @Override
     protected void onStop() {
-        state.setListener(null);
+        // Only give up the listener if it is still ours: during a re-host the replacement panel
+        // has already registered by the time this one stops.
+        state.clearListener(this);
         super.onStop();
     }
 

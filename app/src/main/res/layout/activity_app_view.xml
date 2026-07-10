@@ -25,6 +25,12 @@
             android:preferKeepClear="true" />
 
         <ImageButton
+            android:id="@+id/companionButton"
+            style="@style/TopBarAction"
+            android:contentDescription="@string/action_companion_hide"
+            android:src="@drawable/ic_companion_on" />
+
+        <ImageButton
             android:id="@+id/viewModeButton"
             style="@style/TopBarAction"
             android:contentDescription="@string/action_all_games"

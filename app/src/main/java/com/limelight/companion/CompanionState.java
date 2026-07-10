@@ -29,9 +29,20 @@ public class CompanionState {
         return INSTANCE;
     }
 
-    /** The surface registers while it is on screen. At most one exists at a time. */
+    /** The surface registers while it is on screen. At most one draws at a time. */
     public void setListener(Listener listener) {
         this.listener = listener;
+    }
+
+    /**
+     * Deregister, but only if {@code who} is still the one registered. While the surface is
+     * being re-hosted the incoming panel registers before the outgoing one tears down, so the
+     * outgoing panel must not clear a listener that is no longer its own.
+     */
+    public void clearListener(Listener who) {
+        if (listener == who) {
+            listener = null;
+        }
     }
 
     public void setStats(PerfStats stats) {

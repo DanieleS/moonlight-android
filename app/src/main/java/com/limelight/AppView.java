@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.List;
 
 import com.google.android.material.button.MaterialButton;
+import com.limelight.companion.CompanionDisplayManager;
 import com.limelight.computers.ComputerManagerListener;
 import com.limelight.computers.ComputerManagerService;
 import com.limelight.grid.AppGridAdapter;
@@ -337,10 +338,18 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         findViewById(R.id.viewModeButton)
             .setOnClickListener(v -> toggleViewMode());
 
+        // Turn the companion screen back on after a back gesture closed it, or off again.
+        findViewById(R.id.companionButton)
+            .setOnClickListener(v -> {
+                CompanionDisplayManager.toggle();
+                refreshCompanionButton();
+            });
+
         // The library is a full-screen console surface: no system bars, and no app bar over
         // the carousel. The bar returns, and pushes the grid down, only in the grid.
         enterImmersive();
         applyChromeForMode();
+        refreshCompanionButton();
 
         showHiddenApps = getIntent().getBooleanExtra(SHOW_HIDDEN_APPS_EXTRA, false);
         uuidString = getIntent().getStringExtra(UUID_EXTRA);
@@ -431,6 +440,26 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         }
         // With no active profile the button is its icon alone, as the other actions are.
         profilesButton.setText(ProfilesManager.getInstance().getActiveName());
+
+        refreshCompanionButton();
+    }
+
+    // The companion toggle is only offered where the feature is on; its icon follows whether a
+    // panel is currently up, so the user can tell they have turned it back on.
+    private void refreshCompanionButton() {
+        ImageButton companionButton = findViewById(R.id.companionButton);
+        if (companionButton == null) {
+            return;
+        }
+        if (!CompanionDisplayManager.isConfigured(this)) {
+            companionButton.setVisibility(View.GONE);
+            return;
+        }
+        boolean showing = CompanionDisplayManager.isShowing();
+        companionButton.setVisibility(View.VISIBLE);
+        companionButton.setImageResource(showing ? R.drawable.ic_companion_on : R.drawable.ic_companion_off);
+        companionButton.setContentDescription(getString(
+                showing ? R.string.action_companion_hide : R.string.action_companion_show));
     }
 
     @Override

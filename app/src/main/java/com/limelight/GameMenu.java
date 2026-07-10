@@ -16,6 +16,7 @@ import android.widget.Toast;
 
 import com.limelight.binding.input.GameInputDevice;
 import com.limelight.binding.input.KeyboardTranslator;
+import com.limelight.companion.CompanionDisplayManager;
 import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.utils.KeyConfigHelper;
 import com.limelight.utils.KeyMapper;
@@ -249,6 +250,12 @@ public class GameMenu implements Game.GameMenuCallbacks {
         }
         
         options.add(new MenuOption(getString(R.string.game_menu_toggle_hud), true, game::toggleHUD));
+        if (CompanionDisplayManager.isConfigured(game)) {
+            // Bring the companion panel back after a back gesture closed it, or send it away.
+            options.add(new MenuOption(getString(CompanionDisplayManager.isShowing()
+                    ? R.string.game_menu_companion_hide : R.string.game_menu_companion_show),
+                    CompanionDisplayManager::toggle));
+        }
         options.add(new MenuOption(getString(R.string.game_menu_toggle_floating_button), true, game::toggleFloatingButtonVisibility));
         options.add(new MenuOption(getString(R.string.game_menu_toggle_keyboard_model), true, game::toggleKeyboardController));
         if (!game.isOnExternalDisplay()) {
