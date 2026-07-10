@@ -6,4 +6,18 @@
     <dimen name="tv_channel_logo_width">80dp</dimen>
     <dimen name="tv_channel_logo_height">80dp</dimen>
 
+    <!--
+        Grid tiles. The cell is the art, exactly: the space between tiles is the grid's
+        spacing, not padding inside the cell. AbsListView positions the focus ring on the
+        bounds of the cell, so this is what puts the ring on the edge of the art.
+    -->
+    <dimen name="tile_corner">10dp</dimen>
+    <dimen name="tile_spacing">20dp</dimen>
+    <dimen name="tile_corner_small">6dp</dimen>
+    <dimen name="tile_spacing_small">10dp</dimen>
+    <dimen name="tile_focus_stroke">2dp</dimen>
+
+    <!-- The PC cells are an icon over a label rather than art, and are ringed as a whole. -->
+    <dimen name="pc_tile_corner">12dp</dimen>
+
 </resources>

@@ -1,46 +1,48 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- @layout/app_grid_item, for the small-icon grid. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="110dp"
-    android:layout_height="143dp">
+    android:layout_width="100dp"
+    android:layout_height="133dp">
 
-    <androidx.cardview.widget.CardView
+    <com.google.android.material.imageview.ShapeableImageView
+        android:id="@+id/grid_image"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_margin="5dp"
-        app:cardCornerRadius="6dp"
-        app:cardElevation="4dp"
-        app:cardMaxElevation="4dp">
+        android:cropToPadding="false"
+        android:scaleType="centerCrop"
+        app:shapeAppearanceOverlay="@style/TileShapeSmall" />
+
+    <View
+        android:id="@+id/grid_running_scrim"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/tile_running_scrim_small"
+        android:visibility="gone" />
+
+    <!-- The title only appears for an app with no box art of its own. -->
+    <RelativeLayout
+        android:id="@+id/grid_mask"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
 
         <ImageView
-            android:id="@+id/grid_image"
+            android:id="@+id/grid_overlay"
+            android:layout_width="33dp"
+            android:layout_height="33dp"
+            android:layout_centerHorizontal="true"
+            android:layout_marginTop="33dp" />
+
+        <TextView
+            android:id="@+id/grid_text"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:cropToPadding="false"
-            android:scaleType="centerCrop" />
+            android:layout_below="@id/grid_overlay"
+            android:layout_margin="5dp"
+            android:gravity="center|center_vertical"
+            android:textAlignment="center"
+            android:textColor="@color/content_primary"
+            android:textSize="14sp" />
+    </RelativeLayout>
 
-        <RelativeLayout
-            android:id="@+id/grid_mask"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent">
-
-            <ImageView
-                android:id="@+id/grid_overlay"
-                android:layout_width="33dp"
-                android:layout_height="33dp"
-                android:layout_centerHorizontal="true"
-                android:layout_marginTop="33dp" />
-
-            <TextView
-                android:id="@+id/grid_text"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:layout_below="@id/grid_overlay"
-                android:layout_margin="5dp"
-                android:gravity="center|center_vertical"
-                android:textAlignment="center"
-                android:textSize="14sp" />
-        </RelativeLayout>
-
-    </androidx.cardview.widget.CardView>
-</RelativeLayout>
+</FrameLayout>

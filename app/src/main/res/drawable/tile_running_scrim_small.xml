@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- @drawable/tile_running_scrim, sized for the small-icon grid. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <corners android:radius="@dimen/tile_corner_small" />
+    <solid android:color="@color/scrim_soft" />
+</shape>

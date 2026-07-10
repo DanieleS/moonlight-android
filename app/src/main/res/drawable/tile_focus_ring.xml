@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The grid's listSelector, drawn over the tile it sits on, on the bounds of the art.
+
+    No <inset> here, and none wanted: AbsListView reads the selector's getPadding() and
+    grows the selector rect by it, which an InsetDrawable reports as its own insets. The
+    two cancel, and the ring lands on the cell bounds whatever inset is asked for. The
+    space between tiles is the grid's spacing instead, which leaves the cell equal to the
+    art.
+
+    Focus is a ring; a press fills it. Neither is a shadow: nothing here is lifted off the
+    surface, things are only outlined on it.
+-->
+<selector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:exitFadeDuration="120">
+
+    <item android:state_pressed="true">
+        <shape android:shape="rectangle">
+            <corners android:radius="@dimen/tile_corner" />
+            <solid android:color="@color/signal_wash" />
+            <stroke
+                android:width="@dimen/tile_focus_stroke"
+                android:color="@color/signal" />
+        </shape>
+    </item>
+
+    <item android:state_focused="true">
+        <shape android:shape="rectangle">
+            <corners android:radius="@dimen/tile_corner" />
+            <solid android:color="@android:color/transparent" />
+            <stroke
+                android:width="@dimen/tile_focus_stroke"
+                android:color="@color/signal" />
+        </shape>
+    </item>
+
+    <item android:drawable="@android:color/transparent" />
+
+</selector>

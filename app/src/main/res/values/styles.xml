@@ -59,6 +59,20 @@
         <item name="android:windowBackground">@android:color/black</item>
     </style>
 
+    <!--
+        Box art corners. The art is rounded by the ImageView itself rather than by a
+        CardView, which would only be there to cast a shadow we do not want.
+    -->
+    <style name="TileShape">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">@dimen/tile_corner</item>
+    </style>
+
+    <style name="TileShapeSmall">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">@dimen/tile_corner_small</item>
+    </style>
+
     <declare-styleable name="ApertureViewGroup">
         <attr name="aperture_color1" format="color" />
         <attr name="aperture_color2" format="color" />

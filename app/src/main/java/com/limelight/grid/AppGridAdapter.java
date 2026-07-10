@@ -5,7 +5,6 @@ import android.graphics.BitmapFactory;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
-import android.widget.RelativeLayout;
 import android.widget.TextView;
 
 import com.limelight.AppView;
@@ -28,8 +27,11 @@ import java.util.Set;
 @SuppressWarnings("unchecked")
 public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
     private static final int ART_WIDTH_PX = 300;
-    private static final int SMALL_WIDTH_DP = 110;
-    private static final int LARGE_WIDTH_DP = 170;
+
+    // The width of the art itself, which is now the width of the whole cell: the space
+    // between tiles belongs to the grid. Keep these in step with @layout/app_grid_item.
+    private static final int SMALL_WIDTH_DP = 100;
+    private static final int LARGE_WIDTH_DP = 150;
 
     private final ComputerDetails computer;
     private final String uniqueId;
@@ -168,19 +170,23 @@ public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
     }
 
     @Override
-    public void populateView(View parentView, ImageView imgView, RelativeLayout gridMask, ProgressBar prgView, TextView txtView, ImageView overlayView, AppView.AppObject obj) {
+    public void populateView(View parentView, ImageView imgView, ProgressBar prgView, TextView txtView, ImageView overlayView, AppView.AppObject obj) {
         // Let the cached asset loader handle it
         loader.populateImageView(obj.app, imgView, txtView);
+
+        // The scrim is a view of its own rather than a background on the mask, so that it
+        // can carry the same rounded corners as the art it is dimming.
+        View runningScrim = parentView.findViewById(R.id.grid_running_scrim);
 
         if (obj.isRunning) {
             // Show the play button overlay
             overlayView.setImageResource(R.drawable.ic_play);
             overlayView.setVisibility(View.VISIBLE);
-            gridMask.setBackgroundColor(0x66000000);
+            runningScrim.setVisibility(View.VISIBLE);
         }
         else {
             overlayView.setVisibility(View.GONE);
-            gridMask.setBackgroundColor(0x00000000);
+            runningScrim.setVisibility(View.GONE);
         }
 
         if (obj.isHidden) {

@@ -1,12 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    The selector is drawn over the tile rather than behind it: it is a ring around the art,
+    and the art is opaque, so behind it there would be nothing to see.
+-->
 <GridView xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/fragmentView"
     android:layout_width="fill_parent"
     android:layout_height="fill_parent"
     android:numColumns="auto_fit"
-    android:columnWidth="170dp"
+    android:columnWidth="150dp"
+    android:horizontalSpacing="@dimen/tile_spacing"
+    android:verticalSpacing="@dimen/tile_spacing"
+    android:padding="@dimen/tile_spacing"
     android:stretchMode="spacingWidthUniform"
     android:focusable="true"
     android:focusableInTouchMode="true"
+    android:listSelector="@drawable/tile_focus_ring"
+    android:drawSelectorOnTop="true"
     android:clipToPadding="false"
     android:gravity="center"/>

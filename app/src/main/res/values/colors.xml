@@ -16,6 +16,9 @@
     <!-- Laid over the stream, where the game is the ground. -->
     <color name="scrim">#80000000</color>
 
+    <!-- Laid over box art, to say the app behind it is already running. -->
+    <color name="scrim_soft">#66000000</color>
+
     <!-- Content, most prominent first. -->
     <color name="content_primary">#FFF2F5F8</color>
     <color name="content_secondary">#FFBFC7D2</color>
@@ -27,5 +30,8 @@
 
     <!-- The signal. -->
     <color name="signal">#FF4FC3F7</color>
+
+    <!-- The signal, thinned to a wash, for the moment a focused tile is pressed. -->
+    <color name="signal_wash">#334FC3F7</color>
 
 </resources>
