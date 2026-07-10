@@ -29,7 +29,7 @@ public class CompanionDisplayManager implements Application.ActivityLifecycleCal
 
     private final Application application;
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private final CompanionState state = new CompanionState();
+    private final CompanionState state = CompanionState.getInstance();
 
     private DisplayManager displayManager;
     private CompanionPresentation presentation;
@@ -87,13 +87,26 @@ public class CompanionDisplayManager implements Application.ActivityLifecycleCal
      * The companion needs a display of its own. External monitor mode already spends both
      * panels: the stream on one, the touchpad controller on the other.
      */
-    private boolean isEnabled() {
-        PreferenceConfiguration prefConfig = PreferenceConfiguration.readPreferences(application);
+    private static boolean isEnabled(Context context) {
+        PreferenceConfiguration prefConfig = PreferenceConfiguration.readPreferences(context);
         return prefConfig.enableCompanionDisplay && !prefConfig.enableFullExDisplay;
     }
 
+    /**
+     * Whether content handed to {@link CompanionState} will actually be shown somewhere: the
+     * companion is switched on and a display exists to host it.
+     *
+     * Callers use this to decide whether to render something themselves instead. It answers for
+     * the current moment, not for the whole stream: a companion panel that is powered off later
+     * takes its content with it.
+     */
+    public static boolean isCompanionAvailable(Activity activity) {
+        return isEnabled(activity)
+                && DisplayTargets.findCompanionDisplay(activity, getDisplayIdOf(activity)) != null;
+    }
+
     private void sync() {
-        if (owner == null || startedActivities == 0 || !isEnabled()) {
+        if (owner == null || startedActivities == 0 || !isEnabled(application)) {
             detach();
             return;
         }
@@ -138,7 +151,7 @@ public class CompanionDisplayManager implements Application.ActivityLifecycleCal
      * The display the Activity itself lives on. With Artemis' external monitor mode that is
      * not the default display, so it is resolved rather than assumed.
      */
-    private int getDisplayIdOf(Activity activity) {
+    private static int getDisplayIdOf(Activity activity) {
         Display display = activity.getWindowManager().getDefaultDisplay();
         return display != null ? display.getDisplayId() : Display.DEFAULT_DISPLAY;
     }

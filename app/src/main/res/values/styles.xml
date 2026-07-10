@@ -72,4 +72,38 @@
         <attr name="aperture_middle_color" format="color" />
     </declare-styleable>
 
+    <!-- Companion surface: a headline stat tile, and a label/value line for secondary detail. -->
+    <style name="CompanionTileLabel">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">#FF8A94A6</item>
+        <item name="android:textSize">10sp</item>
+        <item name="android:letterSpacing">0.16</item>
+        <item name="android:textAllCaps">true</item>
+    </style>
+
+    <style name="CompanionTileValue">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">2dp</item>
+        <item name="android:textColor">#FFF2F5F8</item>
+        <item name="android:textSize">22sp</item>
+        <item name="android:fontFamily">sans-serif-light</item>
+    </style>
+
+    <style name="CompanionDetailLabel">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:textColor">#FF6E7A8A</item>
+        <item name="android:textSize">12sp</item>
+    </style>
+
+    <style name="CompanionDetailValue">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">#FFBFC7D2</item>
+        <item name="android:textSize">12sp</item>
+    </style>
+
 </resources>

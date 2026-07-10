@@ -224,6 +224,14 @@
             android:summary="@string/summary_enable_companion_display"
             android:title="@string/title_enable_companion_display"
             app:iconSpaceReserved="false" />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:dependency="checkbox_enable_companion_display"
+            android:key="checkbox_enable_companion_stats"
+            android:summary="@string/summary_enable_companion_stats"
+            android:title="@string/title_enable_companion_stats"
+            app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
     <PreferenceCategory

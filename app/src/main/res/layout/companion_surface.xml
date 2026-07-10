@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The companion surface. Exactly one of the two children is visible: the app name while idle,
+    the stats dashboard while streaming.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FF07090C">
+
+    <TextView
+        android:id="@+id/companionIdle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:text="@string/app_label"
+        android:textColor="#FFF2F5F8"
+        android:textSize="28sp"
+        android:letterSpacing="0.12"
+        android:fontFamily="sans-serif-light" />
+
+    <LinearLayout
+        android:id="@+id/companionStats"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:visibility="gone"
+        android:padding="20dp">
+
+        <!-- Hero: what is being streamed, and how fast. -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:baselineAligned="false"
+            android:gravity="center_vertical">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/companion_label_stream"
+                    android:textColor="#FF8A94A6"
+                    android:textSize="10sp"
+                    android:letterSpacing="0.16"
+                    android:textAllCaps="true" />
+
+                <TextView
+                    android:id="@+id/companionResolution"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:textColor="#FFF2F5F8"
+                    android:textSize="20sp"
+                    android:fontFamily="sans-serif-medium" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="bottom">
+
+                <TextView
+                    android:id="@+id/companionFps"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="#FF4FC3F7"
+                    android:textSize="44sp"
+                    android:fontFamily="sans-serif-light"
+                    android:includeFontPadding="false" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginBottom="4dp"
+                    android:text="@string/companion_label_fps"
+                    android:textColor="#FF8A94A6"
+                    android:textSize="11sp"
+                    android:letterSpacing="0.16"
+                    android:textAllCaps="true"
+                    android:includeFontPadding="false" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="16dp"
+            android:background="#22FFFFFF" />
+
+        <!-- The four numbers worth watching mid-game. -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:baselineAligned="false">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    style="@style/CompanionTileLabel"
+                    android:text="@string/companion_label_latency" />
+
+                <TextView
+                    android:id="@+id/companionLatency"
+                    style="@style/CompanionTileValue" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    style="@style/CompanionTileLabel"
+                    android:text="@string/companion_label_decode" />
+
+                <TextView
+                    android:id="@+id/companionDecodeTime"
+                    style="@style/CompanionTileValue" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:orientation="horizontal"
+            android:baselineAligned="false">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    style="@style/CompanionTileLabel"
+                    android:text="@string/companion_label_loss" />
+
+                <TextView
+                    android:id="@+id/companionLoss"
+                    style="@style/CompanionTileValue" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    style="@style/CompanionTileLabel"
+                    android:text="@string/companion_label_bandwidth" />
+
+                <TextView
+                    android:id="@+id/companionBandwidth"
+                    style="@style/CompanionTileValue" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="14dp"
+            android:background="#22FFFFFF" />
+
+        <!-- Detail, for when something above looks wrong. -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                style="@style/CompanionDetailLabel"
+                android:text="@string/companion_label_frames" />
+
+            <TextView
+                android:id="@+id/companionFrames"
+                style="@style/CompanionDetailValue" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/companionHostRow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:orientation="horizontal">
+
+            <TextView
+                style="@style/CompanionDetailLabel"
+                android:text="@string/companion_label_host" />
+
+            <TextView
+                android:id="@+id/companionHostLatency"
+                style="@style/CompanionDetailValue" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:orientation="horizontal">
+
+            <TextView
+                style="@style/CompanionDetailLabel"
+                android:text="@string/companion_label_decoder" />
+
+            <TextView
+                android:id="@+id/companionDecoder"
+                style="@style/CompanionDetailValue"
+                android:ellipsize="end"
+                android:maxLines="1" />
+        </LinearLayout>
+
+    </LinearLayout>
+
+</FrameLayout>

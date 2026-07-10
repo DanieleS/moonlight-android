@@ -732,7 +732,24 @@
 
     <string name="title_enable_companion_display">Companion Screen (Beta)</string>
     <string name="summary_enable_companion_display">Show a companion surface on the secondary screen while the app is open. Ignored when Fully External Display Mode is enabled.</string>
-    <string name="companion_placeholder_title">Companion Screen</string>
-    <string name="companion_placeholder_ticks">Ticks: %1$d</string>
-    <string name="companion_placeholder_uptime">Uptime: %1$s</string>
+    <string name="title_enable_companion_stats">Performance Stats on Companion Screen</string>
+    <string name="summary_enable_companion_stats">Show the streaming stats on the companion screen instead of on top of the game. Overrides the performance overlay setting while streaming.</string>
+    <string name="companion_label_stream">Stream</string>
+    <string name="companion_label_fps">fps</string>
+    <string name="companion_label_latency">Latency</string>
+    <string name="companion_label_decode">Decode</string>
+    <string name="companion_label_loss">Loss</string>
+    <string name="companion_label_bandwidth">Bandwidth</string>
+    <string name="companion_label_frames">Received / rendered</string>
+    <string name="companion_label_host">Host latency</string>
+    <string name="companion_label_decoder">Decoder</string>
+    <string name="companion_resolution">%1$d × %2$d</string>
+    <string name="companion_value_latency">%1$d ms ± %2$d</string>
+    <string name="companion_value_ms">%1$.1f ms</string>
+    <string name="companion_value_percent">%1$.2f%%</string>
+    <string name="companion_value_mbps">%1$.1f M/s</string>
+    <string name="companion_value_kbps">%1$.0f K/s</string>
+    <string name="companion_value_frames">%1$.0f / %2$.0f fps</string>
+    <string name="companion_value_host_latency">%1$.1f / %2$.1f / %3$.1f ms</string>
+    <string name="companion_value_unavailable">—</string>
 </resources>

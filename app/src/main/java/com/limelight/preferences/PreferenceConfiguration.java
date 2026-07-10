@@ -47,6 +47,7 @@ public class PreferenceConfiguration {
     private static final String ENABLE_ULTRA_LOW_LATENCY_PREF_STRING = "checkbox_ultra_low_latency";
     private static final String ENFORCE_DISPLAY_MODE_PREF_STRING = "checkbox_enforce_display_mode";
     private static final String ENABLE_COMPANION_DISPLAY_PREF_STRING = "checkbox_enable_companion_display";
+    private static final String ENABLE_COMPANION_STATS_PREF_STRING = "checkbox_enable_companion_stats";
     private static final String USE_VIRTUAL_DISPLAY_PREF_STRING = "checkbox_use_virtual_display";
     private static final String AUTO_INVERT_VIDEO_RESOLUTION_PREF_STRING = "checkbox_auto_invert_video_resolution";
     private static final String RESOLUTION_SCALE_FACTOR_PREF_STRING = "seekbar_resolution_scale_factor";
@@ -144,6 +145,9 @@ public class PreferenceConfiguration {
     private static final boolean DEFAULT_ENABLE_ULTRA_LOW_LATENCY = false;
     private static final boolean DEFAULT_ENFORCE_DISPLAY_MODE = false;
     private static final boolean DEFAULT_ENABLE_COMPANION_DISPLAY = false;
+    // A companion panel with nothing on it is worth less than one showing the stats, so this is
+    // on by default. It only takes effect once the companion display itself is switched on.
+    private static final boolean DEFAULT_ENABLE_COMPANION_STATS = true;
     private static final boolean DEFAULT_USE_VIRTUAL_DISPLAY = false;
     private static final String DEFAULT_VIDEO_SCALE_MODE = "fit";
     private static final boolean DEFAULT_AUTO_INVERT_VIDEO_RESOLUTION = true;
@@ -302,6 +306,8 @@ public class PreferenceConfiguration {
     public boolean enableFullExDisplay;
 
     public boolean enableCompanionDisplay;
+
+    public boolean enableCompanionStats;
 
     //串流画面顶部居中显示
     public boolean alignDisplayTopCenter;
@@ -970,6 +976,8 @@ private static int getFramePacingValue(Context context) {
         config.enableFullExDisplay=prefs.getBoolean("checkbox_enable_fullexdisplay",false);
 
         config.enableCompanionDisplay = prefs.getBoolean(ENABLE_COMPANION_DISPLAY_PREF_STRING, DEFAULT_ENABLE_COMPANION_DISPLAY);
+
+        config.enableCompanionStats = prefs.getBoolean(ENABLE_COMPANION_STATS_PREF_STRING, DEFAULT_ENABLE_COMPANION_STATS);
 
         config.alignDisplayTopCenter =prefs.getBoolean("checkbox_enable_view_top_center",false);
 

@@ -28,6 +28,9 @@ import com.limelight.binding.video.CrashListener;
 import com.limelight.binding.video.MediaCodecDecoderRenderer;
 import com.limelight.binding.video.MediaCodecHelper;
 import com.limelight.binding.video.PerfOverlayListener;
+import com.limelight.binding.video.PerfStats;
+import com.limelight.companion.CompanionDisplayManager;
+import com.limelight.companion.CompanionState;
 import com.limelight.nvstream.NvConnection;
 import com.limelight.nvstream.NvConnectionListener;
 import com.limelight.nvstream.StreamConfiguration;
@@ -229,6 +232,19 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private TextView performanceOverlayLite;
 
     private TextView performanceOverlayBig;
+
+    /**
+     * When the companion panel is there to show the stats, they go there instead of on top of
+     * the game. Resolved once at startup so the overlay does not appear and disappear mid-stream.
+     */
+    private boolean statsOnCompanion;
+
+    /**
+     * Whether the stats are on screen at all, wherever they are drawn. The companion shows them
+     * without being asked, so this starts out true more often than the perf overlay preference
+     * does. The in-game menu toggles it.
+     */
+    private boolean statsVisible;
 
     private MediaCodecDecoderRenderer decoderRenderer;
     private boolean reportedCrash;
@@ -630,8 +646,12 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             }
         }
 
+        // A companion panel earns its keep by showing the stats, so it does not wait to be asked.
+        statsOnCompanion = prefConfig.enableCompanionStats && CompanionDisplayManager.isCompanionAvailable(this);
+        statsVisible = statsOnCompanion || prefConfig.enablePerfOverlay;
+
         // Check if the user has enabled performance stats overlay
-        if (prefConfig.enablePerfOverlay) {
+        if (statsVisible && !statsOnCompanion) {
             performanceOverlayView.setVisibility(View.VISIBLE);
             if (prefConfig.enablePerfOverlayLite) {
                 performanceOverlayLite.setVisibility(View.VISIBLE);
@@ -669,6 +689,10 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 shouldInvertDecoderResolution,
                 glPrefs.glRenderer,
                 this);
+
+        // The renderer seeds itself from the perf overlay preference, which says nothing about
+        // the companion. Tell it who is really watching.
+        decoderRenderer.setPerfStatsRequested(statsVisible);
 
 // --- Force tight thresholds (prefConfig.forceTightThresholds) ---
         try {
@@ -1269,7 +1293,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                     keyBoardLayoutController.show();
                 }
 
-                if (prefConfig.enablePerfOverlay) {
+                if (statsVisible && !statsOnCompanion) {
                     performanceOverlayView.setVisibility(View.VISIBLE);
                 }
 
@@ -1704,6 +1728,9 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
         instance = null;
         timerHandler.removeCallbacksAndMessages(null);
+
+        // The stream is over: send the companion back to its idle surface.
+        CompanionState.getInstance().clearStats();
 
         if (prefConfig.enableFullExDisplay) handleDisplayRemoved();
 
@@ -3928,11 +3955,14 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     }
 
     @Override
-    public void onPerfUpdate(final String text) {
+    public void onPerfUpdate(final String text, final PerfStats stats) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                if(prefConfig.enablePerfOverlayLite){
+                if (statsOnCompanion) {
+                    CompanionState.getInstance().setStats(stats);
+                }
+                else if(prefConfig.enablePerfOverlayLite){
                     performanceOverlayLite.setText(text);
                 }else{
                     performanceOverlayBig.setText(text);
@@ -4193,8 +4223,22 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     }
 
     public void toggleHUD() {
-        prefConfig.enablePerfOverlay = !prefConfig.enablePerfOverlay;
-        if (prefConfig.enablePerfOverlay) {
+        statsVisible = !statsVisible;
+
+        if (decoderRenderer != null) {
+            decoderRenderer.setPerfStatsRequested(statsVisible);
+        }
+
+        if (statsOnCompanion) {
+            // Switching off stops the updates, so drop the numbers already there: otherwise the
+            // companion would sit on a frozen snapshot instead of returning to the idle surface.
+            if (!statsVisible) {
+                CompanionState.getInstance().clearStats();
+            }
+            return;
+        }
+
+        if (statsVisible) {
             performanceOverlayView.setVisibility(View.VISIBLE);
             if(prefConfig.enablePerfOverlayLite){
                 performanceOverlayLite.setVisibility(View.VISIBLE);
