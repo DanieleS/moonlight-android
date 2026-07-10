@@ -217,6 +217,13 @@
             android:summary="@string/summary_fullexdisplay_mode"
             android:title="@string/title_fullexdisplay_mode"
             app:iconSpaceReserved="false" />
+
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="checkbox_enable_companion_display"
+            android:summary="@string/summary_enable_companion_display"
+            android:title="@string/title_enable_companion_display"
+            app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
     <PreferenceCategory

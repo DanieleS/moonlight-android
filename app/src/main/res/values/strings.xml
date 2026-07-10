@@ -729,4 +729,10 @@
 
     <string name="title_checkbox_full_screen">Enable Full Screen</string>
     <string name="summary_checkbox_full_screen">Hide system bars with immersive mode</string>
+
+    <string name="title_enable_companion_display">Companion Screen (Beta)</string>
+    <string name="summary_enable_companion_display">Show a companion surface on the secondary screen while the app is open. Ignored when Fully External Display Mode is enabled.</string>
+    <string name="companion_placeholder_title">Companion Screen</string>
+    <string name="companion_placeholder_ticks">Ticks: %1$d</string>
+    <string name="companion_placeholder_uptime">Uptime: %1$s</string>
 </resources>
