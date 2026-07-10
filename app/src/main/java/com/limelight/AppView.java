@@ -808,6 +808,15 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
             int side = Math.max(0, (recyclerView.getWidth() - itemWidthPx) / 2);
             recyclerView.setPadding(side, recyclerView.getPaddingTop(),
                     side, recyclerView.getPaddingBottom());
+
+            // Land on the first cover, centred, rather than wherever the framework happens to
+            // put focus. Done once the padding above has settled so it starts at rest.
+            recyclerView.post(() -> {
+                RecyclerView.ViewHolder holder = recyclerView.findViewHolderForAdapterPosition(0);
+                if (holder != null) {
+                    holder.itemView.requestFocus();
+                }
+            });
         });
 
         // The backdrop and title are siblings of the RecyclerView's container, not of the
