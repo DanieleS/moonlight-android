@@ -38,6 +38,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.view.ContextMenu;
+import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -50,6 +51,10 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.AdapterView.AdapterContextMenuInfo;
 
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.recyclerview.widget.LinearSnapHelper;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -331,6 +336,11 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         // Toggle between the carousel and the "all games" grid.
         findViewById(R.id.viewModeButton)
             .setOnClickListener(v -> toggleViewMode());
+
+        // The library is a full-screen console surface: no system bars, and no app bar over
+        // the carousel. The bar returns, and pushes the grid down, only in the grid.
+        enterImmersive();
+        applyChromeForMode();
 
         showHiddenApps = getIntent().getBooleanExtra(SHOW_HIDDEN_APPS_EXTRA, false);
         uuidString = getIntent().getStringExtra(UUID_EXTRA);
@@ -877,6 +887,7 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         button.setImageResource(coverflowMode ? R.drawable.ic_view_grid : R.drawable.ic_view_carousel);
         button.setContentDescription(getString(
                 coverflowMode ? R.string.action_all_games : R.string.action_carousel));
+        applyChromeForMode();
 
         try {
             getFragmentManager().beginTransaction()
@@ -885,6 +896,88 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         } catch (IllegalStateException e) {
             e.printStackTrace();
         }
+    }
+
+    private void enterImmersive() {
+        // Draw edge to edge and paint the bar regions transparent, so nothing grey is left
+        // where the status bar used to sit once the bars are hidden.
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        getWindow().setStatusBarColor(android.graphics.Color.TRANSPARENT);
+        getWindow().setNavigationBarColor(android.graphics.Color.TRANSPARENT);
+
+        WindowInsetsControllerCompat controller =
+                WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+        controller.setSystemBarsBehavior(
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+        controller.hide(WindowInsetsCompat.Type.systemBars());
+
+        // notifyNewRootView pads the content by the status bar inset, and the window's grey
+        // background shows through that padding. Consume the insets so the content reaches
+        // the very edge and nothing grey is left at the top.
+        View content = findViewById(android.R.id.content);
+        ViewCompat.setOnApplyWindowInsetsListener(content, (v, insets) -> {
+            v.setPadding(0, 0, 0, 0);
+            return WindowInsetsCompat.CONSUMED;
+        });
+        ViewCompat.requestApplyInsets(content);
+    }
+
+    // The app bar is gone in the carousel, so the covers own the whole screen; it returns
+    // in the grid, where the mode toggle and profiles need to be at hand.
+    private void applyChromeForMode() {
+        View topBar = findViewById(R.id.topBar);
+        if (topBar != null) {
+            topBar.setVisibility(coverflowMode ? View.GONE : View.VISIBLE);
+        }
+    }
+
+    // Return focus to the cover at the centre, rather than to the first one, when leaving
+    // the revealed bar.
+    private void focusCenteredCover() {
+        View grid = findViewById(R.id.fragmentView);
+        if (!(grid instanceof RecyclerView)) {
+            return;
+        }
+        RecyclerView rv = (RecyclerView) grid;
+        RecyclerView.ViewHolder holder = rv.findViewHolderForAdapterPosition(
+                coverflowCentered >= 0 ? coverflowCentered : 0);
+        if (holder != null) {
+            holder.itemView.requestFocus();
+        } else {
+            rv.requestFocus();
+        }
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            // The system bars come back on a swipe or when returning from another screen;
+            // put them away again.
+            enterImmersive();
+        }
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        // In the carousel the app bar is hidden. Up reveals it; down from it hides it again,
+        // so its actions stay reachable without stealing space from the covers.
+        if (coverflowMode && event.getAction() == KeyEvent.ACTION_DOWN) {
+            View topBar = findViewById(R.id.topBar);
+            if (topBar != null && event.getKeyCode() == KeyEvent.KEYCODE_DPAD_UP
+                    && topBar.getVisibility() != View.VISIBLE) {
+                topBar.setVisibility(View.VISIBLE);
+                topBar.requestFocus();
+                return true;
+            }
+            if (topBar != null && event.getKeyCode() == KeyEvent.KEYCODE_DPAD_DOWN
+                    && topBar.getVisibility() == View.VISIBLE && topBar.hasFocus()) {
+                topBar.setVisibility(View.GONE);
+                focusCenteredCover();
+                return true;
+            }
+        }
+        return super.dispatchKeyEvent(event);
     }
 
     public static class AppObject {
