@@ -42,13 +42,15 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ContextMenu.ContextMenuInfo;
-import android.widget.AbsListView;
-import android.widget.AdapterView;
-import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.AdapterView.AdapterContextMenuInfo;
+
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.limelight.grid.AutofitGridLayoutManager;
+import com.limelight.grid.GridSpacingItemDecoration;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -736,38 +738,44 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
     }
 
     @Override
-    public void receiveAbsListView(AbsListView listView) {
-        listView.setAdapter(appGridAdapter);
-        listView.setOnItemClickListener(new OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> arg0, View arg1, int pos,
-                                    long id) {
-                AppObject app = (AppObject) appGridAdapter.getItem(pos);
+    public void receiveRecyclerView(RecyclerView recyclerView) {
+        boolean small = PreferenceConfiguration.readPreferences(this).smallIconMode;
+        int columnWidthPx = Math.round((small ? 100 : 150) * getResources().getDisplayMetrics().density);
+        int spacingPx = getResources().getDimensionPixelSize(
+                small ? R.dimen.tile_spacing_small : R.dimen.tile_spacing);
 
-                // Only open the context menu if something is running, otherwise start it
-                if (lastRunningAppId != 0) {
-                    if (prefConfig.resumeWithoutConfirm && lastRunningAppId == app.app.getAppId()) {
-                        ServerHelper.doStart(AppView.this, app.app, computer, managerBinder, prefConfig.useVirtualDisplay);
-                    } else {
-                        openContextMenu(arg1);
-                    }
+        recyclerView.setLayoutManager(new AutofitGridLayoutManager(this, columnWidthPx));
+        recyclerView.addItemDecoration(new GridSpacingItemDecoration(spacingPx));
+        int half = spacingPx / 2;
+        recyclerView.setPadding(half, half, half, half);
+        recyclerView.setAdapter(appGridAdapter);
+
+        appGridAdapter.setOnItemClickListener((view, pos) -> {
+            AppObject app = (AppObject) appGridAdapter.getItem(pos);
+
+            // Only open the context menu if something is running, otherwise start it
+            if (lastRunningAppId != 0) {
+                if (prefConfig.resumeWithoutConfirm && lastRunningAppId == app.app.getAppId()) {
+                    ServerHelper.doStart(AppView.this, app.app, computer, managerBinder, prefConfig.useVirtualDisplay);
                 } else {
-                    if (prefConfig.useVirtualDisplay && !(computer.vDisplaySupported && computer.vDisplayDriverReady)) {
-                        UiHelper.displayVdisplayConfirmationDialog(
-                                AppView.this,
-                                computer,
-                                () -> ServerHelper.doStart(AppView.this, app.app, computer, managerBinder, true),
-                                null
-                        );
-                    } else {
-                        ServerHelper.doStart(AppView.this, app.app, computer, managerBinder, prefConfig.useVirtualDisplay);
-                    }
+                    openContextMenu(view);
+                }
+            } else {
+                if (prefConfig.useVirtualDisplay && !(computer.vDisplaySupported && computer.vDisplayDriverReady)) {
+                    UiHelper.displayVdisplayConfirmationDialog(
+                            AppView.this,
+                            computer,
+                            () -> ServerHelper.doStart(AppView.this, app.app, computer, managerBinder, true),
+                            null
+                    );
+                } else {
+                    ServerHelper.doStart(AppView.this, app.app, computer, managerBinder, prefConfig.useVirtualDisplay);
                 }
             }
         });
-        UiHelper.applyStatusBarPadding(listView);
-        registerForContextMenu(listView);
-        listView.requestFocus();
+        UiHelper.applyStatusBarPadding(recyclerView);
+        registerForContextMenu(recyclerView);
+        recyclerView.requestFocus();
     }
 
     public static class AppObject {

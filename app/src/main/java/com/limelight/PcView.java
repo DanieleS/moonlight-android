@@ -52,9 +52,9 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ContextMenu.ContextMenuInfo;
 import android.view.View.OnClickListener;
-import android.widget.AbsListView;
-import android.widget.AdapterView;
-import android.widget.AdapterView.OnItemClickListener;
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.limelight.grid.AutofitGridLayoutManager;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
@@ -883,30 +883,28 @@ public class PcView extends AppCompatActivity implements AdapterFragmentCallback
     }
 
     @Override
-    public void receiveAbsListView(AbsListView listView) {
-        listView.setAdapter(pcGridAdapter);
-        listView.setOnItemClickListener(new OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> arg0, View arg1, int pos,
-                                    long id) {
-                ComputerObject computer = (ComputerObject) pcGridAdapter.getItem(pos);
-                if (computer.details.state == ComputerDetails.State.UNKNOWN ||
-                    computer.details.state == ComputerDetails.State.OFFLINE) {
-                    // Open the context menu if a PC is offline or refreshing
-                    openContextMenu(arg1);
-                } else if (computer.details.pairState != PairState.PAIRED) {
-                    // Pair an unpaired machine by default
-                    doPair(computer.details, null, null);
-                } else {
-                    doAppList(computer.details, false, false);
-                }
+    public void receiveRecyclerView(RecyclerView recyclerView) {
+        int columnWidthPx = Math.round(160 * getResources().getDisplayMetrics().density);
+        recyclerView.setLayoutManager(new AutofitGridLayoutManager(this, columnWidthPx));
+        recyclerView.setAdapter(pcGridAdapter);
+        pcGridAdapter.setOnItemClickListener((view, pos) -> {
+            ComputerObject computer = (ComputerObject) pcGridAdapter.getItem(pos);
+            if (computer.details.state == ComputerDetails.State.UNKNOWN ||
+                computer.details.state == ComputerDetails.State.OFFLINE) {
+                // Open the context menu if a PC is offline or refreshing
+                openContextMenu(view);
+            } else if (computer.details.pairState != PairState.PAIRED) {
+                // Pair an unpaired machine by default
+                doPair(computer.details, null, null);
+            } else {
+                doAppList(computer.details, false, false);
             }
         });
-        UiHelper.applyStatusBarPadding(listView);
-        registerForContextMenu(listView);
+        UiHelper.applyStatusBarPadding(recyclerView);
+        registerForContextMenu(recyclerView);
         // Otherwise the first press of the d-pad lands on the actions in the top bar
         // rather than on the PCs, which are what this screen is for.
-        listView.requestFocus();
+        recyclerView.requestFocus();
     }
 
     public static class ComputerObject {

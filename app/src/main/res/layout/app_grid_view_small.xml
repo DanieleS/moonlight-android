@@ -1,18 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- @layout/app_grid_view, for the small-icon grid. -->
-<GridView xmlns:android="http://schemas.android.com/apk/res/android"
+<com.limelight.ui.ContextMenuRecyclerView xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/fragmentView"
-    android:layout_width="fill_parent"
-    android:layout_height="fill_parent"
-    android:numColumns="auto_fit"
-    android:columnWidth="100dp"
-    android:horizontalSpacing="@dimen/tile_spacing_small"
-    android:verticalSpacing="@dimen/tile_spacing_small"
-    android:padding="@dimen/tile_spacing_small"
-    android:stretchMode="spacingWidthUniform"
-    android:focusable="true"
-    android:focusableInTouchMode="true"
-    android:listSelector="@drawable/tile_focus_ring_small"
-    android:drawSelectorOnTop="true"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
     android:clipToPadding="false"
-    android:gravity="center"/>
+    android:focusable="true"
+    android:descendantFocusability="afterDescendants" />

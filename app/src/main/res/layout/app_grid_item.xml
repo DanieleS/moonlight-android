@@ -7,7 +7,10 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="150dp"
-    android:layout_height="200dp">
+    android:layout_height="200dp"
+    android:foreground="@drawable/tile_focus_ring"
+    android:focusable="true"
+    android:clickable="true">
 
     <com.google.android.material.imageview.ShapeableImageView
         android:id="@+id/grid_image"

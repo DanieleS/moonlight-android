@@ -7,7 +7,8 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.AbsListView;
+
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.limelight.R;
 
@@ -30,6 +31,6 @@ public class AdapterFragment extends Fragment {
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
-        callbacks.receiveAbsListView(getView().findViewById(R.id.fragmentView));
+        callbacks.receiveRecyclerView((RecyclerView) getView().findViewById(R.id.fragmentView));
     }
 }
