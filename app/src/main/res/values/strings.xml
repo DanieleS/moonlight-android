@@ -737,6 +737,8 @@
     <string name="action_all_games">All games</string>
     <string name="action_carousel">Carousel</string>
     <string name="coverflow_count">%1$d / %2$d</string>
+    <!-- The gamepad button that switches between the carousel and the grid. -->
+    <string name="hint_button_y" translatable="false">Y</string>
 
     <string name="title_enable_companion_display">Companion Screen (Beta)</string>
     <string name="summary_enable_companion_display">Show a companion surface on the secondary screen while the app is open. Ignored when Fully External Display Mode is enabled.</string>
@@ -764,4 +766,5 @@
     <string name="action_companion_hide">Hide companion screen</string>
     <string name="game_menu_companion_show">Show Companion Screen</string>
     <string name="game_menu_companion_hide">Hide Companion Screen</string>
+    <string name="action_virtual_display">Start virtual display</string>
 </resources>

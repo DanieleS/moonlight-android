@@ -21,12 +21,17 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Map;
 import java.util.Stack;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
@@ -784,6 +789,44 @@ public class NvHTTP {
         return openHttpConnectionToString(httpClientLongConnectTimeout, getHttpsUrl(true), "applist");
     }
     
+    /**
+     * Fetch Playnite-enriched metadata from the host's {@code /appmetadata} endpoint, keyed by
+     * upper-cased app UUID. This is a Vibepollo fork addition, so it degrades to an empty map on
+     * hosts that don't serve it (or when anything goes wrong) rather than throwing.
+     */
+    public Map<String, AppMetadata> getAppMetadata() {
+        Map<String, AppMetadata> metadata = new HashMap<>();
+        String raw;
+        try {
+            raw = openHttpConnectionToString(httpClientLongConnectTimeout, getHttpsUrl(true), "appmetadata");
+        } catch (Exception e) {
+            // Older/stock hosts don't have the endpoint; treat that as "no metadata".
+            return metadata;
+        }
+
+        try {
+            JSONArray apps = new JSONObject(raw).optJSONArray("apps");
+            if (apps == null) {
+                return metadata;
+            }
+            for (int i = 0; i < apps.length(); i++) {
+                JSONObject app = apps.optJSONObject(i);
+                if (app == null) {
+                    continue;
+                }
+                String uuid = app.optString("uuid", "");
+                if (uuid.isEmpty()) {
+                    continue;
+                }
+                metadata.put(uuid.toUpperCase(), AppMetadata.fromJson(app));
+            }
+        } catch (Exception e) {
+            LimeLog.warning("Malformed app metadata: " + e.getMessage());
+        }
+
+        return metadata;
+    }
+
     public LinkedList<NvApp> getAppList() throws HostHttpResponseException, IOException, XmlPullParserException {
         if (verbose) {
             // Use the raw function so the app list is printed
@@ -812,6 +855,15 @@ public class NvHTTP {
     
     public InputStream getBoxArt(NvApp app) throws IOException {
         ResponseBody resp = openHttpConnection(httpClientLongConnectTimeout, getHttpsUrl(true), "appasset", "appid=" + app.getAppId() + "&AssetType=2&AssetIdx=0", null);
+        return resp.byteStream();
+    }
+
+    /**
+     * Fetch a game's background/hero image (Vibepollo fork addition). Only meaningful when the
+     * app's {@link AppMetadata#hasBackground()} is true; otherwise the host returns 404.
+     */
+    public InputStream getBackgroundArt(int appId) throws IOException {
+        ResponseBody resp = openHttpConnection(httpClientLongConnectTimeout, getHttpsUrl(true), "appbackground", "appid=" + appId, null);
         return resp.byteStream();
     }
     

@@ -2,12 +2,18 @@ package com.limelight;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 
 import com.google.android.material.button.MaterialButton;
 import com.limelight.companion.CompanionDisplayManager;
+import com.limelight.companion.CompanionState;
+import com.limelight.binding.PlatformBinding;
 import com.limelight.binding.input.ControllerHandler;
+import com.limelight.nvstream.http.AppMetadata;
 import com.limelight.computers.ComputerManagerListener;
 import com.limelight.computers.ComputerManagerService;
 import com.limelight.grid.AppGridAdapter;
@@ -34,6 +40,7 @@ import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
 import android.os.Build;
@@ -88,6 +95,20 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
     // The carousel is the front door; the grid is "all games", one button away.
     private boolean coverflowMode = true;
     private int coverflowCentered = -1;
+
+    // The host's "Virtual Display" shortcut is kept out of the library and offered as a
+    // dedicated app-bar action instead. Null until the host advertises it.
+    private NvApp virtualDisplayApp;
+
+    // Playnite-enriched metadata keyed by upper-cased app UUID, shown on the companion panel.
+    // Empty on stock hosts; fetched once per visit.
+    private Map<String, AppMetadata> appMetadata = Collections.emptyMap();
+    private boolean metadataFetchStarted;
+
+    // The app id currently spotlighted on the companion, so a slow background load can tell it is
+    // still wanted before applying. Backgrounds are cached across scrolls.
+    private int browsingAppId = -1;
+    private final java.util.HashMap<Integer, Bitmap> backgroundCache = new java.util.HashMap<>();
 
     private PreferenceConfiguration prefConfig;
 
@@ -336,8 +357,11 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         findViewById(R.id.profilesButton)
             .setOnClickListener(v -> startActivity(new Intent(this, ProfilesActivity.class)));
 
-        // Toggle between the carousel and the "all games" grid.
+        // Toggle between the carousel and the "all games" grid, from the bar or from the
+        // always-visible hint that advertises the gamepad shortcut for the same thing.
         findViewById(R.id.viewModeButton)
+            .setOnClickListener(v -> toggleViewMode());
+        findViewById(R.id.viewModeHint)
             .setOnClickListener(v -> toggleViewMode());
 
         // Turn the companion screen back on after a back gesture closed it, or off again.
@@ -347,11 +371,17 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
                 refreshCompanionButton();
             });
 
+        // Start the host's virtual display straight from the bar.
+        findViewById(R.id.virtualDisplayButton)
+            .setOnClickListener(v -> launchVirtualDisplay());
+
         // The library is a full-screen console surface: no system bars, and no app bar over
         // the carousel. The bar returns, and pushes the grid down, only in the grid.
         enterImmersive();
         applyChromeForMode();
+        refreshViewModeControls();
         refreshCompanionButton();
+        refreshVirtualDisplayButton();
 
         showHiddenApps = getIntent().getBooleanExtra(SHOW_HIDDEN_APPS_EXTRA, false);
         uuidString = getIntent().getStringExtra(UUID_EXTRA);
@@ -419,6 +449,9 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         SpinnerDialog.closeDialogs(this);
         Dialog.closeDialogs();
 
+        // Stop spotlighting a game on the companion panel once we leave the library.
+        CompanionState.getInstance().clearBrowsing();
+
         if (managerBinder != null) {
             unbindService(serviceConnection);
         }
@@ -462,6 +495,39 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         companionButton.setImageResource(showing ? R.drawable.ic_companion_on : R.drawable.ic_companion_off);
         companionButton.setContentDescription(getString(
                 showing ? R.string.action_companion_hide : R.string.action_companion_show));
+    }
+
+    // Remember the host's Virtual Display shortcut (or clear it) and keep its bar button in step.
+    private void setVirtualDisplayApp(NvApp app) {
+        virtualDisplayApp = app;
+        refreshVirtualDisplayButton();
+    }
+
+    // The Virtual Display action only appears where the host advertises the shortcut.
+    private void refreshVirtualDisplayButton() {
+        ImageButton virtualDisplayButton = findViewById(R.id.virtualDisplayButton);
+        if (virtualDisplayButton == null) {
+            return;
+        }
+        virtualDisplayButton.setVisibility(virtualDisplayApp != null ? View.VISIBLE : View.GONE);
+    }
+
+    private void launchVirtualDisplay() {
+        if (virtualDisplayApp == null || computer == null || managerBinder == null) {
+            return;
+        }
+
+        // The Virtual Display entry is itself a virtual-display session, so it is launched
+        // directly rather than through the "use virtual display" preference.
+        final NvApp app = virtualDisplayApp;
+        Runnable start = () -> ServerHelper.doStart(AppView.this, app, computer, managerBinder, false);
+
+        // Launching it would tear down whatever is already streaming, so confirm first.
+        if (lastRunningAppId != 0 && lastRunningAppId != app.getAppId()) {
+            UiHelper.displayQuitConfirmationDialog(this, start, null);
+        } else {
+            start.run();
+        }
     }
 
     @Override
@@ -711,10 +777,23 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         });
     }
 
-    private void updateUiWithAppList(final List<NvApp> appList) {
+    private void updateUiWithAppList(final List<NvApp> rawAppList) {
         AppView.this.runOnUiThread(new Runnable() {
             @Override
             public void run() {
+                // Pull the host's Virtual Display shortcut out of the library; it is offered as
+                // a dedicated app-bar action instead of appearing as a cover.
+                final List<NvApp> appList = new ArrayList<>();
+                NvApp foundVirtualDisplay = null;
+                for (NvApp app : rawAppList) {
+                    if (app.isVirtualDisplay()) {
+                        foundVirtualDisplay = app;
+                    } else {
+                        appList.add(app);
+                    }
+                }
+                setVirtualDisplayApp(foundVirtualDisplay);
+
                 boolean updated = false;
 
                 // First handle app updates and additions
@@ -781,6 +860,9 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
                 if (updated) {
                     appGridAdapter.notifyDataSetChanged();
                 }
+
+                // Now that we have apps, pull their metadata for the companion panel (once).
+                fetchAppMetadata();
             }
         });
     }
@@ -834,7 +916,35 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         recyclerView.setLayoutManager(new AutofitGridLayoutManager(this, columnWidthPx));
         recyclerView.addItemDecoration(new GridSpacingItemDecoration(spacingPx));
         int half = spacingPx / 2;
-        recyclerView.setPadding(half, half, half, half);
+        // The view-mode hint floats over the bottom-right corner, so the last row is given room
+        // to scroll clear of it rather than ending up underneath it.
+        int hintClearancePx = Math.round(64 * getResources().getDisplayMetrics().density);
+        recyclerView.setPadding(half, half, half, half + hintClearancePx);
+        recyclerView.setClipToPadding(false);
+
+        // The grid has no centre to follow, so the companion panel spotlights whatever the tile
+        // the user is on: the focused one. Tiles are recycled, so the listener rides along with
+        // them rather than being set once.
+        recyclerView.addOnChildAttachStateChangeListener(
+                new RecyclerView.OnChildAttachStateChangeListener() {
+            @Override
+            public void onChildViewAttachedToWindow(View view) {
+                view.setOnFocusChangeListener((v, hasFocus) -> {
+                    if (!hasFocus) {
+                        return;
+                    }
+                    int pos = recyclerView.getChildAdapterPosition(v);
+                    if (pos != RecyclerView.NO_POSITION && pos < appGridAdapter.getCount()) {
+                        pushCompanionBrowsing(((AppObject) appGridAdapter.getItem(pos)).app);
+                    }
+                });
+            }
+
+            @Override
+            public void onChildViewDetachedFromWindow(View view) {
+                view.setOnFocusChangeListener(null);
+            }
+        });
     }
 
     private void setupCoverflow(RecyclerView recyclerView) {
@@ -927,6 +1037,122 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         if (art != null && art.getDrawable() != null) {
             backdrop.setImageDrawable(art.getDrawable());
         }
+        pushCompanionBrowsing(app.app);
+    }
+
+    // Spotlight the centred game on the companion panel, with whatever metadata the host gave us.
+    private void pushCompanionBrowsing(NvApp app) {
+        AppMetadata metadata = null;
+        String uuid = app.getAppUUID();
+        if (uuid != null && !uuid.isEmpty()) {
+            metadata = appMetadata.get(uuid.toUpperCase());
+        }
+        browsingAppId = app.getAppId();
+        CompanionState.getInstance().setBrowsing(app.getAppName(), metadata);
+
+        // The hero backdrop, if this game has one, follows asynchronously.
+        if (metadata != null && metadata.hasBackground()) {
+            loadCompanionBackground(app.getAppId());
+        }
+    }
+
+    // Fetch (or reuse) the spotlighted game's background art and hand it to the companion, but
+    // only if that game is still the one centred by the time it is ready.
+    private void loadCompanionBackground(final int appId) {
+        Bitmap cached = backgroundCache.get(appId);
+        if (cached != null) {
+            if (browsingAppId == appId) {
+                CompanionState.getInstance().setBrowsingBackground(cached);
+            }
+            return;
+        }
+        if (computer == null || managerBinder == null) {
+            return;
+        }
+        new Thread(() -> {
+            Bitmap bitmap = null;
+            try {
+                NvHTTP http = new NvHTTP(
+                        ServerHelper.getCurrentAddressFromComputer(computer),
+                        computer.httpsPort,
+                        managerBinder.getUniqueId(),
+                        computer.serverCert,
+                        PlatformBinding.getCryptoProvider(AppView.this));
+                bitmap = decodeSampled(http.getBackgroundArt(appId), 1600);
+            } catch (Exception e) {
+                LimeLog.warning("Failed to fetch background for app " + appId + ": " + e.getMessage());
+            }
+            final Bitmap loaded = bitmap;
+            if (loaded == null) {
+                return;
+            }
+            runOnUiThread(() -> {
+                backgroundCache.put(appId, loaded);
+                if (browsingAppId == appId) {
+                    CompanionState.getInstance().setBrowsingBackground(loaded);
+                }
+            });
+        }).start();
+    }
+
+    // Decode a stream down to at most maxWidth px wide, so a 4K hero image doesn't blow up memory.
+    private static Bitmap decodeSampled(java.io.InputStream in, int maxWidth) throws IOException {
+        try (java.io.InputStream stream = in) {
+            java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+            byte[] chunk = new byte[16 * 1024];
+            int read;
+            while ((read = stream.read(chunk)) != -1) {
+                buffer.write(chunk, 0, read);
+            }
+            byte[] bytes = buffer.toByteArray();
+
+            BitmapFactory.Options bounds = new BitmapFactory.Options();
+            bounds.inJustDecodeBounds = true;
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.length, bounds);
+
+            int sample = 1;
+            while (bounds.outWidth / sample > maxWidth) {
+                sample *= 2;
+            }
+
+            BitmapFactory.Options opts = new BitmapFactory.Options();
+            opts.inSampleSize = sample;
+            return BitmapFactory.decodeByteArray(bytes, 0, bytes.length, opts);
+        }
+    }
+
+    // Pull Playnite-enriched metadata once per visit. It's a fork-only endpoint, so this quietly
+    // yields nothing on stock hosts; when it arrives we refresh whatever cover is centred.
+    private void fetchAppMetadata() {
+        if (metadataFetchStarted || computer == null || managerBinder == null) {
+            return;
+        }
+        metadataFetchStarted = true;
+        new Thread(() -> {
+            try {
+                NvHTTP http = new NvHTTP(
+                        ServerHelper.getCurrentAddressFromComputer(computer),
+                        computer.httpsPort,
+                        managerBinder.getUniqueId(),
+                        computer.serverCert,
+                        PlatformBinding.getCryptoProvider(AppView.this));
+                final Map<String, AppMetadata> fetched = http.getAppMetadata();
+                runOnUiThread(() -> {
+                    appMetadata = fetched;
+                    // Re-push whatever is spotlighted — centred in the carousel, focused in the
+                    // grid — so it picks up its freshly-arrived metadata.
+                    for (int i = 0; i < appGridAdapter.getCount(); i++) {
+                        AppObject app = (AppObject) appGridAdapter.getItem(i);
+                        if (app != null && app.app.getAppId() == browsingAppId) {
+                            pushCompanionBrowsing(app.app);
+                            break;
+                        }
+                    }
+                });
+            } catch (Exception e) {
+                LimeLog.warning("Failed to fetch app metadata: " + e.getMessage());
+            }
+        }).start();
     }
 
     private void onAppClicked(View view, int pos) {
@@ -955,10 +1181,7 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
 
     private void toggleViewMode() {
         coverflowMode = !coverflowMode;
-        ImageButton button = findViewById(R.id.viewModeButton);
-        button.setImageResource(coverflowMode ? R.drawable.ic_view_grid : R.drawable.ic_view_carousel);
-        button.setContentDescription(getString(
-                coverflowMode ? R.string.action_all_games : R.string.action_carousel));
+        refreshViewModeControls();
         applyChromeForMode();
 
         try {
@@ -967,6 +1190,24 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
                     .commitAllowingStateLoss();
         } catch (IllegalStateException e) {
             e.printStackTrace();
+        }
+    }
+
+    // The bar action and the on-screen hint both name the view you would get by using them, so
+    // they always say the same thing.
+    private void refreshViewModeControls() {
+        int label = coverflowMode ? R.string.action_all_games : R.string.action_carousel;
+
+        ImageButton button = findViewById(R.id.viewModeButton);
+        if (button != null) {
+            button.setImageResource(
+                    coverflowMode ? R.drawable.ic_view_grid : R.drawable.ic_view_carousel);
+            button.setContentDescription(getString(label));
+        }
+
+        TextView hint = findViewById(R.id.viewModeHintLabel);
+        if (hint != null) {
+            hint.setText(label);
         }
     }
 
@@ -1032,6 +1273,15 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        // Y switches between the carousel and the grid from anywhere in the library. This is the
+        // shortcut the on-screen hint advertises.
+        if (event.getAction() == KeyEvent.ACTION_DOWN
+                && event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_Y
+                && event.getRepeatCount() == 0) {
+            toggleViewMode();
+            return true;
+        }
+
         // In the carousel the app bar is hidden. Up reveals it; down from it hides it again,
         // so its actions stay reachable without stealing space from the covers.
         if (coverflowMode && event.getAction() == KeyEvent.ACTION_DOWN) {

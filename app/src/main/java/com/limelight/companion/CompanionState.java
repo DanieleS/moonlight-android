@@ -1,6 +1,9 @@
 package com.limelight.companion;
 
+import android.graphics.Bitmap;
+
 import com.limelight.binding.video.PerfStats;
+import com.limelight.nvstream.http.AppMetadata;
 
 /**
  * What the companion surface draws.
@@ -21,6 +24,13 @@ public class CompanionState {
     /** Null whenever we are not streaming, or streaming with the stats turned off. */
     private PerfStats stats;
     private Listener listener;
+
+    /** The game currently under the spotlight while browsing the library, if any. */
+    private String browsingTitle;
+    /** Metadata for {@link #browsingTitle}, or null when the host provided none for it. */
+    private AppMetadata browsingMetadata;
+    /** Background/hero art for {@link #browsingTitle}; arrives after the metadata, async. */
+    private Bitmap browsingBackground;
 
     private CompanionState() {
     }
@@ -65,6 +75,47 @@ public class CompanionState {
 
     public boolean isStreaming() {
         return stats != null;
+    }
+
+    /**
+     * Point the idle companion surface at the game currently centred in the library. Metadata may
+     * be null: the title alone is still worth showing.
+     */
+    public void setBrowsing(String title, AppMetadata metadata) {
+        this.browsingTitle = title;
+        this.browsingMetadata = metadata;
+        // The background belongs to the previous game; drop it until the new one's arrives.
+        this.browsingBackground = null;
+        notifyChanged();
+    }
+
+    /** Attach the background art once it has loaded for the current spotlight. */
+    public void setBrowsingBackground(Bitmap background) {
+        this.browsingBackground = background;
+        notifyChanged();
+    }
+
+    /** Stop spotlighting a game (e.g. on leaving the library). */
+    public void clearBrowsing() {
+        if (browsingTitle == null && browsingMetadata == null && browsingBackground == null) {
+            return;
+        }
+        browsingTitle = null;
+        browsingMetadata = null;
+        browsingBackground = null;
+        notifyChanged();
+    }
+
+    public String getBrowsingTitle() {
+        return browsingTitle;
+    }
+
+    public AppMetadata getBrowsingMetadata() {
+        return browsingMetadata;
+    }
+
+    public Bitmap getBrowsingBackground() {
+        return browsingBackground;
     }
 
     private void notifyChanged() {

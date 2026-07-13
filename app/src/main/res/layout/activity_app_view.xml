@@ -30,6 +30,15 @@
             android:contentDescription="@string/action_companion_hide"
             android:src="@drawable/ic_companion_on" />
 
+        <!-- Launches the host's Virtual Display shortcut, which is otherwise hidden from the
+             library. Only shown when the host advertises that entry. -->
+        <ImageButton
+            android:id="@+id/virtualDisplayButton"
+            style="@style/TopBarAction"
+            android:contentDescription="@string/action_virtual_display"
+            android:src="@drawable/ic_virtual_display"
+            android:visibility="gone" />
+
         <ImageButton
             android:id="@+id/viewModeButton"
             style="@style/TopBarAction"
@@ -41,6 +50,53 @@
             style="@style/TopBarProfile"
             android:contentDescription="@string/profile_manager_choose_profile"
             app:icon="@drawable/ic_profiles" />
+
+    </LinearLayout>
+
+    <!--
+        The view-mode shortcut, always on screen in both views: it names the gamepad button that
+        switches between the carousel and the grid, and it is a touch target itself. Declared last
+        so it floats over the library; not focusable, so it never intercepts the d-pad.
+    -->
+    <LinearLayout
+        android:id="@+id/viewModeHint"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentEnd="true"
+        android:layout_margin="20dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="@drawable/hint_pill_bg"
+        android:paddingStart="8dp"
+        android:paddingEnd="14dp"
+        android:paddingTop="7dp"
+        android:paddingBottom="7dp"
+        android:clickable="true"
+        android:focusable="false">
+
+        <TextView
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:background="@drawable/hint_badge_bg"
+            android:gravity="center"
+            android:text="@string/hint_button_y"
+            android:textColor="@color/content_secondary"
+            android:textSize="11sp"
+            android:fontFamily="sans-serif-medium"
+            android:includeFontPadding="false" />
+
+        <TextView
+            android:id="@+id/viewModeHintLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="9dp"
+            android:text="@string/action_all_games"
+            android:textColor="@color/content_secondary"
+            android:textSize="11sp"
+            android:letterSpacing="0.12"
+            android:textAllCaps="true"
+            android:includeFontPadding="false" />
 
     </LinearLayout>
 

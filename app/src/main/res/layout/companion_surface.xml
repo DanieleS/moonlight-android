@@ -8,16 +8,96 @@
     android:layout_height="match_parent"
     android:background="@color/surface_deep">
 
-    <TextView
+    <!-- The spotlighted game's background/hero art, when the host has one. Behind everything;
+         a scrim keeps the text on top of it legible. Both are toggled from code. -->
+    <ImageView
+        android:id="@+id/companionBackdrop"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:visibility="gone"
+        android:importantForAccessibility="no" />
+
+    <View
+        android:id="@+id/companionBackdropScrim"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/coverflow_scrim"
+        android:visibility="gone" />
+
+    <!--
+        Idle surface. Shows the game currently spotlighted in the library: its name, a meta line
+        (year · genres · score) and a description. With no game selected it falls back to the app
+        name, so it is never empty.
+    -->
+    <LinearLayout
         android:id="@+id/companionIdle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:text="@string/app_label"
-        android:textColor="@color/content_primary"
-        android:textSize="28sp"
-        android:letterSpacing="0.12"
-        android:fontFamily="sans-serif-light" />
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="28dp">
+
+        <TextView
+            android:id="@+id/companionIdleTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:maxWidth="720dp"
+            android:maxLines="2"
+            android:ellipsize="end"
+            android:text="@string/app_label"
+            android:textColor="@color/content_primary"
+            android:textSize="30sp"
+            android:letterSpacing="0.04"
+            android:fontFamily="sans-serif-light" />
+
+        <TextView
+            android:id="@+id/companionIdleMeta"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:gravity="center"
+            android:maxWidth="720dp"
+            android:maxLines="2"
+            android:ellipsize="end"
+            android:textColor="@color/content_muted"
+            android:textSize="13sp"
+            android:letterSpacing="0.12"
+            android:textAllCaps="true"
+            android:visibility="gone" />
+
+        <!--
+            The description is as long as the host makes it, so it scrolls rather than truncating.
+            Sized wrap_content inside a match_parent column, it grows only as far as the space the
+            title and meta line leave it, and scrolls beyond that. The fading edge is what tells
+            the reader there is more below.
+        -->
+        <ScrollView
+            android:id="@+id/companionIdleDescriptionScroll"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:fillViewport="true"
+            android:scrollbars="vertical"
+            android:scrollbarThumbVertical="@color/divider"
+            android:requiresFadingEdge="vertical"
+            android:fadingEdgeLength="28dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/companionIdleDescription"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:maxWidth="720dp"
+                android:lineSpacingMultiplier="1.2"
+                android:textColor="@color/content_secondary"
+                android:textSize="14sp" />
+
+        </ScrollView>
+
+    </LinearLayout>
 
     <LinearLayout
         android:id="@+id/companionStats"

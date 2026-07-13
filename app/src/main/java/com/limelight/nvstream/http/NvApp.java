@@ -4,6 +4,10 @@ import com.limelight.LimeLog;
 
 public class NvApp {
     public static final String REMOTE_INPUT_UUID = "8CB5C136-DA67-4F99-B4A1-F9CD35005CF4";
+    // Vibepollo assigns this fixed UUID to its auto-generated "Virtual Display" entry
+    // (VIRTUAL_DISPLAY_UUID in the host's process.h). We recognise it to pull the entry out
+    // of the library and offer it as a dedicated app-bar action instead of a cover.
+    public static final String VIRTUAL_DISPLAY_UUID = "8902CB19-674A-403D-A587-41B092E900BA";
     private String appName = "";
     private String appUUID = "";
     private int appId;
@@ -86,6 +90,10 @@ public class NvApp {
     
     public boolean isInitialized() {
         return this.initialized;
+    }
+
+    public boolean isVirtualDisplay() {
+        return VIRTUAL_DISPLAY_UUID.equalsIgnoreCase(this.appUUID);
     }
 
     @Override
