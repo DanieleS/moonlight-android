@@ -26,6 +26,7 @@ public abstract class GenericGridAdapter<T> extends RecyclerView.Adapter<Generic
     final ArrayList<T> itemList = new ArrayList<>();
     private final LayoutInflater inflater;
     private OnItemClickListener clickListener;
+    private boolean itemsFocusableInTouchMode;
 
     GenericGridAdapter(Context context, int layoutId) {
         this.context = context;
@@ -35,6 +36,18 @@ public abstract class GenericGridAdapter<T> extends RecyclerView.Adapter<Generic
 
     public void setOnItemClickListener(OnItemClickListener listener) {
         this.clickListener = listener;
+    }
+
+    /**
+     * Make tiles hold focus in touch mode. The carousel wants this only when a gamepad is
+     * present, so the first d-pad press after a touch entry moves instead of merely reclaiming
+     * focus; touch-only devices leave it off so a tap does not leave a ring stuck on a tile.
+     */
+    public void setItemsFocusableInTouchMode(boolean focusable) {
+        if (this.itemsFocusableInTouchMode != focusable) {
+            this.itemsFocusableInTouchMode = focusable;
+            notifyDataSetChanged();
+        }
     }
 
     void setLayoutId(int layoutId) {
@@ -89,6 +102,8 @@ public abstract class GenericGridAdapter<T> extends RecyclerView.Adapter<Generic
     public void onBindViewHolder(@NonNull GridItemHolder holder, int position) {
         populateView(holder.itemView, holder.image, holder.spinner, holder.text, holder.overlay,
                 itemList.get(position));
+
+        holder.itemView.setFocusableInTouchMode(itemsFocusableInTouchMode);
 
         holder.itemView.setOnClickListener(v -> {
             if (clickListener == null) {

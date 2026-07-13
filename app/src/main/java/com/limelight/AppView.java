@@ -7,6 +7,7 @@ import java.util.List;
 
 import com.google.android.material.button.MaterialButton;
 import com.limelight.companion.CompanionDisplayManager;
+import com.limelight.binding.input.ControllerHandler;
 import com.limelight.computers.ComputerManagerListener;
 import com.limelight.computers.ComputerManagerService;
 import com.limelight.grid.AppGridAdapter;
@@ -39,6 +40,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.view.ContextMenu;
+import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -808,8 +810,22 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         recyclerView.requestFocus();
     }
 
+    // A gamepad (built into the Thor, or plugged into a phone) means the user drives the
+    // carousel with a d-pad, so the covers should keep focus through a touch entry. A touch-only
+    // phone leaves this off.
+    private static boolean isGamepadConnected() {
+        for (int id : InputDevice.getDeviceIds()) {
+            InputDevice device = InputDevice.getDevice(id);
+            if (device != null && ControllerHandler.isGameControllerDevice(device)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void setupGrid(RecyclerView recyclerView) {
         appGridAdapter.setCoverflowLayout(false, prefConfig);
+        appGridAdapter.setItemsFocusableInTouchMode(false);
         boolean small = PreferenceConfiguration.readPreferences(this).smallIconMode;
         int columnWidthPx = Math.round((small ? 100 : 150) * getResources().getDisplayMetrics().density);
         int spacingPx = getResources().getDimensionPixelSize(
@@ -823,6 +839,7 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
 
     private void setupCoverflow(RecyclerView recyclerView) {
         appGridAdapter.setCoverflowLayout(true, prefConfig);
+        appGridAdapter.setItemsFocusableInTouchMode(isGamepadConnected());
         coverflowCentered = -1;
         float density = getResources().getDisplayMetrics().density;
         int itemWidthPx = Math.round(180 * density);
@@ -832,20 +849,37 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         recyclerView.addItemDecoration(new GridSpacingItemDecoration(gapPx));
         new LinearSnapHelper().attachToRecyclerView(recyclerView);
 
-        // Enough side padding that the first and last covers can still reach the centre.
-        recyclerView.post(() -> {
-            int side = Math.max(0, (recyclerView.getWidth() - itemWidthPx) / 2);
-            recyclerView.setPadding(side, recyclerView.getPaddingTop(),
-                    side, recyclerView.getPaddingBottom());
-
-            // Land on the first cover, centred, rather than wherever the framework happens to
-            // put focus. Done once the padding above has settled so it starts at rest.
-            recyclerView.post(() -> {
-                RecyclerView.ViewHolder holder = recyclerView.findViewHolderForAdapterPosition(0);
-                if (holder != null) {
-                    holder.itemView.requestFocus();
+        // The first and last covers must be able to reach the centre, so pad the list by half a
+        // screen minus half a cover. This has to wait for a real width: a bare post() can fire
+        // while the RecyclerView is still zero-width, which pads by nothing and leaves the first
+        // cover stranded at the left edge instead of centred. A layout-change listener is added
+        // safely whether or not the view is attached yet, and fires with the real bounds.
+        recyclerView.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
+            @Override
+            public void onLayoutChange(View v, int left, int top, int right, int bottom,
+                                       int oldLeft, int oldTop, int oldRight, int oldBottom) {
+                int width = right - left;
+                if (width == 0) {
+                    return;
                 }
-            });
+                recyclerView.removeOnLayoutChangeListener(this);
+
+                int side = Math.max(0, (width - itemWidthPx) / 2);
+                recyclerView.setPadding(side, recyclerView.getPaddingTop(),
+                        side, recyclerView.getPaddingBottom());
+
+                // With that padding the first cover rests dead centre; land the focus on it
+                // rather than on wherever the framework put it. One more pass so the padding has
+                // taken effect and the holder exists.
+                recyclerView.post(() -> {
+                    recyclerView.scrollToPosition(0);
+                    RecyclerView.ViewHolder holder =
+                            recyclerView.findViewHolderForAdapterPosition(0);
+                    if (holder != null) {
+                        holder.itemView.requestFocus();
+                    }
+                });
+            }
         });
 
         // The backdrop and title are siblings of the RecyclerView's container, not of the
