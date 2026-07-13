@@ -35,22 +35,30 @@ import java.util.concurrent.Executors;
 /**
  * Draws the images a game's description embeds.
  *
- * {@link Html#fromHtml} wants a drawable for every {@code <img>}, and wants it there and then; the
- * images live on the web. So the first parse gets nothing back and the bytes are fetched in the
- * background; once they land the description is parsed again, and this time the image draws.
+ * {@link Html#fromHtml} wants a drawable for every {@code <img>}, and wants it there and then, on
+ * the thread that parses; the images live on the web, and decoding one — a Steam GIF is hundreds of
+ * frames — is far too much to do on the main thread while the library is being scrolled. So a parse
+ * never decodes: it either hands back a drawable that is already standing by, or hands back nothing
+ * and asks for one. Fetching and decoding both happen on {@link #LOADER}, and once a drawable is
+ * ready the description is parsed again, and this time the image draws.
+ *
+ * Decoded drawables outlive the description they were parsed for, so scrolling back to a game
+ * already seen draws it at once instead of decoding it again.
  *
  * Most of what Steam puts in a description is an animated GIF, and animating them is not a flourish
  * — several open on a fade from black, so a still first frame is a black rectangle. They are played
  * where the platform can (API 28+), and shown as their first frame where it cannot.
+ *
+ * Main thread only, but for the body of a {@link #LOADER} task.
  */
 class DescriptionImages implements Html.ImageGetter {
 
-    /** Raised on the main thread once an image has arrived and the description is worth redrawing. */
+    /** Raised on the main thread once an image is ready and the description is worth redrawing. */
     interface Callback {
         void onImageLoaded();
     }
 
-    /** Downloaded bytes, kept across panels so a game revisited draws at once. */
+    /** Downloaded bytes, kept across panels so a game revisited need not be fetched again. */
     private static final LruCache<String, byte[]> BYTES = new LruCache<String, byte[]>(16 * 1024 * 1024) {
         @Override
         protected int sizeOf(String key, byte[] value) {
@@ -60,25 +68,49 @@ class DescriptionImages implements Html.ImageGetter {
 
     private static final ExecutorService LOADER = Executors.newFixedThreadPool(2);
     private static final int TIMEOUT_MS = 8000;
+    private static final int DECODED_BUDGET_BYTES = 24 * 1024 * 1024;
 
     /** The view the images are drawn in: an animating frame invalidates it, nothing else. */
     private final View target;
     private final Callback callback;
     private final Handler mainThread = new Handler(Looper.getMainLooper());
 
-    /**
-     * The drawables of the description on screen. They are bound to {@link #target} and, when
-     * animated, running, so they belong to this panel and to the current game only.
-     */
+    /** The drawables of the description on screen: the ones a spotlight change has to let go of. */
     private final Map<String, Drawable> drawables = new HashMap<>();
 
-    /** Sources being fetched, and sources not worth fetching again. */
+    /**
+     * Drawables ready to be drawn, whether or not they are on screen now. They are bound to
+     * {@link #target}, so this rides with the panel rather than being shared between panels.
+     */
+    private final LruCache<String, Drawable> decoded =
+            new LruCache<String, Drawable>(DECODED_BUDGET_BYTES) {
+        @Override
+        protected int sizeOf(String key, Drawable value) {
+            // An animated drawable holds more than one frame, but how many is its own business;
+            // a frame is the closest we can get to its weight from out here.
+            return Math.max(1, value.getIntrinsicWidth() * value.getIntrinsicHeight() * 4);
+        }
+
+        @Override
+        protected void entryRemoved(boolean evicted, String key, Drawable old, Drawable now) {
+            // An evicted drawable that is still in the description on screen is still being drawn:
+            // it has only lost its place in the cache, so leave it running.
+            if (!drawables.containsValue(old)) {
+                stop(old);
+            }
+        }
+    };
+
+    /** Sources being fetched or decoded, and sources not worth asking for again. */
     private final Set<String> inFlight = new HashSet<>();
     private final Set<String> failed = new HashSet<>();
 
     /** The box an image is drawn into, set by the panel before each parse. */
     private int maxWidthPx = 1;
     private int maxHeightPx = 1;
+
+    /** Whether what we draw is on screen and so worth animating. */
+    private boolean animating = true;
 
     DescriptionImages(View target, Callback callback) {
         this.target = target;
@@ -96,11 +128,13 @@ class DescriptionImages implements Html.ImageGetter {
         for (Drawable drawable : drawables.values()) {
             stop(drawable);
         }
+        // The drawables themselves stay in the cache: the game they belong to is one scroll away.
         drawables.clear();
     }
 
     /** Nothing is on screen worth animating (a stream took the panel), or it is again. */
     void setAnimating(boolean animating) {
+        this.animating = animating;
         for (Drawable drawable : drawables.values()) {
             if (animating) {
                 start(drawable);
@@ -112,21 +146,25 @@ class DescriptionImages implements Html.ImageGetter {
 
     @Override
     public Drawable getDrawable(String source) {
-        Drawable drawable = drawables.get(source);
-        if (drawable != null) {
-            return drawable;
+        Drawable drawn = drawables.get(source);
+        if (drawn != null) {
+            return drawn;
         }
 
-        byte[] bytes = BYTES.get(source);
-        if (bytes != null) {
-            drawable = build(bytes);
-            if (drawable != null) {
-                drawables.put(source, drawable);
-                return drawable;
+        // Decoding is never done here: a parse runs on the main thread, and the library is being
+        // scrolled on it. Either one is standing by, or one is asked for and this parse draws a gap.
+        String key = key(source);
+        Drawable ready = decoded.get(key);
+        if (ready != null) {
+            drawables.put(source, ready);
+            if (animating) {
+                start(ready);
             }
-            failed.add(source);
-        } else if (!failed.contains(source)) {
-            fetch(source);
+            return ready;
+        }
+
+        if (!failed.contains(source)) {
+            request(source, key);
         }
 
         // Nothing to show yet. A zero-sized box holds no space, so an image that never arrives
@@ -136,37 +174,52 @@ class DescriptionImages implements Html.ImageGetter {
         return nothing;
     }
 
-    private void fetch(String source) {
-        if (!inFlight.add(source)) {
+    /** Fetch the bytes if we haven't got them, decode them, and put the drawable within reach. */
+    private void request(String source, String key) {
+        if (!inFlight.add(key)) {
             return;
         }
 
+        // The box is read here, on the main thread, and carried into the task: it is what the
+        // drawable is keyed on, and it must not be read from under the decoder as the panel resizes.
+        final int width = maxWidthPx;
+        final int height = maxHeightPx;
+
         LOADER.execute(() -> {
-            byte[] bytes = null;
+            Drawable built = null;
             try {
-                bytes = read(source);
+                byte[] bytes = BYTES.get(source);
+                if (bytes == null) {
+                    bytes = read(source);
+                    BYTES.put(source, bytes);
+                }
+                built = build(bytes, width, height);
             } catch (Exception e) {
                 LimeLog.warning("Companion: failed to load description image " + source + ": " + e);
             }
 
-            final byte[] loaded = bytes;
+            final Drawable drawable = built;
             mainThread.post(() -> {
-                inFlight.remove(source);
-                if (loaded == null) {
+                inFlight.remove(key);
+                if (drawable == null) {
                     failed.add(source);
                     return;
                 }
-                BYTES.put(source, loaded);
+                decoded.put(key, drawable);
                 callback.onImageLoaded();
             });
         });
     }
 
-    /** Decode to fit the description's column, animated if the platform and the image allow it. */
-    private Drawable build(byte[] bytes) {
+    /**
+     * Decode to fit the description's column, animated if the platform and the image allow it.
+     * Runs on {@link #LOADER}: the drawable it returns has been built but not yet shown, and is
+     * handed to the main thread to be drawn and played.
+     */
+    private Drawable build(byte[] bytes, int width, int height) {
         Drawable drawable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
-                ? decodeScaled(bytes)
-                : decodeFirstFrame(bytes);
+                ? decodeScaled(bytes, width, height)
+                : decodeFirstFrame(bytes, width, height);
         if (drawable == null) {
             return null;
         }
@@ -174,16 +227,16 @@ class DescriptionImages implements Html.ImageGetter {
         drawable.setBounds(0, 0, drawable.getIntrinsicWidth(), drawable.getIntrinsicHeight());
         if (drawable instanceof AnimatedImageDrawable) {
             // A TextView will not invalidate for a drawable it does not own, so the frames are
-            // pumped through to it by hand.
+            // pumped through to it by hand. It is not started here: it is started when a parse
+            // puts it on screen, and only then.
             drawable.setCallback(animationCallback);
             ((AnimatedImageDrawable) drawable).setRepeatCount(AnimatedImageDrawable.REPEAT_INFINITE);
-            start(drawable);
         }
         return drawable;
     }
 
     @androidx.annotation.RequiresApi(Build.VERSION_CODES.P)
-    private Drawable decodeScaled(byte[] bytes) {
+    private Drawable decodeScaled(byte[] bytes, int maxWidth, int maxHeight) {
         try {
             return ImageDecoder.decodeDrawable(
                     ImageDecoder.createSource(ByteBuffer.wrap(bytes)),
@@ -191,8 +244,8 @@ class DescriptionImages implements Html.ImageGetter {
                         int width = info.getSize().getWidth();
                         int height = info.getSize().getHeight();
                         float scale = Math.min(
-                                maxWidthPx / (float) width,
-                                maxHeightPx / (float) height);
+                                maxWidth / (float) width,
+                                maxHeight / (float) height);
                         if (scale < 1f) {
                             decoder.setTargetSize(
                                     Math.max(1, Math.round(width * scale)),
@@ -205,7 +258,7 @@ class DescriptionImages implements Html.ImageGetter {
         }
     }
 
-    private Drawable decodeFirstFrame(byte[] bytes) {
+    private Drawable decodeFirstFrame(byte[] bytes, int maxWidth, int maxHeight) {
         BitmapFactory.Options bounds = new BitmapFactory.Options();
         bounds.inJustDecodeBounds = true;
         BitmapFactory.decodeByteArray(bytes, 0, bytes.length, bounds);
@@ -214,15 +267,15 @@ class DescriptionImages implements Html.ImageGetter {
         }
 
         BitmapFactory.Options options = new BitmapFactory.Options();
-        options.inSampleSize = Math.max(1, bounds.outWidth / maxWidthPx);
+        options.inSampleSize = Math.max(1, bounds.outWidth / maxWidth);
         Bitmap decoded = BitmapFactory.decodeByteArray(bytes, 0, bytes.length, options);
         if (decoded == null) {
             return null;
         }
 
         float scale = Math.min(
-                maxWidthPx / (float) decoded.getWidth(),
-                maxHeightPx / (float) decoded.getHeight());
+                maxWidth / (float) decoded.getWidth(),
+                maxHeight / (float) decoded.getHeight());
         if (scale < 1f) {
             decoded = Bitmap.createScaledBitmap(decoded,
                     Math.max(1, Math.round(decoded.getWidth() * scale)),
@@ -230,6 +283,11 @@ class DescriptionImages implements Html.ImageGetter {
                     true);
         }
         return new BitmapDrawable(target.getResources(), decoded);
+    }
+
+    /** A drawable is only good for the box it was decoded for, so the box is part of its name. */
+    private String key(String source) {
+        return maxWidthPx + "x" + maxHeightPx + ":" + source;
     }
 
     private final Drawable.Callback animationCallback = new Drawable.Callback() {
