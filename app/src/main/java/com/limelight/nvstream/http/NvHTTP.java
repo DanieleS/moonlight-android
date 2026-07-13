@@ -444,6 +444,7 @@ public class NvHTTP {
         details.pairState = getPairState(serverInfo);
         details.runningGameId = getCurrentGame(serverInfo);
         details.runningGameUUID = getCurrentGameUUID(serverInfo);
+        details.runningGameName = getCurrentGameName(serverInfo);
 
         // The MJOLNIR codename was used by GFE but never by any third-party server
         details.nvidiaServer = getXmlString(serverInfo, "state", true).contains("MJOLNIR");
@@ -456,6 +457,16 @@ public class NvHTTP {
 
     public String getCurrentGameUUID(String serverInfo) throws IOException, XmlPullParserException {
         return getXmlString(serverInfo, "currentgameuuid", false);
+    }
+
+    /**
+     * The name of the game the host is running, or null on a host that does not send one. Only
+     * newer Sunshine hosts do; for the rest, a caller that wants the name has to find it in the
+     * app list itself.
+     */
+    public String getCurrentGameName(String serverInfo) throws IOException, XmlPullParserException {
+        String name = getXmlString(serverInfo, "currentgamename", false);
+        return name == null || name.isEmpty() ? null : name;
     }
 
     public ComputerDetails getComputerDetails(boolean likelyOnline) throws IOException, XmlPullParserException {

@@ -37,6 +37,21 @@
     <string name="pcview_menu_open_management_page">Go to Server Config</string>
     <string name="pcview_error_no_management_url">Cannot open server config page, cannot find server address.</string>
 
+    <!-- What a PC card says about its host, and the one action it offers. -->
+    <string name="pcview_status_online">Online</string>
+    <string name="pcview_status_offline">Offline</string>
+    <string name="pcview_status_checking">Checking…</string>
+    <string name="pcview_status_unpaired">Not paired</string>
+    <string name="pcview_status_running">Playing · %1$s</string>
+    <string name="pcview_status_running_unnamed">In a game</string>
+    <string name="pcview_action_resume">Resume</string>
+    <string name="pcview_action_pair">Pair</string>
+    <string name="pcview_action_wake">Wake</string>
+
+    <string name="action_change_pc">Change PC</string>
+    <string name="title_checkbox_auto_enter_last_pc">Go straight to the last PC</string>
+    <string name="summary_checkbox_auto_enter_last_pc">On launch, open the library of the PC you used last, if it is online and paired. Press back to return to the PC list.</string>
+
     <!-- Network test strings -->
     <string name="nettest_title_waiting">Testing Network Connection</string>
     <string name="nettest_text_waiting">Artemis is testing your network connection to determine if any required ports are blocked.\n\nThis may take a few seconds…</string>

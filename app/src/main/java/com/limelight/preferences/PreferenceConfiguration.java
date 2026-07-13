@@ -46,6 +46,7 @@ public class PreferenceConfiguration {
     private static final String METERED_BITRATE_PREF_STRING = "seekbar_metered_bitrate_kbps";
     private static final String ENABLE_ULTRA_LOW_LATENCY_PREF_STRING = "checkbox_ultra_low_latency";
     private static final String ENFORCE_DISPLAY_MODE_PREF_STRING = "checkbox_enforce_display_mode";
+    private static final String AUTO_ENTER_LAST_PC_PREF_STRING = "checkbox_auto_enter_last_pc";
     private static final String ENABLE_COMPANION_DISPLAY_PREF_STRING = "checkbox_enable_companion_display";
     private static final String ENABLE_COMPANION_STATS_PREF_STRING = "checkbox_enable_companion_stats";
     private static final String USE_VIRTUAL_DISPLAY_PREF_STRING = "checkbox_use_virtual_display";
@@ -144,6 +145,9 @@ public class PreferenceConfiguration {
     static final String DEFAULT_FPS = "60";
     private static final boolean DEFAULT_ENABLE_ULTRA_LOW_LATENCY = false;
     private static final boolean DEFAULT_ENFORCE_DISPLAY_MODE = false;
+    // The PC list is a gate, not a destination: someone who has picked a PC once should not have
+    // to pick it again every launch. Back from the library still lands on it.
+    private static final boolean DEFAULT_AUTO_ENTER_LAST_PC = true;
     private static final boolean DEFAULT_ENABLE_COMPANION_DISPLAY = false;
     // A companion panel with nothing on it is worth less than one showing the stats, so this is
     // on by default. It only takes effect once the companion display itself is switched on.
@@ -304,6 +308,8 @@ public class PreferenceConfiguration {
     public boolean enableNewAnalogStick;
 
     public boolean enableFullExDisplay;
+
+    public boolean autoEnterLastPc;
 
     public boolean enableCompanionDisplay;
 
@@ -974,6 +980,8 @@ private static int getFramePacingValue(Context context) {
         config.enableNewAnalogStick=prefs.getBoolean(CHECKBOX_CHECKBOX_ENABLE_ANALOG_STICK_NEW,false);
 
         config.enableFullExDisplay=prefs.getBoolean("checkbox_enable_fullexdisplay",false);
+
+        config.autoEnterLastPc = prefs.getBoolean(AUTO_ENTER_LAST_PC_PREF_STRING, DEFAULT_AUTO_ENTER_LAST_PC);
 
         config.enableCompanionDisplay = prefs.getBoolean(ENABLE_COMPANION_DISPLAY_PREF_STRING, DEFAULT_ENABLE_COMPANION_DISPLAY);
 

@@ -79,6 +79,8 @@ public class ComputerDetails {
     public PairingManager.PairState pairState;
     public int runningGameId;
     public String runningGameUUID;
+    // Sent by newer Sunshine hosts only; null elsewhere, and the app list has to be searched.
+    public String runningGameName;
     public String rawAppList;
     public boolean nvidiaServer;
 
@@ -158,6 +160,7 @@ public class ComputerDetails {
         this.pairState = details.pairState;
         this.runningGameId = details.runningGameId;
         this.runningGameUUID = details.runningGameUUID;
+        this.runningGameName = details.runningGameName;
         this.nvidiaServer = details.nvidiaServer;
         this.rawAppList = details.rawAppList;
 

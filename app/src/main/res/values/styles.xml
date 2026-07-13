@@ -105,6 +105,26 @@
     </style>
 
     <!--
+        The action on a PC card. An outlined button rather than a filled one: the card is
+        already a surface, and the signal is spent on focus, not on decoration.
+    -->
+    <style name="PcCardAction" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:minHeight">40dp</item>
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingEnd">16dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="android:textColor">@color/content_primary</item>
+        <item name="android:letterSpacing">0.04</item>
+        <item name="strokeColor">@color/pc_card_action_stroke</item>
+        <item name="strokeWidth">@dimen/tile_focus_stroke</item>
+        <item name="rippleColor">@color/signal_wash</item>
+    </style>
+
+    <!--
         Box art corners. The art is rounded by the ImageView itself rather than by a
         CardView, which would only be there to cast a shadow we do not want.
     -->

@@ -21,6 +21,23 @@
     <dimen name="pc_tile_corner">12dp</dimen>
 
     <!--
+        A PC is a card rather than a tile: it carries a name, a state, an address and, when
+        the host is in a game, that game's art. The cards stack in one column and stop
+        widening at pc_card_max_width, so a PC on a TV is a card and not a banner.
+    -->
+    <dimen name="pc_card_corner">14dp</dimen>
+    <dimen name="pc_card_max_width">560dp</dimen>
+    <dimen name="pc_card_min_height">120dp</dimen>
+    <dimen name="pc_card_spacing">12dp</dimen>
+    <dimen name="pc_card_padding">16dp</dimen>
+    <!-- The leading slot holds either the host glyph or the running game's cover, and is the
+         width of the cover so the text starts in the same place either way. -->
+    <dimen name="pc_card_leading_width">66dp</dimen>
+    <dimen name="pc_card_leading_height">88dp</dimen>
+    <dimen name="pc_card_glyph">44dp</dimen>
+    <dimen name="pc_status_dot">8dp</dimen>
+
+    <!--
         The actions along the top. The icons are drawn fitCenter inside this padding rather
         than stretched to fill it: the vectors declare themselves 256dp wide, and fitXY on a
         70x65 button is what squashed them.

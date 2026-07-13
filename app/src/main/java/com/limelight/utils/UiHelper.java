@@ -16,6 +16,7 @@ import android.os.LocaleList;
 import android.text.Html;
 import android.text.method.LinkMovementMethod;
 import android.util.TypedValue;
+import android.view.InputDevice;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowManager;
@@ -26,6 +27,7 @@ import com.limelight.AppView;
 import com.limelight.Game;
 import com.limelight.LimeLog;
 import com.limelight.R;
+import com.limelight.binding.input.ControllerHandler;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.preferences.PreferenceConfiguration;
 
@@ -120,6 +122,21 @@ public class UiHelper {
             });
             view.requestApplyInsets();
         }
+    }
+
+    /**
+     * A gamepad (built into the Thor, or plugged into a phone) means the user drives the library
+     * with a d-pad, so the tiles should keep focus through a touch entry. A touch-only phone
+     * leaves this off, so a tap does not strand a focus ring on a tile.
+     */
+    public static boolean isGamepadConnected() {
+        for (int id : InputDevice.getDeviceIds()) {
+            InputDevice device = InputDevice.getDevice(id);
+            if (device != null && ControllerHandler.isGameControllerDevice(device)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static void notifyNewRootView(final Activity activity)

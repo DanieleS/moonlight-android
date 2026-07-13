@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Like @color/action_stroke, but the hairline stays on when the button is idle. The actions in
+    the top bar sit on the bare ground, where a stroke would be noise; this one sits inside a
+    card, where it is the only thing that says the label is a button.
+-->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_pressed="true" android:color="@color/signal" />
+    <item android:state_focused="true" android:color="@color/signal" />
+    <item android:color="@color/divider" />
+</selector>

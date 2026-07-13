@@ -24,6 +24,13 @@
             style="@style/TopBarTitle"
             android:preferKeepClear="true" />
 
+        <!-- The way back to the PCs. Back leaves the app from here, so this is the only one. -->
+        <ImageButton
+            android:id="@+id/pcsButton"
+            style="@style/TopBarAction"
+            android:contentDescription="@string/action_change_pc"
+            android:src="@drawable/ic_computer" />
+
         <ImageButton
             android:id="@+id/companionButton"
             style="@style/TopBarAction"

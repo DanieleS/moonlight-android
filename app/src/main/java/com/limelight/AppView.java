@@ -12,7 +12,6 @@ import com.google.android.material.button.MaterialButton;
 import com.limelight.companion.CompanionDisplayManager;
 import com.limelight.companion.CompanionState;
 import com.limelight.binding.PlatformBinding;
-import com.limelight.binding.input.ControllerHandler;
 import com.limelight.nvstream.http.AppMetadata;
 import com.limelight.computers.ComputerManagerListener;
 import com.limelight.computers.ComputerManagerService;
@@ -47,7 +46,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.view.ContextMenu;
-import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -357,6 +355,20 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         findViewById(R.id.profilesButton)
             .setOnClickListener(v -> startActivity(new Intent(this, ProfilesActivity.class)));
 
+        // The way back to the PC list. It is an action rather than the back gesture, because the
+        // library is where the app starts and back should leave the app, not drop the user onto
+        // a screen they asked never to be shown.
+        findViewById(R.id.pcsButton)
+            .setOnClickListener(v -> {
+                Intent i = new Intent(this, PcView.class);
+                // Reuse the PC list already under us rather than stacking another one, and tell
+                // it not to send us straight back here.
+                i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                i.putExtra(PcView.SKIP_AUTO_ENTER_EXTRA, true);
+                startActivity(i);
+                finish();
+            });
+
         // Toggle between the carousel and the "all games" grid, from the bar or from the
         // always-visible hint that advertises the gamepad shortcut for the same thing.
         findViewById(R.id.viewModeButton)
@@ -455,6 +467,18 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         if (managerBinder != null) {
             unbindService(serviceConnection);
         }
+    }
+
+    /**
+     * Back leaves the app.
+     *
+     * The library is the front door — a launch goes straight to it — so backing out of it should
+     * put the user where backing out of an app puts them, not on the PC list they were spared.
+     * The PC list is reached deliberately, from the action in the bar.
+     */
+    @Override
+    public void onBackPressed() {
+        finishAffinity();
     }
 
     @Override
@@ -892,19 +916,6 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         recyclerView.requestFocus();
     }
 
-    // A gamepad (built into the Thor, or plugged into a phone) means the user drives the
-    // carousel with a d-pad, so the covers should keep focus through a touch entry. A touch-only
-    // phone leaves this off.
-    private static boolean isGamepadConnected() {
-        for (int id : InputDevice.getDeviceIds()) {
-            InputDevice device = InputDevice.getDevice(id);
-            if (device != null && ControllerHandler.isGameControllerDevice(device)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private void setupGrid(RecyclerView recyclerView) {
         appGridAdapter.setCoverflowLayout(false, prefConfig);
         appGridAdapter.setItemsFocusableInTouchMode(false);
@@ -949,7 +960,7 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
 
     private void setupCoverflow(RecyclerView recyclerView) {
         appGridAdapter.setCoverflowLayout(true, prefConfig);
-        appGridAdapter.setItemsFocusableInTouchMode(isGamepadConnected());
+        appGridAdapter.setItemsFocusableInTouchMode(UiHelper.isGamepadConnected());
         coverflowCentered = -1;
         float density = getResources().getDisplayMetrics().density;
         int itemWidthPx = Math.round(180 * density);

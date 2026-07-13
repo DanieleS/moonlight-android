@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The state of a PC, as a dot. It is tinted by the adapter; the colour here is only a base. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+
+    <size
+        android:width="@dimen/pc_status_dot"
+        android:height="@dimen/pc_status_dot" />
+    <solid android:color="@android:color/white" />
+
+</shape>

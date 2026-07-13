@@ -23,32 +23,34 @@
         android:layout_below="@+id/topBar"
         android:gravity="center">
 
-        <RelativeLayout
+        <!-- No PC yet: the spinner over the explanation, centred, rather than the two of them
+             side by side against the left of a screen that is otherwise empty. -->
+        <LinearLayout
             android:id="@+id/no_pc_found_layout"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_centerInParent="true"
+            android:maxWidth="@dimen/pc_card_max_width"
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
             android:paddingLeft="@dimen/activity_horizontal_margin"
             android:paddingRight="@dimen/activity_horizontal_margin">
 
             <ProgressBar
                 android:id="@+id/pcs_loading"
-                android:layout_width="75dp"
-                android:layout_height="75dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:indeterminate="true" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_toEndOf="@+id/pcs_loading"
-                android:layout_toRightOf="@+id/pcs_loading"
-                android:layout_centerVertical="true"
-                android:layout_marginStart="10dp"
-                android:layout_marginLeft="10dp"
+                android:layout_marginTop="20dp"
                 android:gravity="center"
                 android:text="@string/searching_pc"
-                android:textAppearance="?android:attr/textAppearanceLarge" />
-        </RelativeLayout>
+                android:textColor="@color/content_muted"
+                android:textSize="16sp" />
+        </LinearLayout>
 
     </RelativeLayout>
 

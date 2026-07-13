@@ -147,6 +147,21 @@
     <string name="pcview_menu_header_unknown">Aggiornando</string>
     <string name="pcview_menu_details">Mostra Dettagli</string>
     <string name="pcview_menu_test_network">Controlla la Connessione di Rete</string>
+
+    <!-- Cosa dice la scheda di un PC, e l'unica azione che offre. -->
+    <string name="pcview_status_online">Online</string>
+    <string name="pcview_status_offline">Offline</string>
+    <string name="pcview_status_checking">Verifica…</string>
+    <string name="pcview_status_unpaired">Non appaiato</string>
+    <string name="pcview_status_running">In gioco · %1$s</string>
+    <string name="pcview_status_running_unnamed">In gioco</string>
+    <string name="pcview_action_resume">Riprendi</string>
+    <string name="pcview_action_pair">Appaia</string>
+    <string name="pcview_action_wake">Accendi</string>
+
+    <string name="action_change_pc">Cambia PC</string>
+    <string name="title_checkbox_auto_enter_last_pc">Vai all\'ultimo PC</string>
+    <string name="summary_checkbox_auto_enter_last_pc">All\'avvio apre subito la libreria dell\'ultimo PC usato, se è online e appaiato. Premi indietro per tornare all\'elenco dei PC.</string>
     <string name="title_details">Dettagli</string>
     <string name="delete_pc_msg">Sei sicuro di voler rimuovere questo PC\?</string>
     <string name="slow_connection_msg">Connessione lenta al PC

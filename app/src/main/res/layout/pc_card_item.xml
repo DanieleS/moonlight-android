@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    One PC. The card says what the old icon could not: whether the host is up, whether it is
+    paired, where it is, and what it is running. When a game is up, that game's art is the
+    card: crisp in the leading slot, and bled across the whole card behind the text, which is
+    what makes this screen worth looking at rather than merely worth passing through.
+
+    The root is ringed as a whole (foreground), and clipped to its background's corners by
+    the adapter, so the bled art stops where the card does.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="@dimen/pc_card_spacing"
+    android:minHeight="@dimen/pc_card_min_height"
+    android:background="@drawable/pc_card_bg"
+    android:foreground="@drawable/pc_card_focus_ring"
+    android:focusable="true"
+    android:clickable="true">
+
+    <ImageView
+        android:id="@+id/pc_card_ambient"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:alpha="0.24"
+        android:importantForAccessibility="no"
+        android:visibility="gone" />
+
+    <View
+        android:id="@+id/pc_card_ambient_scrim"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/pc_card_ambient_scrim"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_vertical"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:padding="@dimen/pc_card_padding">
+
+        <FrameLayout
+            android:layout_width="@dimen/pc_card_leading_width"
+            android:layout_height="@dimen/pc_card_leading_height">
+
+            <!-- The host, when there is no game to show instead. -->
+            <ImageView
+                android:id="@+id/pc_card_glyph"
+                android:layout_width="@dimen/pc_card_glyph"
+                android:layout_height="@dimen/pc_card_glyph"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_computer"
+                android:tint="@color/content_muted"
+                android:importantForAccessibility="no" />
+
+            <com.google.android.material.imageview.ShapeableImageView
+                android:id="@+id/pc_card_cover"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:importantForAccessibility="no"
+                android:visibility="gone"
+                app:shapeAppearanceOverlay="@style/TileShapeSmall" />
+
+            <ProgressBar
+                android:id="@+id/pc_card_spinner"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_gravity="center"
+                android:indeterminate="true"
+                android:visibility="gone" />
+
+        </FrameLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="@dimen/pc_card_padding"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/pc_card_name"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/content_primary"
+                android:textSize="20sp"
+                android:singleLine="true"
+                android:ellipsize="end" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <View
+                    android:id="@+id/pc_card_dot"
+                    android:layout_width="@dimen/pc_status_dot"
+                    android:layout_height="@dimen/pc_status_dot"
+                    android:background="@drawable/pc_status_dot" />
+
+                <TextView
+                    android:id="@+id/pc_card_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:textColor="@color/content_muted"
+                    android:textSize="14sp"
+                    android:singleLine="true"
+                    android:ellipsize="end" />
+
+            </LinearLayout>
+
+            <!-- What the host is playing, when it is playing something. -->
+            <TextView
+                android:id="@+id/pc_card_running"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textColor="@color/content_secondary"
+                android:textSize="14sp"
+                android:singleLine="true"
+                android:ellipsize="end"
+                android:visibility="gone" />
+
+            <!-- The one thing this PC is waiting for you to do: wake it, pair it, or rejoin it. -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/pc_card_action"
+                style="@style/PcCardAction"
+                android:layout_marginTop="10dp"
+                android:visibility="gone" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</FrameLayout>

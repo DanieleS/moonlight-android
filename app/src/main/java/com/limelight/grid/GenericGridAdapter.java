@@ -5,7 +5,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
-import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -89,7 +88,7 @@ public abstract class GenericGridAdapter<T> extends RecyclerView.Adapter<Generic
         return position;
     }
 
-    public abstract void populateView(View parentView, ImageView imgView, ProgressBar prgView, TextView txtView, ImageView overlayView, T obj);
+    public abstract void populateView(View parentView, ImageView imgView, TextView txtView, ImageView overlayView, T obj);
 
     @NonNull
     @Override
@@ -100,7 +99,7 @@ public abstract class GenericGridAdapter<T> extends RecyclerView.Adapter<Generic
 
     @Override
     public void onBindViewHolder(@NonNull GridItemHolder holder, int position) {
-        populateView(holder.itemView, holder.image, holder.spinner, holder.text, holder.overlay,
+        populateView(holder.itemView, holder.image, holder.text, holder.overlay,
                 itemList.get(position));
 
         holder.itemView.setFocusableInTouchMode(itemsFocusableInTouchMode);
@@ -120,15 +119,12 @@ public abstract class GenericGridAdapter<T> extends RecyclerView.Adapter<Generic
         final ImageView image;
         final ImageView overlay;
         final TextView text;
-        final ProgressBar spinner;
 
         GridItemHolder(View itemView) {
             super(itemView);
             image = itemView.findViewById(R.id.grid_image);
             overlay = itemView.findViewById(R.id.grid_overlay);
             text = itemView.findViewById(R.id.grid_text);
-            // Only the PC tile carries a spinner; null on the app tiles, which never read it.
-            spinner = itemView.findViewById(R.id.grid_spinner);
 
             // Focusable for the d-pad, long-clickable so the framework raises the context
             // menu through ContextMenuRecyclerView, exactly as an AbsListView child was.

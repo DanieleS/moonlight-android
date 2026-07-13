@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Laid over the running game's art where it bleeds across the card, so the name and the
+    status keep their contrast against it. Opaque under the text on the left, gone by the
+    time it reaches the cover on the right.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+
+    <corners android:radius="@dimen/pc_card_corner" />
+    <gradient
+        android:angle="0"
+        android:startColor="@color/surface_raised"
+        android:centerColor="#CC212121"
+        android:endColor="#00212121"
+        android:type="linear" />
+
+</shape>

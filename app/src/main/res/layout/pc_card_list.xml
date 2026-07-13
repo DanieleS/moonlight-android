@@ -1,10 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The PC grid. Span count is set in code; the tiles space themselves with their own padding. -->
+<!--
+    The PCs, one card per row. The side padding is set in code: it is what centres the column
+    and stops the cards from stretching the width of a TV.
+-->
 <com.limelight.ui.ContextMenuRecyclerView xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/fragmentView"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="@dimen/top_bar_padding"
+    android:paddingTop="@dimen/pc_card_spacing"
+    android:paddingBottom="@dimen/pc_card_spacing"
     android:clipToPadding="false"
     android:focusable="true"
     android:descendantFocusability="afterDescendants" />

@@ -545,6 +545,12 @@
         app:initialExpandedChildrenCount="3"
         app:iconSpaceReserved="false">
         <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="checkbox_auto_enter_last_pc"
+            android:summary="@string/summary_checkbox_auto_enter_last_pc"
+            android:title="@string/title_checkbox_auto_enter_last_pc"
+            app:iconSpaceReserved="false" />
+        <CheckBoxPreference
             android:defaultValue="false"
             android:key="checkbox_resume_without_confirm"
             android:summary="@string/summary_checkbox_resume_without_confirm"
