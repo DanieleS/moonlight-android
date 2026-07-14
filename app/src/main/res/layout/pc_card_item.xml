@@ -129,11 +129,21 @@
                 android:ellipsize="end"
                 android:visibility="gone" />
 
-            <!-- The one thing this PC is waiting for you to do: wake it, pair it, or rejoin it. -->
+            <!--
+                The one thing this PC is waiting for you to do: wake it, pair it, or rejoin it.
+
+                Not focusable, and it could not be focused anyway: a d-pad cannot move onto a
+                view that sits inside the focused one. It is a touch target, and with a gamepad
+                present it wears the letter of the button that fires it from the card itself.
+            -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/pc_card_action"
                 style="@style/PcCardAction"
                 android:layout_marginTop="10dp"
+                android:focusable="false"
+                app:iconGravity="textStart"
+                app:iconPadding="10dp"
+                app:iconTint="@color/content_secondary"
                 android:visibility="gone" />
 
         </LinearLayout>

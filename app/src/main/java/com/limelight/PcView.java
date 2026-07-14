@@ -50,6 +50,7 @@ import android.provider.Settings;
 import android.text.InputFilter;
 import android.text.InputType;
 import android.view.ContextMenu;
+import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -462,6 +463,11 @@ public class PcView extends AppCompatActivity implements AdapterFragmentCallback
         UiHelper.showDecoderCrashDialog(this);
 
         refreshProfileButton();
+
+        // A pad plugged in while we were away still gets its letter on the cards.
+        if (pcCardAdapter != null) {
+            pcCardAdapter.setGamepadPresent(UiHelper.isGamepadConnected());
+        }
 
         inForeground = true;
         startComputerUpdates();
@@ -1111,7 +1117,7 @@ public class PcView extends AppCompatActivity implements AdapterFragmentCallback
 
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setAdapter(pcCardAdapter);
-        pcCardAdapter.setItemsFocusableInTouchMode(UiHelper.isGamepadConnected());
+        pcCardAdapter.setGamepadPresent(UiHelper.isGamepadConnected());
 
         // One centred column of cards, which stop widening at pc_card_max_width: the side
         // padding is what centres them, and what keeps a card on a TV from becoming a banner.
@@ -1140,27 +1146,7 @@ public class PcView extends AppCompatActivity implements AdapterFragmentCallback
         });
 
         // The card's own action: the one thing that PC is waiting for.
-        pcCardAdapter.setOnActionClickListener((computer, action) -> {
-            switch (action) {
-                case PcCardAdapter.ACTION_WAKE:
-                    doWakeOnLan(computer.details);
-                    break;
-
-                case PcCardAdapter.ACTION_PAIR:
-                    doPair(computer.details, null, null);
-                    break;
-
-                case PcCardAdapter.ACTION_RESUME:
-                    if (managerBinder == null) {
-                        Toast.makeText(PcView.this, getResources().getString(R.string.error_manager_not_running), Toast.LENGTH_LONG).show();
-                        break;
-                    }
-
-                    ServerHelper.doStart(this, new NvApp("app", null, computer.details.runningGameId, false),
-                            computer.details, managerBinder, false);
-                    break;
-            }
-        });
+        pcCardAdapter.setOnActionClickListener(this::doCardAction);
 
         UiHelper.applyStatusBarPadding(recyclerView);
         registerForContextMenu(recyclerView);
@@ -1199,6 +1185,75 @@ public class PcView extends AppCompatActivity implements AdapterFragmentCallback
                 holder.itemView.requestFocus();
             }
         });
+    }
+
+    /** Wake it, pair it, or rejoin it: the card's action, whoever asked for it. */
+    private void doCardAction(ComputerObject computer, int action) {
+        switch (action) {
+            case PcCardAdapter.ACTION_WAKE:
+                doWakeOnLan(computer.details);
+                break;
+
+            case PcCardAdapter.ACTION_PAIR:
+                doPair(computer.details, null, null);
+                break;
+
+            case PcCardAdapter.ACTION_RESUME:
+                if (managerBinder == null) {
+                    Toast.makeText(PcView.this, getResources().getString(R.string.error_manager_not_running), Toast.LENGTH_LONG).show();
+                    break;
+                }
+
+                ServerHelper.doStart(this, new NvApp("app", null, computer.details.runningGameId, false),
+                        computer.details, managerBinder, false);
+                break;
+        }
+    }
+
+    /**
+     * X does what the focused card's action says it does.
+     *
+     * The action is a button inside the card, and a d-pad cannot move onto a view that sits
+     * inside the focused one: the framework only ever offers it to a touch. So the card keeps
+     * the whole focus to itself — A enters the library — and the gamepad reaches the action
+     * through the button the card names, which is the same bargain the library strikes with Y.
+     */
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if (event.getAction() == KeyEvent.ACTION_DOWN
+                && event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_X
+                && event.getRepeatCount() == 0) {
+            ComputerObject focused = focusedComputer();
+            if (focused != null) {
+                int action = PcCardAdapter.actionFor(focused);
+                if (action != PcCardAdapter.ACTION_NONE) {
+                    doCardAction(focused, action);
+                    return true;
+                }
+            }
+        }
+
+        return super.dispatchKeyEvent(event);
+    }
+
+    /** The PC whose card holds the focus, or null if the focus is elsewhere — the top bar, say. */
+    private ComputerObject focusedComputer() {
+        View focus = getCurrentFocus();
+        if (pcRecyclerView == null || focus == null) {
+            return null;
+        }
+
+        RecyclerView.ViewHolder holder = pcRecyclerView.findContainingViewHolder(focus);
+        if (holder == null) {
+            return null;
+        }
+
+        int position = holder.getBindingAdapterPosition();
+        if (position == RecyclerView.NO_POSITION || position >= pcCardAdapter.getCount()) {
+            return null;
+        }
+
+        return (ComputerObject) pcCardAdapter.getItem(position);
     }
 
     public static class ComputerObject {

@@ -72,7 +72,7 @@ public class PcCardAdapter extends RecyclerView.Adapter<PcCardAdapter.PcCardHold
 
     private OnItemClickListener clickListener;
     private OnActionClickListener actionListener;
-    private boolean itemsFocusableInTouchMode;
+    private boolean gamepadPresent;
 
     public PcCardAdapter(Context context) {
         this.context = context;
@@ -85,16 +85,44 @@ public class PcCardAdapter extends RecyclerView.Adapter<PcCardAdapter.PcCardHold
     }
 
     /**
-     * Make cards hold focus in touch mode, as the library's tiles do: with a gamepad present, a
-     * screen entered by touch must still have a card focused, or the first d-pad press is spent
-     * reclaiming focus rather than moving. Touch-only devices leave it off so a tap does not
-     * strand a ring on a card.
+     * Tell the cards there is a gamepad, which changes two things.
+     *
+     * They hold focus in touch mode, as the library's tiles do: a screen entered by touch must
+     * still have a card focused, or the first d-pad press is spent reclaiming focus rather than
+     * moving. And their action wears the letter of the gamepad button that fires it, because a
+     * d-pad cannot reach a button that sits inside the focused card — PcView fires it instead.
+     *
+     * Touch-only devices get neither: no ring stranded by a tap, and no letter for a button the
+     * user does not have.
      */
-    public void setItemsFocusableInTouchMode(boolean focusable) {
-        if (this.itemsFocusableInTouchMode != focusable) {
-            this.itemsFocusableInTouchMode = focusable;
+    public void setGamepadPresent(boolean present) {
+        if (this.gamepadPresent != present) {
+            this.gamepadPresent = present;
             notifyDataSetChanged();
         }
+    }
+
+    /**
+     * The one thing this host is waiting for. Everything else stays in the context menu.
+     *
+     * PcView asks for this too, to give the gamepad's X button the same action the card shows.
+     */
+    public static int actionFor(PcView.ComputerObject computer) {
+        final ComputerDetails details = computer.details;
+        final boolean online = details.state == ComputerDetails.State.ONLINE;
+        final boolean paired = details.pairState == PairingManager.PairState.PAIRED;
+        final boolean checking = details.state == ComputerDetails.State.UNKNOWN;
+
+        if (online && paired && details.runningGameId != 0) {
+            return ACTION_RESUME;
+        }
+        if (online && !paired) {
+            return ACTION_PAIR;
+        }
+        if (!online && !checking && details.macAddress != null) {
+            return ACTION_WAKE;
+        }
+        return ACTION_NONE;
     }
 
     public void setOnActionClickListener(OnActionClickListener listener) {
@@ -197,27 +225,19 @@ public class PcCardAdapter extends RecyclerView.Adapter<PcCardAdapter.PcCardHold
             clearArt(holder);
         }
 
-        // The one thing this host is waiting for. Everything else stays in the context menu.
-        final int action;
-        if (inGame) {
-            action = ACTION_RESUME;
-        }
-        else if (online && !paired) {
-            action = ACTION_PAIR;
-        }
-        else if (!online && !checking && details.macAddress != null) {
-            action = ACTION_WAKE;
-        }
-        else {
-            action = ACTION_NONE;
-        }
-
+        final int action = actionFor(computer);
         if (action == ACTION_NONE) {
             holder.action.setVisibility(View.GONE);
         }
         else {
             holder.action.setVisibility(View.VISIBLE);
             holder.action.setText(actionLabel(action));
+
+            // With a gamepad, the button names the button: X on the focused card does this.
+            holder.action.setIcon(gamepadPresent
+                    ? ContextCompat.getDrawable(context, R.drawable.ic_gamepad_x)
+                    : null);
+
             holder.action.setOnClickListener(v -> {
                 if (actionListener != null) {
                     actionListener.onClick(computer, action);
@@ -225,7 +245,7 @@ public class PcCardAdapter extends RecyclerView.Adapter<PcCardAdapter.PcCardHold
             });
         }
 
-        holder.itemView.setFocusableInTouchMode(itemsFocusableInTouchMode);
+        holder.itemView.setFocusableInTouchMode(gamepadPresent);
 
         holder.itemView.setOnClickListener(v -> {
             if (clickListener == null) {
