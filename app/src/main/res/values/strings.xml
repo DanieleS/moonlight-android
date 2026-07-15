@@ -122,6 +122,20 @@
     <string name="conn_client_latency_hw">hardware decoder latency:</string>
     <string name="conn_hardware_latency">Average hardware decoding latency:</string>
     <string name="conn_starting">Starting</string>
+
+    <!-- The connection scene: the phases the wait is broken into, most general first.
+         The native library reports far finer stages; these fold them into a short story
+         the player can follow. -->
+    <string name="conn_phase_preparing">Getting ready…</string>
+    <string name="conn_phase_launching">Waking the game…</string>
+    <string name="conn_phase_reaching">Reaching your PC…</string>
+    <string name="conn_phase_negotiating">Negotiating the session…</string>
+    <string name="conn_phase_media">Preparing video and controls…</string>
+    <string name="conn_phase_opening">Opening the stream…</string>
+    <string name="conn_phase_ready">Ready</string>
+    <!-- Shown under the phase while the host is still bringing the app up. -->
+    <string name="conn_scene_cancel_hint">Press back to cancel</string>
+
     <string name="conn_error_title">Connection Error</string>
     <string name="conn_error_msg">Failed to start</string>
     <string name="conn_terminated_title">Connection Terminated</string>

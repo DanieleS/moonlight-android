@@ -43,9 +43,11 @@ import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.preferences.GlPreferences;
 import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.profiles.ProfilesManager;
+import com.limelight.ui.ConnectionOverlay;
 import com.limelight.ui.ExternalControllerView;
 import com.limelight.ui.GameGestures;
 import com.limelight.ui.StreamContainer;
+import com.limelight.utils.CacheHelper;
 import com.limelight.utils.Dialog;
 import com.limelight.utils.ExternalDisplayControlActivity;
 import com.limelight.utils.MouseModeOption;
@@ -123,6 +125,7 @@ import java.util.Queue;
 import java.util.ArrayDeque;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.security.cert.CertificateFactory;
@@ -187,7 +190,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private int currentOrientation;
 
     public NvConnection conn;
-    private SpinnerDialog spinner;
+    private ConnectionOverlay connectionOverlay;
     private boolean displayedFailureDialog = false;
     private boolean connecting = false;
     public boolean connected = false;
@@ -395,9 +398,9 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
         clipboardManager = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
 
-        // Start the spinner
-        spinner = SpinnerDialog.displayDialog(this, getResources().getString(R.string.conn_establishing_title),
-                getResources().getString(R.string.conn_establishing_msg), true);
+        // Bring up the connection scene. It is filled in with the game's cover and name
+        // once the intent extras are read below.
+        connectionOverlay = new ConnectionOverlay(findViewById(R.id.connectionOverlay));
 
 
         Display currentDisplay = null;
@@ -592,6 +595,14 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         byte[] derCertData = Game.this.getIntent().getByteArrayExtra(EXTRA_SERVER_CERT);
 
         app = new NvApp(appName != null ? appName : "app", appUUID, appId, appSupportsHdr);
+
+        // Now that the game is known, dress the connection scene: its cover (the same file
+        // the library caches) and its name, with the host underneath.
+        String pcUuid = getIntent().getStringExtra(EXTRA_PC_UUID);
+        File boxArt = pcUuid != null
+                ? CacheHelper.openPath(false, getCacheDir(), "boxart", pcUuid, appId + ".png")
+                : null;
+        connectionOverlay.bind(boxArt, appName, pcName);
 
         try {
             if (derCertData != null) {
@@ -874,9 +885,9 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         }
 
         if (!decoderRenderer.isAvcSupported()) {
-            if (spinner != null) {
-                spinner.dismiss();
-                spinner = null;
+            if (connectionOverlay != null) {
+                connectionOverlay.dismiss();
+                connectionOverlay = null;
             }
 
             // If we can't find an AVC decoder, we can't proceed
@@ -3449,12 +3460,9 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     public void stageStarting(final String stage) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (spinner != null) {
-                    spinner.setMessage(getResources().getString(R.string.conn_starting) + " " + stage);
-                }
+        runOnUiThread(() -> {
+            if (connectionOverlay != null) {
+                connectionOverlay.onStage(stage);
             }
         });
     }
@@ -3502,16 +3510,20 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         final int portTestResult = MoonBridge.testClientConnectivity(ServerHelper.CONNECTION_TEST_SERVER, 443, portFlags);
 
         if (errorCode == 0 && portFlags != 0 && (portTestResult == MoonBridge.ML_TEST_RESULT_INCONCLUSIVE || portTestResult == 0)) {
-            spinner.setMessage(getResources().getString(R.string.unlocking_or_starting));
+            runOnUiThread(() -> {
+                if (connectionOverlay != null) {
+                    connectionOverlay.onStage(null);
+                }
+            });
             return true;
         }
 
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                if (spinner != null) {
-                    spinner.dismiss();
-                    spinner = null;
+                if (connectionOverlay != null) {
+                    connectionOverlay.dismiss();
+                    connectionOverlay = null;
                 }
 
                 if (!displayedFailureDialog) {
@@ -3590,6 +3602,12 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
                 // Ungrab input
                 setInputGrabState(false);
+
+                // If the stream dropped before it ever went live, the scene is still up.
+                if (connectionOverlay != null) {
+                    connectionOverlay.dismiss();
+                    connectionOverlay = null;
+                }
 
                 if (!displayedFailureDialog) {
                     displayedFailureDialog = true;
@@ -3690,9 +3708,9 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                if (spinner != null) {
-                    spinner.dismiss();
-                    spinner = null;
+                if (connectionOverlay != null) {
+                    connectionOverlay.onConnected();
+                    connectionOverlay = null;
                 }
 
                 connected = true;
@@ -4001,6 +4019,12 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     public void onBackPressed() {
+        // While the connection scene is up, back cancels the connection and leaves — the
+        // same escape the old cancelable spinner offered — rather than opening the menu.
+        if (connectionOverlay != null && connectionOverlay.isShowing()) {
+            finish();
+            return;
+        }
         if(prefConfig.enableBackMenu){
             showGameMenu(null);
             return;

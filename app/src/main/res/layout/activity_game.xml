@@ -116,4 +116,120 @@
         android:visibility="gone"
         android:elevation="9999dp" />
 
+    <!--
+        The connection scene. Shown from the moment the activity is created until the
+        stream is live, then faded away. It is the game's own cover on the true-black
+        ground, a living signal halo around it while the host works, and the wait broken
+        into a handful of phases a player can actually follow — not the system spinner it
+        replaces. Opaque, so the black surface below it never shows through.
+    -->
+    <FrameLayout
+        android:id="@+id/connectionOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/surface_deep"
+        android:clickable="true"
+        android:focusable="false"
+        android:elevation="200dp">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:paddingBottom="8dp">
+
+            <!-- The cover, wrapped in a soft signal halo. The wrapper is INSET_DP larger
+                 than the cover on every side so the glow has room to bleed past the art
+                 (keep CoverGlowView.INSET_DP in step with that margin). Sized to leave the
+                 title, progress and phase comfortable room on a landscape screen. -->
+            <FrameLayout
+                android:layout_width="206dp"
+                android:layout_height="256dp">
+
+                <com.limelight.ui.CoverGlowView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+
+                <FrameLayout
+                    android:layout_width="150dp"
+                    android:layout_height="200dp"
+                    android:layout_gravity="center">
+
+                    <com.google.android.material.imageview.ShapeableImageView
+                        android:id="@+id/connectionCover"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@drawable/connection_cover_placeholder"
+                        android:scaleType="centerCrop"
+                        app:shapeAppearanceOverlay="@style/TileShape" />
+
+                    <!-- Stands in for the cover when the host has no art for this game. -->
+                    <TextView
+                        android:id="@+id/connectionCoverTitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:padding="12dp"
+                        android:textColor="@color/content_primary"
+                        android:textSize="20sp"
+                        android:visibility="gone" />
+                </FrameLayout>
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/connectionTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="22dp"
+                android:fontFamily="sans-serif-light"
+                android:maxWidth="320dp"
+                android:ellipsize="end"
+                android:maxLines="2"
+                android:gravity="center"
+                android:textColor="@color/content_primary"
+                android:textSize="23sp" />
+
+            <TextView
+                android:id="@+id/connectionPcName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:letterSpacing="0.14"
+                android:singleLine="true"
+                android:textAllCaps="true"
+                android:textColor="@color/content_muted"
+                android:textSize="11sp" />
+
+            <ProgressBar
+                android:id="@+id/connectionProgress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="216dp"
+                android:layout_height="3dp"
+                android:layout_marginTop="22dp"
+                android:max="1000"
+                android:progress="0"
+                android:progressBackgroundTint="@color/divider"
+                android:progressTint="@color/signal" />
+
+            <TextView
+                android:id="@+id/connectionPhase"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:textColor="@color/content_secondary"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/connectionHint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/conn_scene_cancel_hint"
+                android:textColor="@color/content_faint"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </FrameLayout>
+
 </merge>

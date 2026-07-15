@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The ground under the cover while it decodes, and behind a game the host has no art
+    for. Rounded to the same corner as the tile so nothing square peeks past the image.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/surface_raised" />
+    <corners android:radius="@dimen/tile_corner" />
+</shape>
