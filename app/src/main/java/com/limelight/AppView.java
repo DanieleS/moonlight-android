@@ -647,7 +647,7 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
 
         sheet.add(getString(R.string.applist_menu_export_launcher), () -> exportLauncher(app));
 
-        sheet.showBottomSheet(this);
+        sheet.showCentered(this);
     }
 
     private void startApp(AppObject app, boolean vDisplay) {
@@ -1227,6 +1227,26 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         }
     }
 
+    // Raise the menu for the tile that currently holds focus, the gamepad's stand-in for a long
+    // press. Returns false when focus is off the library (the top bar, say), so the key can fall
+    // through untouched.
+    private boolean openMenuForFocusedCover() {
+        View grid = findViewById(R.id.fragmentView);
+        if (!(grid instanceof RecyclerView) || appGridAdapter == null) {
+            return false;
+        }
+        View focused = getCurrentFocus();
+        if (focused == null) {
+            return false;
+        }
+        int pos = ((RecyclerView) grid).getChildAdapterPosition(focused);
+        if (pos == RecyclerView.NO_POSITION) {
+            return false;
+        }
+        showAppMenu((AppObject) appGridAdapter.getItem(pos), focused);
+        return true;
+    }
+
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
@@ -1239,12 +1259,20 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        // Y switches between the carousel and the grid from anywhere in the library. This is the
-        // shortcut the on-screen hint advertises.
+        // The right bumper switches between the carousel and the grid from anywhere in the
+        // library. This is the shortcut the on-screen hint advertises.
         if (event.getAction() == KeyEvent.ACTION_DOWN
-                && event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_Y
+                && event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_R1
                 && event.getRepeatCount() == 0) {
             toggleViewMode();
+            return true;
+        }
+
+        // Y raises the focused cover's menu, the gamepad's stand-in for a long press.
+        if (event.getAction() == KeyEvent.ACTION_DOWN
+                && event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_Y
+                && event.getRepeatCount() == 0
+                && openMenuForFocusedCover()) {
             return true;
         }
 

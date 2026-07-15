@@ -768,6 +768,7 @@
     <string name="coverflow_count">%1$d / %2$d</string>
     <!-- The gamepad button that switches between the carousel and the grid. -->
     <string name="hint_button_y" translatable="false">Y</string>
+    <string name="hint_button_rb" translatable="false">RB</string>
 
     <string name="title_enable_companion_display">Companion Screen (Beta)</string>
     <string name="summary_enable_companion_display">Show a companion surface on the secondary screen while the app is open. Ignored when Fully External Display Mode is enabled.</string>

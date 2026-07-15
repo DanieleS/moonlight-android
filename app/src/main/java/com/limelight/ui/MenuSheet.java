@@ -1,9 +1,7 @@
 package com.limelight.ui;
 
-import android.app.Activity;
 import android.app.Dialog;
 import android.content.Context;
-import android.graphics.Color;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
 import android.view.Gravity;
@@ -12,22 +10,20 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
-import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import com.google.android.material.bottomsheet.BottomSheetBehavior;
-import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.limelight.R;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * One menu, two homes. Build it up with a title and a list of actions, then present it
- * either as a sheet that rises in the library or as a panel centred over a game. The
- * surface, the rows and the focus grammar are the same either way — only the frame differs.
+ * A menu drawn on the app's own raised surface, with the same focus grammar as the tiles.
+ * Build it up with a title and a list of actions, then present it as a panel centred on the
+ * screen and focused for a gamepad — the in-game menu and the library's per-game menu both
+ * wear it.
  */
 public class MenuSheet {
 
@@ -78,38 +74,6 @@ public class MenuSheet {
 
     public boolean isEmpty() {
         return items.isEmpty();
-    }
-
-    /** Rise from the bottom of the library, capped in width and floated off the edge. */
-    public BottomSheetDialog showBottomSheet(Activity activity) {
-        BottomSheetDialog dialog = new BottomSheetDialog(activity);
-        LayoutInflater inflater = LayoutInflater.from(dialog.getContext());
-
-        FrameLayout wrapper = new FrameLayout(dialog.getContext());
-        View panel = buildPanel(inflater, wrapper, dialog::dismiss);
-
-        int margin = dp(12);
-        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
-                Math.min(widthCap(), screenWidth() - 2 * margin), ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.gravity = Gravity.CENTER_HORIZONTAL;
-        lp.setMargins(margin, 0, margin, margin);
-        wrapper.addView(panel, lp);
-
-        dialog.setContentView(wrapper);
-
-        // The panel is the surface; the sheet frame behind it is not.
-        View sheet = dialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
-        if (sheet != null) {
-            sheet.setBackgroundColor(Color.TRANSPARENT);
-        }
-
-        // Open at full height rather than a peeking strip — a menu is not something to drag
-        // up. Skipping the collapsed state also keeps a downward fling as a dismissal.
-        dialog.getBehavior().setSkipCollapsed(true);
-        dialog.getBehavior().setState(BottomSheetBehavior.STATE_EXPANDED);
-
-        dialog.show();
-        return dialog;
     }
 
     /** Sit centred over a game, focused for a gamepad. */

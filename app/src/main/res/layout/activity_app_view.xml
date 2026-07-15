@@ -101,7 +101,7 @@
             android:layout_height="22dp"
             android:background="@drawable/hint_badge_bg"
             android:gravity="center"
-            android:text="@string/hint_button_y"
+            android:text="@string/hint_button_rb"
             android:textColor="@color/content_secondary"
             android:textSize="11sp"
             android:fontFamily="sans-serif-medium"
