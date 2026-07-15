@@ -49,6 +49,17 @@
     <style name="SettingsTheme" parent="AppTheme" />
 
     <!--
+        The in-game menu panel: a floating, transparent-windowed dialog that dims the game
+        behind it. The panel supplies its own raised surface, so the window brings none.
+    -->
+    <style name="MenuSheetDialog" parent="Theme.Material3.Dark.Dialog">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowIsFloating">true</item>
+        <item name="android:backgroundDimEnabled">true</item>
+    </style>
+
+    <!--
         The touchpad controller, drawn on a panel next to the game. Black rather than
         @color/surface so the panel emits as little light as possible beside the picture.
     -->

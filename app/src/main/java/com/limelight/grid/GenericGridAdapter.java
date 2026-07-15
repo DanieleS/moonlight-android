@@ -20,11 +20,17 @@ public abstract class GenericGridAdapter<T> extends RecyclerView.Adapter<Generic
         void onClick(View view, int position);
     }
 
+    /** A long press on a tile. Return true to consume it (and suppress the framework menu). */
+    public interface OnItemLongClickListener {
+        boolean onLongClick(View view, int position);
+    }
+
     protected final Context context;
     private int layoutId;
     final ArrayList<T> itemList = new ArrayList<>();
     private final LayoutInflater inflater;
     private OnItemClickListener clickListener;
+    private OnItemLongClickListener longClickListener;
     private boolean itemsFocusableInTouchMode;
 
     GenericGridAdapter(Context context, int layoutId) {
@@ -35,6 +41,15 @@ public abstract class GenericGridAdapter<T> extends RecyclerView.Adapter<Generic
 
     public void setOnItemClickListener(OnItemClickListener listener) {
         this.clickListener = listener;
+    }
+
+    /**
+     * Take long presses here instead of through the framework context menu. Setting a listener
+     * suppresses that menu for this adapter's tiles; leaving it null keeps the old behaviour, so
+     * the PC list's ContextMenuRecyclerView still works untouched.
+     */
+    public void setOnItemLongClickListener(OnItemLongClickListener listener) {
+        this.longClickListener = listener;
     }
 
     /**
@@ -112,6 +127,16 @@ public abstract class GenericGridAdapter<T> extends RecyclerView.Adapter<Generic
             if (pos != RecyclerView.NO_POSITION) {
                 clickListener.onClick(v, pos);
             }
+        });
+
+        // Set explicitly either way: a recycled holder must not keep a previous binding's
+        // listener, and a null one hands long presses back to the framework menu.
+        holder.itemView.setOnLongClickListener(longClickListener == null ? null : v -> {
+            int pos = holder.getBindingAdapterPosition();
+            if (pos != RecyclerView.NO_POSITION) {
+                return longClickListener.onLongClick(v, pos);
+            }
+            return false;
         });
     }
 

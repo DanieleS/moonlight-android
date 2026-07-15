@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    One action in a menu. A row that takes the signal ring on focus and fills on a press,
+    the same as a tile. The icon and the check are optional and start gone; the label
+    carries the weight.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="2dp"
+    android:background="@drawable/menu_row_bg"
+    android:clickable="true"
+    android:focusable="true"
+    android:gravity="center_vertical"
+    android:minHeight="@dimen/menu_row_min_height"
+    android:orientation="horizontal"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
+
+    <ImageView
+        android:id="@+id/menuRowIcon"
+        android:layout_width="@dimen/menu_row_icon"
+        android:layout_height="@dimen/menu_row_icon"
+        android:layout_marginEnd="16dp"
+        android:tint="@color/content_secondary"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/menuRowLabel"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:textColor="@color/content_primary"
+        android:textSize="16sp" />
+
+    <ImageView
+        android:id="@+id/menuRowCheck"
+        android:layout_width="18dp"
+        android:layout_height="18dp"
+        android:layout_marginStart="12dp"
+        android:src="@drawable/ic_check"
+        android:tint="@color/signal"
+        android:visibility="gone" />
+
+</LinearLayout>

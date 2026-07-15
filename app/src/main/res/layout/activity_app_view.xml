@@ -52,6 +52,20 @@
             android:contentDescription="@string/action_all_games"
             android:src="@drawable/ic_view_grid" />
 
+        <!-- The general actions, brought here from the PC-selection screen the library now
+             tends to skip over. Adding a PC belongs to that screen and stays there. -->
+        <ImageButton
+            android:id="@+id/helpButton"
+            style="@style/TopBarAction"
+            android:contentDescription="@string/action_help"
+            android:src="@drawable/ic_help" />
+
+        <ImageButton
+            android:id="@+id/settingsButton"
+            style="@style/TopBarAction"
+            android:contentDescription="@string/action_settings"
+            android:src="@drawable/ic_settings" />
+
         <com.google.android.material.button.MaterialButton
             android:id="@+id/profilesButton"
             style="@style/TopBarProfile"

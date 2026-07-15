@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The panel a menu is drawn on, in either home: a raised surface on the ground, a
+    hairline to hold its edge against true black, and no shadow. The same grammar the
+    tiles and cards already speak.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/surface_raised" />
+    <corners android:radius="@dimen/menu_sheet_corner" />
+    <stroke
+        android:width="1dp"
+        android:color="@color/divider" />
+</shape>

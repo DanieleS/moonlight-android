@@ -2,22 +2,19 @@ package com.limelight;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Handler;
-import android.os.Looper;
 import android.text.TextUtils;
 import android.view.ContextThemeWrapper;
-import android.view.View;
-import android.view.ViewTreeObserver;
-import android.view.Window;
-import android.widget.ArrayAdapter;
 import android.widget.Toast;
 
 import com.limelight.binding.input.GameInputDevice;
 import com.limelight.binding.input.KeyboardTranslator;
 import com.limelight.companion.CompanionDisplayManager;
 import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.ui.MenuSheet;
 import com.limelight.utils.KeyConfigHelper;
 import com.limelight.utils.KeyMapper;
 
@@ -59,7 +56,7 @@ public class GameMenu implements Game.GameMenuCallbacks {
     private final Game game;
     private final Context dialogScreenContext;
 
-    private AlertDialog currentDialog;
+    private Dialog currentDialog;
 
     public GameMenu(Game game, Context dialogScreenContext) {
         this.game = game;
@@ -107,50 +104,16 @@ public class GameMenu implements Game.GameMenuCallbacks {
     }
 
     private void showMenuDialog(String title, MenuOption[] options) {
-        int themeResId = game.getApplicationInfo().theme;
-
-        Context themedContext = new ContextThemeWrapper(dialogScreenContext, themeResId);
-        AlertDialog.Builder builder = new AlertDialog.Builder(themedContext);
-        builder.setTitle(title);
-
-        final ArrayAdapter<String> actions = new ArrayAdapter<>(themedContext, android.R.layout.simple_list_item_1);
-
-        builder.setAdapter(actions, (dialog, which) -> {
-            String label = actions.getItem(which);
-            for (MenuOption option : options) {
-                if (label != null && label.equals(option.label)) {
-                    run(option);
-                    break;
-                }
-            }
-        });
-
-        builder.setOnCancelListener(dialog -> hideMenu());
+        MenuSheet sheet = new MenuSheet(dialogScreenContext).setTitle(title);
+        for (MenuOption option : options) {
+            sheet.add(option.label, () -> run(option));
+        }
 
         if (currentDialog != null) {
             currentDialog.dismiss();
         }
-        currentDialog = builder.show();
-
-        Window window = currentDialog.getWindow();
-
-        if (window != null) {
-            View decorView = window.getDecorView();
-            decorView.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
-                @Override
-                public void onGlobalLayout() {
-
-                    decorView.getViewTreeObserver().removeOnGlobalLayoutListener(this);
-
-                    new Handler(Looper.getMainLooper()).post(() -> {
-                        for (MenuOption option : options) {
-                            actions.add(option.label);
-                        }
-                        actions.notifyDataSetChanged();
-                    });
-                }
-            });
-        }
+        currentDialog = sheet.showCentered(dialogScreenContext);
+        currentDialog.setOnCancelListener(dialog -> hideMenu());
     }
 
     private void showSpecialKeysMenu() {

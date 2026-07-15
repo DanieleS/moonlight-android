@@ -21,11 +21,14 @@ import com.limelight.nvstream.http.NvApp;
 import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.http.PairingManager;
 import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.preferences.StreamSettings;
+import com.limelight.ui.MenuSheet;
 import com.limelight.profiles.ProfilesManager;
 import com.limelight.ui.AdapterFragment;
 import com.limelight.ui.AdapterFragmentCallbacks;
 import com.limelight.utils.CacheHelper;
 import com.limelight.utils.Dialog;
+import com.limelight.utils.HelpLauncher;
 import com.limelight.utils.ServerHelper;
 import com.limelight.utils.ShortcutHelper;
 import com.limelight.utils.SpinnerDialog;
@@ -355,6 +358,21 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         findViewById(R.id.profilesButton)
             .setOnClickListener(v -> startActivity(new Intent(this, ProfilesActivity.class)));
 
+        // The general actions, mirrored from the PC-selection screen so they stay in reach
+        // when the library is entered directly. Adding a PC belongs to that screen and is
+        // left there.
+        findViewById(R.id.settingsButton)
+            .setOnClickListener(v -> startActivity(new Intent(this, StreamSettings.class)));
+
+        ImageButton helpButton = findViewById(R.id.helpButton);
+        if (getPackageManager().hasSystemFeature("amazon.hardware.fire_tv")) {
+            // Hidden on Fire TV for the same reason as the PC screen: the wiki is awkward to
+            // navigate with the remote.
+            helpButton.setVisibility(View.GONE);
+        } else {
+            helpButton.setOnClickListener(v -> HelpLauncher.launchSetupGuide(this));
+        }
+
         // The way back to the PC list. It is an action rather than the back gesture, because the
         // library is where the app starts and back should leave the app, not drop the user onto
         // a screen they asked never to be shown.
@@ -581,185 +599,119 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         }
     }
 
-    @Override
-    public void onCreateContextMenu(ContextMenu menu, View v, ContextMenuInfo menuInfo) {
-        super.onCreateContextMenu(menu, v, menuInfo);
-
-        AdapterContextMenuInfo info = (AdapterContextMenuInfo) menuInfo;
-        AppObject selectedApp = (AppObject) appGridAdapter.getItem(info.position);
-
-        menu.setHeaderTitle(selectedApp.app.getAppName());
+    // A game's actions, raised as a sheet on a long press (or on a tap while another game is
+    // running). The same choices the old system context menu offered, on the library's own
+    // surface. targetView is the tile, the source of the cover a pinned shortcut needs.
+    private void showAppMenu(AppObject app, View targetView) {
+        MenuSheet sheet = new MenuSheet(this).setTitle(app.app.getAppName());
 
         if (lastRunningAppId == 0) {
+            // Nothing running: the tap already starts with the default display, so the menu
+            // offers the other one.
             if (prefConfig.useVirtualDisplay) {
-                menu.add(Menu.NONE, START_OR_RESUME_ID, 1, getResources().getString(R.string.applist_menu_start_primarydisplay));
+                sheet.add(getString(R.string.applist_menu_start_primarydisplay), () -> startApp(app, false));
             } else {
-                menu.add(Menu.NONE, START_WITH_VDISPLAY, 1, getResources().getString(R.string.applist_menu_start_vdisplay));
+                sheet.add(getString(R.string.applist_menu_start_vdisplay), () -> startApp(app, true));
             }
+        } else if (lastRunningAppId == app.app.getAppId()) {
+            sheet.add(getString(R.string.applist_menu_resume), () -> startApp(app, false));
+            sheet.add(getString(R.string.applist_menu_quit), () -> quitApp(app));
         } else {
-            if (lastRunningAppId == selectedApp.app.getAppId()) {
-                menu.add(Menu.NONE, START_OR_RESUME_ID, 1, getResources().getString(R.string.applist_menu_resume));
-                menu.add(Menu.NONE, QUIT_ID, 2, getResources().getString(R.string.applist_menu_quit));
-            }
-            else {
-                if (prefConfig.useVirtualDisplay) {
-                    menu.add(Menu.NONE, START_WITH_QUIT_VDISPLAY, 1, getResources().getString(R.string.applist_menu_quit_and_start));
-                    menu.add(Menu.NONE, START_WITH_QUIT, 2, getResources().getString(R.string.applist_menu_quit_and_start_primarydisplay));
-                } else{
-                    menu.add(Menu.NONE, START_WITH_QUIT, 1, getResources().getString(R.string.applist_menu_quit_and_start));
-                    menu.add(Menu.NONE, START_WITH_QUIT_VDISPLAY, 2, getResources().getString(R.string.applist_menu_quit_and_start_vdisplay));
-                }
+            if (prefConfig.useVirtualDisplay) {
+                sheet.add(getString(R.string.applist_menu_quit_and_start), () -> quitThenStart(app, true));
+                sheet.add(getString(R.string.applist_menu_quit_and_start_primarydisplay), () -> quitThenStart(app, false));
+            } else {
+                sheet.add(getString(R.string.applist_menu_quit_and_start), () -> quitThenStart(app, false));
+                sheet.add(getString(R.string.applist_menu_quit_and_start_vdisplay), () -> quitThenStart(app, true));
             }
         }
 
-        // Only show the hide checkbox if this is not the currently running app or it's already hidden
-        if (lastRunningAppId != selectedApp.app.getAppId() || selectedApp.isHidden) {
-            MenuItem hideAppItem = menu.add(Menu.NONE, HIDE_APP_ID, 3, getResources().getString(R.string.applist_menu_hide_app));
-            hideAppItem.setCheckable(true);
-            hideAppItem.setChecked(selectedApp.isHidden);
+        // The hide toggle is out only when this is not the running app, or it is already hidden.
+        if (lastRunningAppId != app.app.getAppId() || app.isHidden) {
+            sheet.addChecked(getString(R.string.applist_menu_hide_app), app.isHidden, () -> toggleHidden(app));
         }
 
-        menu.add(Menu.NONE, VIEW_DETAILS_ID, 4, getResources().getString(R.string.applist_menu_details));
+        sheet.add(getString(R.string.applist_menu_details),
+                () -> Dialog.displayDialog(this, getString(R.string.title_details), app.app.toString(), false));
 
+        // Pinning a shortcut needs the cover, so it is offered only once the tile has one.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // Only add an option to create shortcut if box art is loaded
-            // and when we're in grid-mode (not list-mode).
-            ImageView appImageView = info.targetView.findViewById(R.id.grid_image);
+            ImageView appImageView = targetView.findViewById(R.id.grid_image);
             if (appImageView != null) {
-                // We have a grid ImageView, so we must be in grid-mode
-                BitmapDrawable drawable = (BitmapDrawable)appImageView.getDrawable();
+                BitmapDrawable drawable = (BitmapDrawable) appImageView.getDrawable();
                 if (drawable != null && drawable.getBitmap() != null) {
-                    // We have a bitmap loaded too
-                    menu.add(Menu.NONE, CREATE_SHORTCUT_ID, 5, getResources().getString(R.string.applist_menu_scut));
+                    sheet.add(getString(R.string.applist_menu_scut), () -> createShortcut(app, targetView));
                 }
             }
         }
 
-        menu.add(Menu.NONE, EXPORT_LAUNCHER_FILE_ID, 6, getResources().getString(R.string.applist_menu_export_launcher));
+        sheet.add(getString(R.string.applist_menu_export_launcher), () -> exportLauncher(app));
+
+        sheet.showBottomSheet(this);
     }
 
-    @Override
-    public void onContextMenuClosed(Menu menu) {
+    private void startApp(AppObject app, boolean vDisplay) {
+        if (vDisplay && !(computer.vDisplaySupported && computer.vDisplayDriverReady)) {
+            UiHelper.displayVdisplayConfirmationDialog(this, computer,
+                    () -> ServerHelper.doStart(this, app.app, computer, managerBinder, true), null);
+        } else {
+            ServerHelper.doStart(this, app.app, computer, managerBinder, vDisplay);
+        }
     }
 
-    @Override
-    public boolean onContextItemSelected(MenuItem item) {
-        AdapterContextMenuInfo info = (AdapterContextMenuInfo) item.getMenuInfo();
-        final AppObject app = (AppObject) appGridAdapter.getItem(info.position);
-        int itemId = item.getItemId();
-        switch (itemId) {
-            case START_WITH_QUIT:
-            case START_WITH_QUIT_VDISPLAY: {
-                boolean withVDiaplay = itemId == START_WITH_QUIT_VDISPLAY;
-                if (withVDiaplay && !(computer.vDisplaySupported && computer.vDisplayDriverReady)) {
-                    UiHelper.displayVdisplayConfirmationDialog(
-                        AppView.this,
-                        computer,
-                        () -> UiHelper.displayQuitConfirmationDialog(this, new Runnable() {
-                            @Override
-                            public void run() {
-                                ServerHelper.doStart(AppView.this, app.app, computer, managerBinder, true);
-                            }
-                        }, null),
-                        null
-                    );
-                } else {
-                    // Display a confirmation dialog first
-                    UiHelper.displayQuitConfirmationDialog(this, new Runnable() {
-                        @Override
-                        public void run() {
-                            ServerHelper.doStart(AppView.this, app.app, computer, managerBinder, withVDiaplay);
-                        }
-                    }, null);
+    private void quitThenStart(AppObject app, boolean vDisplay) {
+        if (vDisplay && !(computer.vDisplaySupported && computer.vDisplayDriverReady)) {
+            UiHelper.displayVdisplayConfirmationDialog(this, computer,
+                    () -> UiHelper.displayQuitConfirmationDialog(this,
+                            () -> ServerHelper.doStart(this, app.app, computer, managerBinder, true), null),
+                    null);
+        } else {
+            UiHelper.displayQuitConfirmationDialog(this,
+                    () -> ServerHelper.doStart(this, app.app, computer, managerBinder, vDisplay), null);
+        }
+    }
+
+    private void quitApp(AppObject app) {
+        UiHelper.displayQuitConfirmationDialog(this, () -> {
+            suspendGridUpdates = true;
+            ServerHelper.doQuit(this, computer, app.app, managerBinder, () -> {
+                // Trigger a poll immediately
+                suspendGridUpdates = false;
+                if (poller != null) {
+                    poller.pollNow();
                 }
-                return true;
-            }
+            });
+        }, null);
+    }
 
-            case START_OR_RESUME_ID:
-            case START_WITH_VDISPLAY: {
-                boolean withVDiaplay = itemId == START_WITH_VDISPLAY;
-                if (withVDiaplay && !(computer.vDisplaySupported && computer.vDisplayDriverReady)) {
-                    UiHelper.displayVdisplayConfirmationDialog(
-                            AppView.this,
-                            computer,
-                            () -> ServerHelper.doStart(AppView.this, app.app, computer, managerBinder, true),
-                            null
-                    );
-                } else {
-                    // Resume is the same as start for us
-                    ServerHelper.doStart(AppView.this, app.app, computer, managerBinder, withVDiaplay);
-                }
-                return true;
-            }
+    private void toggleHidden(AppObject app) {
+        if (app.isHidden) {
+            hiddenAppIds.remove(app.app.getAppId());
+        } else {
+            hiddenAppIds.add(app.app.getAppId());
+        }
+        updateHiddenApps(false);
+    }
 
-            case QUIT_ID: {
-                // Display a confirmation dialog first
-                UiHelper.displayQuitConfirmationDialog(this, new Runnable() {
-                    @Override
-                    public void run() {
-                        suspendGridUpdates = true;
-                        ServerHelper.doQuit(AppView.this, computer,
-                                app.app, managerBinder, new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        // Trigger a poll immediately
-                                        suspendGridUpdates = false;
-                                        if (poller != null) {
-                                            poller.pollNow();
-                                        }
-                                    }
-                                });
-                    }
-                }, null);
-                return true;
-            }
+    private void createShortcut(AppObject app, View targetView) {
+        ImageView appImageView = targetView.findViewById(R.id.grid_image);
+        Bitmap appBits = ((BitmapDrawable) appImageView.getDrawable()).getBitmap();
+        if (!shortcutHelper.createPinnedGameShortcut(computer, app.app, appBits)) {
+            Toast.makeText(this, getString(R.string.unable_to_pin_shortcut), Toast.LENGTH_LONG).show();
+        }
+    }
 
-            case VIEW_DETAILS_ID: {
-                Dialog.displayDialog(AppView.this, getResources().getString(R.string.title_details), app.app.toString(), false);
-                return true;
-            }
-
-            case HIDE_APP_ID: {
-                if (item.isChecked()) {
-                    // Transitioning hidden to shown
-                    hiddenAppIds.remove(app.app.getAppId());
-                } else {
-                    // Transitioning shown to hidden
-                    hiddenAppIds.add(app.app.getAppId());
-                }
-                updateHiddenApps(false);
-                return true;
-            }
-
-            case CREATE_SHORTCUT_ID: {
-                ImageView appImageView = info.targetView.findViewById(R.id.grid_image);
-                Bitmap appBits = ((BitmapDrawable) appImageView.getDrawable()).getBitmap();
-                if (!shortcutHelper.createPinnedGameShortcut(computer, app.app, appBits)) {
-                    Toast.makeText(AppView.this, getResources().getString(R.string.unable_to_pin_shortcut), Toast.LENGTH_LONG).show();
-                }
-                return true;
-            }
-
-            case EXPORT_LAUNCHER_FILE_ID: {
-                if (app.app.getAppUUID() == null || (app.app.getAppUUID() != null && app.app.getAppUUID().isEmpty())) {
-                    UiHelper.displayConfirmationDialog(
-                            AppView.this,
-                            getResources().getString(R.string.title_export_sunshine_launcher_file),
-                            getResources().getString(R.string.message_export_sunshine_launcher_file),
-                            getResources().getString(R.string.proceed),
-                            getResources().getString(R.string.cancel),
-                            () -> shortcutHelper.exportLauncherFile(computer, app.app),
-                            null
-                    );
-                } else {
-                    shortcutHelper.exportLauncherFile(computer, app.app);
-                }
-                return true;
-            }
-
-            default: {
-                return super.onContextItemSelected(item);
-            }
+    private void exportLauncher(AppObject app) {
+        if (app.app.getAppUUID() == null || app.app.getAppUUID().isEmpty()) {
+            UiHelper.displayConfirmationDialog(this,
+                    getString(R.string.title_export_sunshine_launcher_file),
+                    getString(R.string.message_export_sunshine_launcher_file),
+                    getString(R.string.proceed),
+                    getString(R.string.cancel),
+                    () -> shortcutHelper.exportLauncherFile(computer, app.app),
+                    null);
+        } else {
+            shortcutHelper.exportLauncherFile(computer, app.app);
         }
     }
 
@@ -904,6 +856,10 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
     public void receiveRecyclerView(RecyclerView recyclerView) {
         recyclerView.setAdapter(appGridAdapter);
         appGridAdapter.setOnItemClickListener(this::onAppClicked);
+        appGridAdapter.setOnItemLongClickListener((view, pos) -> {
+            showAppMenu((AppObject) appGridAdapter.getItem(pos), view);
+            return true;
+        });
 
         if (coverflowMode) {
             setupCoverflow(recyclerView);
@@ -912,7 +868,6 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
             UiHelper.applyStatusBarPadding(recyclerView);
         }
 
-        registerForContextMenu(recyclerView);
         recyclerView.requestFocus();
     }
 
@@ -1174,7 +1129,7 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
             if (prefConfig.resumeWithoutConfirm && lastRunningAppId == app.app.getAppId()) {
                 ServerHelper.doStart(AppView.this, app.app, computer, managerBinder, prefConfig.useVirtualDisplay);
             } else {
-                openContextMenu(view);
+                showAppMenu(app, view);
             }
         } else {
             if (prefConfig.useVirtualDisplay && !(computer.vDisplaySupported && computer.vDisplayDriverReady)) {
