@@ -14,6 +14,8 @@ import android.view.WindowManager;
 import com.limelight.LimeLog;
 import com.limelight.preferences.PreferenceConfiguration;
 
+import java.util.List;
+
 /**
  * Keeps a companion surface on the secondary display for as long as the app is in the
  * foreground, across every Activity.
@@ -24,8 +26,10 @@ import com.limelight.preferences.PreferenceConfiguration;
  * visibly restarts. The re-host is make-before-break — the new panel is shown before the old
  * one is dismissed — so navigating between screens does not blink the panel.
  *
- * The panel can be dismissed with a back gesture on the secondary display; it then stays off
- * until the user turns it back on from the library bar or the in-stream menu.
+ * The panel takes the gamepad focus only while its in-game menu is open (see
+ * {@link CompanionPresentation}); a back gesture then closes the menu rather than the panel. With
+ * no menu up it can be dismissed with a back gesture, and turned on again from the library bar or
+ * the in-stream menu.
  *
  * Everything here is best-effort: with no usable secondary display, or when the platform
  * refuses the window, the manager logs and stays idle so the rest of the app is unaffected.
@@ -47,6 +51,15 @@ public class CompanionDisplayManager implements Application.ActivityLifecycleCal
     // Set when the user dismisses the panel (a back gesture) so it is not brought straight back;
     // cleared when they turn it on again.
     private boolean userSuppressed;
+
+    // Invoked when the panel's own menu button is pressed; the stream activity registers it to
+    // raise the in-game menu here.
+    private Runnable menuRequestListener;
+
+    // Invoked when the panel's menu opens and closes; the stream activity registers these to
+    // track whether it should be steering the gamepad into the menu drawn here.
+    private Runnable menuOpenedListener;
+    private Runnable menuClosedListener;
 
     private final DisplayManager.DisplayListener displayListener = new DisplayManager.DisplayListener() {
         @Override
@@ -131,6 +144,83 @@ public class CompanionDisplayManager implements Application.ActivityLifecycleCal
     public static void toggle() {
         if (instance != null) {
             instance.applyUserSuppressed(!instance.userSuppressed);
+        }
+    }
+
+    // --- The in-game menu, when it is drawn on the companion panel ---
+
+    /** Register what the panel's menu button should do; the stream activity raises the menu. */
+    public static void setMenuRequestListener(Runnable listener) {
+        if (instance != null) {
+            instance.menuRequestListener = listener;
+        }
+    }
+
+    /**
+     * Register what should happen when the panel's menu opens and closes. The stream activity
+     * uses these to track, on its own, whether it should be steering the gamepad into this menu —
+     * the panel takes no focus, so the pad never leaves the activity, and it needs a reliable
+     * signal rather than having to ask the panel each time.
+     */
+    public static void setMenuOpenedListener(Runnable listener) {
+        if (instance != null) {
+            instance.menuOpenedListener = listener;
+        }
+    }
+
+    public static void setMenuClosedListener(Runnable listener) {
+        if (instance != null) {
+            instance.menuClosedListener = listener;
+        }
+    }
+
+    /** The panel's menu button was pressed. */
+    public static void requestOpenMenu() {
+        if (instance != null && instance.menuRequestListener != null) {
+            instance.menuRequestListener.run();
+        }
+    }
+
+    /** The panel's menu just closed; tell the owner it no longer holds the gamepad. */
+    static void onMenuClosed() {
+        // Runs on the main thread, the same as the listener; keep it synchronous so the gamepad
+        // is handed back to the game on this very frame rather than one behind.
+        if (instance != null && instance.menuClosedListener != null) {
+            instance.menuClosedListener.run();
+        }
+    }
+
+    /** Draw the in-game menu on the panel, if one is up. Returns whether it was shown there. */
+    public static boolean showMenu(String title, List<CompanionMenuItem> items) {
+        if (instance == null || instance.presentation == null) {
+            return false;
+        }
+        instance.presentation.showMenu(title, items);
+        if (instance.menuOpenedListener != null) {
+            instance.menuOpenedListener.run();
+        }
+        return true;
+    }
+
+    public static void hideMenu() {
+        if (instance != null && instance.presentation != null) {
+            instance.presentation.hideMenu();
+        }
+    }
+
+    public static boolean isMenuOpen() {
+        return instance != null && instance.presentation != null && instance.presentation.isMenuOpen();
+    }
+
+    public static void moveMenuSelection(int delta) {
+        if (isMenuOpen()) {
+            instance.presentation.moveSelection(delta);
+        }
+    }
+
+    public static void activateMenuSelection() {
+        if (isMenuOpen()) {
+            instance.presentation.activateSelection();
         }
     }
 

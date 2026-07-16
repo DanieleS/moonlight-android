@@ -60,6 +60,7 @@ import com.limelight.utils.UiHelper;
 
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
+import android.app.ActivityManager;
 import android.app.AlertDialog;
 import android.app.PictureInPictureParams;
 import android.app.Service;
@@ -191,6 +192,11 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     public NvConnection conn;
     private ConnectionOverlay connectionOverlay;
+    // True while the in-game menu is drawn on the companion panel. The panel takes no focus, so
+    // the gamepad stays with us; this says when to steer it into that menu instead of the game.
+    private boolean companionMenuActive = false;
+    // Last vertical d-pad/stick value seen while driving the companion menu, for edge detection.
+    private float lastCompanionMenuHatY = 0;
     private boolean displayedFailureDialog = false;
     private boolean connecting = false;
     public boolean connected = false;
@@ -914,6 +920,15 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         });
 
         gameMenuCallbacks = new GameMenu(this);
+
+        // The companion panel's own menu button raises the same in-game menu.
+        CompanionDisplayManager.setMenuRequestListener(() -> showGameMenu(null));
+        // Track when the panel's menu is up so the gamepad is steered into it, not the game.
+        CompanionDisplayManager.setMenuOpenedListener(() -> {
+            companionMenuActive = true;
+            reclaimGamepadFocus();
+        });
+        CompanionDisplayManager.setMenuClosedListener(() -> companionMenuActive = false);
 
         floatingMenuButton = findViewById(R.id.floatingMenuButton);
         updateFloatingButtonVisibility(prefConfig.enableBackMenu && prefConfig.enableFloatingButton);
@@ -1740,7 +1755,13 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         instance = null;
         timerHandler.removeCallbacksAndMessages(null);
 
-        // The stream is over: send the companion back to its idle surface.
+        // The stream is over: send the companion back to its idle surface, and stop routing our
+        // menu button to a screen that is going away.
+        CompanionDisplayManager.setMenuRequestListener(null);
+        CompanionDisplayManager.setMenuOpenedListener(null);
+        CompanionDisplayManager.setMenuClosedListener(null);
+        companionMenuActive = false;
+        CompanionDisplayManager.hideMenu();
         CompanionState.getInstance().clearStats();
 
         if (prefConfig.enableFullExDisplay) handleDisplayRemoved();
@@ -2066,6 +2087,12 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     public boolean handleKeyDown(KeyEvent event) {
+        // While the menu is up on the companion panel, the gamepad drives it from here rather
+        // than the game — nothing reaches the host until it is dismissed.
+        if (companionMenuActive) {
+            return handleCompanionMenuKeyDown(event);
+        }
+
         // Pass-through virtual navigation keys
         if ((event.getFlags() & KeyEvent.FLAG_VIRTUAL_HARD_KEY) != 0) {
             return false;
@@ -2157,6 +2184,11 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     public boolean handleKeyUp(KeyEvent event) {
+        // Swallow key-ups too while the companion menu owns the gamepad.
+        if (companionMenuActive) {
+            return true;
+        }
+
         // Pass-through virtual navigation keys
         if ((event.getFlags() & KeyEvent.FLAG_VIRTUAL_HARD_KEY) != 0) {
             return false;
@@ -2805,6 +2837,13 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         int eventSource = event.getSource();
         int deviceSources = event.getDevice() != null ? event.getDevice().getSources() : 0;
         if ((eventSource & InputDevice.SOURCE_CLASS_JOYSTICK) != 0) {
+            // The stick and d-pad drive the companion menu while it is open, and reach nothing
+            // else. This must be caught here too, not just in onGenericMotionEvent: the stream
+            // view's own listener sees the event first and would send it to the host.
+            if (companionMenuActive) {
+                handleCompanionMenuMotion(event);
+                return true;
+            }
             if (controllerHandler.handleMotionEvent(event)) {
                 return true;
             }
@@ -3384,8 +3423,83 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     public boolean onGenericMotionEvent(MotionEvent event) {
+        // The stick and d-pad drive the companion menu while it is open, and reach nothing else.
+        if (companionMenuActive) {
+            handleCompanionMenuMotion(event);
+            return true;
+        }
         return handleMotionEvent(null, event) || super.onGenericMotionEvent(event);
 
+    }
+
+    // Route a key to the menu on the companion panel. Nav on the d-pad, select on A, dismiss on
+    // B or the menu button; everything is swallowed so the host sees nothing while it is open.
+    private boolean handleCompanionMenuKeyDown(KeyEvent event) {
+        if (event.getRepeatCount() == 0) {
+            switch (event.getKeyCode()) {
+                case KeyEvent.KEYCODE_DPAD_UP:
+                    CompanionDisplayManager.moveMenuSelection(-1);
+                    break;
+                case KeyEvent.KEYCODE_DPAD_DOWN:
+                    CompanionDisplayManager.moveMenuSelection(1);
+                    break;
+                case KeyEvent.KEYCODE_DPAD_CENTER:
+                case KeyEvent.KEYCODE_BUTTON_A:
+                case KeyEvent.KEYCODE_ENTER:
+                case KeyEvent.KEYCODE_NUMPAD_ENTER:
+                    CompanionDisplayManager.activateMenuSelection();
+                    break;
+                case KeyEvent.KEYCODE_BUTTON_B:
+                case KeyEvent.KEYCODE_BACK:
+                case KeyEvent.KEYCODE_MENU:
+                case KeyEvent.KEYCODE_BUTTON_START:
+                    CompanionDisplayManager.hideMenu();
+                    break;
+                default:
+                    break;
+            }
+        }
+        return true;
+    }
+
+    // Interacting with the companion panel's display can hand the system's key focus to that
+    // display, whose focused window is whatever app sits behind our non-focusable panel — the
+    // gamepad then reaches neither the game nor the menu. Bringing our task back to the front
+    // makes this display the focused one again, so the routing above sees the pad.
+    private void reclaimGamepadFocus() {
+        try {
+            ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+            if (am != null) {
+                am.moveTaskToFront(getTaskId(), 0);
+            }
+        } catch (Exception e) {
+            LimeLog.warning("Unable to reclaim gamepad focus: " + e);
+        }
+    }
+
+    // The d-pad HAT and the left stick move the companion menu's selection, one row per push.
+    private void handleCompanionMenuMotion(MotionEvent event) {
+        if ((event.getSource() & InputDevice.SOURCE_JOYSTICK) != InputDevice.SOURCE_JOYSTICK) {
+            return;
+        }
+
+        float value = event.getAxisValue(MotionEvent.AXIS_HAT_Y);
+        if (value == 0) {
+            float stickY = event.getAxisValue(MotionEvent.AXIS_Y);
+            value = Math.abs(stickY) > 0.5f ? Math.signum(stickY) : 0;
+        }
+
+        // Act only on the transition away from centre, so a held stick moves once.
+        if (value == lastCompanionMenuHatY) {
+            return;
+        }
+        lastCompanionMenuHatY = value;
+
+        if (value < 0) {
+            CompanionDisplayManager.moveMenuSelection(-1);
+        } else if (value > 0) {
+            CompanionDisplayManager.moveMenuSelection(1);
+        }
     }
 
     private void updateMousePosition(View touchedView, MotionEvent event) {

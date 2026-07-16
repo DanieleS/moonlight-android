@@ -9,14 +9,19 @@ import android.text.SpannableStringBuilder;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
 import android.view.Display;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.WindowManager;
+import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
 import com.limelight.R;
 import com.limelight.binding.video.PerfStats;
 import com.limelight.nvstream.http.AppMetadata;
+import com.limelight.ui.MaxHeightScrollView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -61,6 +66,15 @@ public class CompanionPresentation extends android.app.Presentation implements C
     private TextView hostLatencyView;
     private TextView decoderView;
 
+    // The in-game menu, when it is drawn here rather than over the game.
+    private ImageButton menuButton;
+    private View menuOverlay;
+    private TextView menuTitleView;
+    private LinearLayout menuItemsView;
+    private MaxHeightScrollView menuScrollView;
+    private final List<Runnable> menuActions = new ArrayList<>();
+    private int menuSelectedIndex = -1;
+
     public CompanionPresentation(Context outerContext, Display display, CompanionState state) {
         super(outerContext, display);
         this.state = state;
@@ -69,6 +83,14 @@ public class CompanionPresentation extends android.app.Presentation implements C
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // The panel never takes key focus: the gamepad stays with the game on the main screen,
+        // which routes it to the menu drawn here while one is up. This keeps the pad from ever
+        // moving onto this panel's display — where, on the way back, it would land on whatever
+        // sits behind the panel rather than returning to the game.
+        if (getWindow() != null) {
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);
+        }
 
         setContentView(R.layout.companion_surface);
         idleView = findViewById(R.id.companionIdle);
@@ -90,6 +112,15 @@ public class CompanionPresentation extends android.app.Presentation implements C
         hostRowView = findViewById(R.id.companionHostRow);
         hostLatencyView = findViewById(R.id.companionHostLatency);
         decoderView = findViewById(R.id.companionDecoder);
+
+        menuButton = findViewById(R.id.companionMenuButton);
+        menuOverlay = findViewById(R.id.companionMenu);
+        menuTitleView = findViewById(R.id.companionMenuTitle);
+        menuItemsView = findViewById(R.id.companionMenuItems);
+        menuScrollView = findViewById(R.id.companionMenuScroll);
+        menuScrollView.setMaxHeightPx((int) (getContext().getResources().getDisplayMetrics().heightPixels * 0.8f));
+        // The panel's own button raises the menu, the same as the gamepad's does.
+        menuButton.setOnClickListener(v -> CompanionDisplayManager.requestOpenMenu());
     }
 
     @Override
@@ -122,11 +153,15 @@ public class CompanionPresentation extends android.app.Presentation implements C
         if (stats == null) {
             statsView.setVisibility(View.GONE);
             idleView.setVisibility(View.VISIBLE);
+            // No game, no in-game menu: take its button and any open panel away with the stats.
+            menuButton.setVisibility(View.GONE);
+            hideMenu();
             renderIdle();
             return;
         }
 
         idleView.setVisibility(View.GONE);
+        menuButton.setVisibility(View.VISIBLE);
         // The hero backdrop belongs to the idle library surface, not the stats dashboard.
         setBackdrop(null);
         // Nor is there any point animating a description nobody can see while a game is running.
@@ -329,5 +364,98 @@ public class CompanionPresentation extends android.app.Presentation implements C
             return context.getString(R.string.companion_value_mbps, stats.bandwidthKbps / 1024f);
         }
         return context.getString(R.string.companion_value_kbps, stats.bandwidthKbps);
+    }
+
+    // --- The in-game menu, drawn on this panel ---
+    //
+    // The panel takes no input focus of its own: the window is not focusable, so the gamepad
+    // stays with the game on the main screen. The Game activity, which keeps receiving the pad,
+    // routes it here while the menu is up — moving the selection and activating a row through the
+    // methods below. The selected row is marked activated rather than focused (there is no real
+    // focus to give it), and the two wear the same ring.
+
+    public boolean isMenuOpen() {
+        return menuOverlay != null && menuOverlay.getVisibility() == View.VISIBLE;
+    }
+
+    /** Draw the given actions as a menu and select the first row. Replaces any menu already up. */
+    public void showMenu(String title, List<CompanionMenuItem> items) {
+        if (menuItemsView == null) {
+            return;
+        }
+
+        menuTitleView.setText(title);
+        menuTitleView.setVisibility(title == null || title.isEmpty() ? View.GONE : View.VISIBLE);
+
+        menuItemsView.removeAllViews();
+        menuActions.clear();
+
+        LayoutInflater inflater = LayoutInflater.from(getContext());
+        for (CompanionMenuItem item : items) {
+            View row = inflater.inflate(R.layout.menu_sheet_row, menuItemsView, false);
+            ((TextView) row.findViewById(R.id.menuRowLabel)).setText(item.label);
+            final int index = menuActions.size();
+            row.setOnClickListener(v -> activateAt(index));
+            menuItemsView.addView(row);
+            menuActions.add(item.action);
+        }
+
+        menuOverlay.setVisibility(View.VISIBLE);
+        menuScrollView.scrollTo(0, 0);
+        menuSelectedIndex = -1;
+        moveSelection(1); // land on the first row
+    }
+
+    public void hideMenu() {
+        if (menuOverlay == null || menuOverlay.getVisibility() != View.VISIBLE) {
+            return;
+        }
+        menuOverlay.setVisibility(View.GONE);
+        menuItemsView.removeAllViews();
+        menuActions.clear();
+        menuSelectedIndex = -1;
+        // Let the game know it is back to steering the pad itself.
+        CompanionDisplayManager.onMenuClosed();
+    }
+
+    /** Move the selection by delta rows, wrapping at the ends. */
+    public void moveSelection(int delta) {
+        int count = menuItemsView.getChildCount();
+        if (count == 0) {
+            return;
+        }
+        int next = menuSelectedIndex < 0
+                ? (delta > 0 ? 0 : count - 1)
+                : Math.floorMod(menuSelectedIndex + delta, count);
+        setSelected(next);
+    }
+
+    public void activateSelection() {
+        activateAt(menuSelectedIndex);
+    }
+
+    private void activateAt(int index) {
+        if (index < 0 || index >= menuActions.size()) {
+            return;
+        }
+        // Take the menu down before running, so a re-opening action (a submenu) is not undone
+        // by this same dismissal.
+        Runnable action = menuActions.get(index);
+        hideMenu();
+        if (action != null) {
+            action.run();
+        }
+    }
+
+    private void setSelected(int index) {
+        if (menuSelectedIndex >= 0 && menuSelectedIndex < menuItemsView.getChildCount()) {
+            menuItemsView.getChildAt(menuSelectedIndex).setActivated(false);
+        }
+        menuSelectedIndex = index;
+        View row = menuItemsView.getChildAt(index);
+        row.setActivated(true);
+        // Keep the selected row in view once the panel has been laid out.
+        row.post(() -> row.requestRectangleOnScreen(
+                new android.graphics.Rect(0, 0, row.getWidth(), row.getHeight()), false));
     }
 }

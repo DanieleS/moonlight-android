@@ -13,6 +13,7 @@ import android.widget.Toast;
 import com.limelight.binding.input.GameInputDevice;
 import com.limelight.binding.input.KeyboardTranslator;
 import com.limelight.companion.CompanionDisplayManager;
+import com.limelight.companion.CompanionMenuItem;
 import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.ui.MenuSheet;
 import com.limelight.utils.KeyConfigHelper;
@@ -104,13 +105,25 @@ public class GameMenu implements Game.GameMenuCallbacks {
     }
 
     private void showMenuDialog(String title, MenuOption[] options) {
+        if (currentDialog != null) {
+            currentDialog.dismiss();
+            currentDialog = null;
+        }
+
+        // With a companion panel on screen, the menu belongs there so the game stays whole.
+        if (CompanionDisplayManager.isShowing()) {
+            List<CompanionMenuItem> items = new ArrayList<>();
+            for (MenuOption option : options) {
+                items.add(new CompanionMenuItem(option.label, () -> run(option)));
+            }
+            if (CompanionDisplayManager.showMenu(title, items)) {
+                return;
+            }
+        }
+
         MenuSheet sheet = new MenuSheet(dialogScreenContext).setTitle(title);
         for (MenuOption option : options) {
             sheet.add(option.label, () -> run(option));
-        }
-
-        if (currentDialog != null) {
-            currentDialog.dismiss();
         }
         currentDialog = sheet.showCentered(dialogScreenContext);
         currentDialog.setOnCancelListener(dialog -> hideMenu());
@@ -309,10 +322,12 @@ public class GameMenu implements Game.GameMenuCallbacks {
             currentDialog.dismiss();
         }
         currentDialog = null;
+        CompanionDisplayManager.hideMenu();
     }
 
     @Override
     public boolean isMenuOpen() {
-        return currentDialog != null && currentDialog.isShowing();
+        return (currentDialog != null && currentDialog.isShowing())
+                || CompanionDisplayManager.isMenuOpen();
     }
 }
