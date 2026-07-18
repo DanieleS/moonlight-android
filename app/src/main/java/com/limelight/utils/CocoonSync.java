@@ -121,11 +121,14 @@ public final class CocoonSync {
 
     private static void reconcile(Context context, DocumentFile dir, ComputerDetails computer,
                                   List<NvApp> apps) {
-        // Ours to manage, keyed by the app each one points at. Anything else in the folder —
-        // another host's entries, files put there by hand — is not ours to touch, but its name is
-        // still taken, so we leave those names alone as well.
-        Map<String, DocumentFile> managed = new HashMap<>();
-        Map<String, String> managedContent = new HashMap<>();
+        // Every file in the folder we wrote for this host, grouped by the app it points at. The
+        // frontend's handle on a game is the file's name, so an app can end up with more than one
+        // of our files — an old name left over from a rename — and all of them are ours to manage.
+        // Anything else in the folder (another host's entries, files put there by hand) is not ours
+        // to touch, but its name is still taken, so we leave those names alone as well.
+        List<DocumentFile> managed = new ArrayList<>();
+        Map<DocumentFile, String> managedContent = new HashMap<>();
+        Map<String, List<DocumentFile>> managedByIdentity = new HashMap<>();
         Set<String> foreignNames = new HashSet<>();
 
         for (DocumentFile file : dir.listFiles()) {
@@ -148,12 +151,22 @@ public final class CocoonSync {
                 continue;
             }
 
-            managed.put(identity, file);
-            managedContent.put(identity, content);
+            managed.add(file);
+            managedContent.put(file, content);
+            // computeIfAbsent is API 24; minSdk here is 21, so grow the list by hand.
+            List<DocumentFile> forIdentity = managedByIdentity.get(identity);
+            if (forIdentity == null) {
+                forIdentity = new ArrayList<>();
+                managedByIdentity.put(identity, forIdentity);
+            }
+            forIdentity.add(file);
         }
 
         List<String> written = new ArrayList<>();
-        Set<String> kept = new HashSet<>();
+        // Tracked by file, not by identity: on a rename the file under the old name and the one
+        // under the new name share an identity, but only the current-named one is kept — the old
+        // one falls through to the removal below rather than being spared by its identity.
+        Set<DocumentFile> kept = new HashSet<>();
 
         for (NvApp app : apps) {
             String identity = identityOf(app.getAppUUID(), app.getAppId() > 0 ? String.valueOf(app.getAppId()) : null);
@@ -163,11 +176,23 @@ public final class CocoonSync {
             }
 
             String content = ShortcutHelper.buildLauncherFileContent(computer, app, GENERATED_BY);
-            DocumentFile existing = managed.get(identity);
 
-            if (existing != null && fileName.equals(existing.getName())) {
-                kept.add(identity);
-                if (!content.equals(managedContent.get(identity))) {
+            // Reuse the file that already carries this game's current title, if we have one; any
+            // other files for the same identity are stale names left to the removal pass.
+            DocumentFile existing = null;
+            List<DocumentFile> candidates = managedByIdentity.get(identity);
+            if (candidates != null) {
+                for (DocumentFile candidate : candidates) {
+                    if (fileName.equals(candidate.getName())) {
+                        existing = candidate;
+                        break;
+                    }
+                }
+            }
+
+            if (existing != null) {
+                kept.add(existing);
+                if (!content.equals(managedContent.get(existing))) {
                     write(context, existing, content);
                 }
                 continue;
@@ -187,7 +212,7 @@ public final class CocoonSync {
             }
 
             if (write(context, created, content)) {
-                kept.add(identity);
+                kept.add(created);
                 written.add(fileName);
             } else {
                 created.delete();
@@ -195,8 +220,8 @@ public final class CocoonSync {
         }
 
         int removed = 0;
-        for (Map.Entry<String, DocumentFile> entry : managed.entrySet()) {
-            if (!kept.contains(entry.getKey()) && entry.getValue().delete()) {
+        for (DocumentFile file : managed) {
+            if (!kept.contains(file) && file.delete()) {
                 removed++;
             }
         }
