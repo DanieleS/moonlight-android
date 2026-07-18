@@ -53,7 +53,12 @@ import com.limelight.R;
 import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardControllerConfigurationLoader;
 import com.limelight.binding.video.MediaCodecHelper;
 import com.limelight.utils.Dialog;
+import com.limelight.computers.ComputerDatabaseManager;
+import com.limelight.nvstream.http.ComputerDetails;
+import com.limelight.utils.CocoonSync;
 import com.limelight.utils.FileUriUtils;
+
+import java.util.List;
 import com.limelight.utils.PerformanceDataTracker;
 import com.limelight.utils.UiHelper;
 import org.json.JSONObject;
@@ -768,6 +773,8 @@ public class StreamSettings extends AppCompatActivity {
                 });
             }
 
+            setupCocoonSync();
+
             _pref = findPreference("share_performance_logs");
             if (_pref != null) {
                 _pref.setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
@@ -994,10 +1001,84 @@ public class StreamSettings extends AppCompatActivity {
 
         int READ_REQUEST_CODE = 1001;
         int READ_REQUEST_SPECIAL_CODE = 1002;
+        int COCOON_FOLDER_REQUEST_CODE = 1003;
+
+        private void setupCocoonSync() {
+            final Preference folderPref = findPreference(CocoonSync.FOLDER_PREF_STRING);
+            if (folderPref != null) {
+                showChosenFolder(folderPref);
+                folderPref.setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
+                    @Override
+                    public boolean onPreferenceClick(Preference preference) {
+                        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+                        startActivityForResult(intent, COCOON_FOLDER_REQUEST_CODE);
+                        return true;
+                    }
+                });
+            }
+
+            ListPreference hostPref = findPreference(CocoonSync.HOST_PREF_STRING);
+            if (hostPref == null) {
+                return;
+            }
+
+            List<ComputerDetails> computers = new ComputerDatabaseManager(getActivity()).getAllComputers();
+            if (computers.isEmpty()) {
+                hostPref.setEnabled(false);
+                hostPref.setSummary(R.string.summary_cocoon_sync_no_pcs);
+                return;
+            }
+
+            CharSequence[] names = new CharSequence[computers.size()];
+            CharSequence[] uuids = new CharSequence[computers.size()];
+            for (int i = 0; i < computers.size(); i++) {
+                names[i] = computers.get(i).name;
+                uuids[i] = computers.get(i).uuid;
+            }
+
+            hostPref.setEntries(names);
+            hostPref.setEntryValues(uuids);
+
+            // With one PC there is nothing to choose, so choose it: the sync exports a named host
+            // and would otherwise sit there doing nothing until the user came and said which.
+            if (hostPref.getValue() == null && computers.size() == 1) {
+                hostPref.setValue(computers.get(0).uuid);
+            }
+        }
+
+        private void showChosenFolder(Preference folderPref) {
+            String folder = getPrefs().getString(CocoonSync.FOLDER_PREF_STRING, "");
+            if (!folder.isEmpty()) {
+                folderPref.setSummary(CocoonSync.describeFolder(Uri.parse(folder)));
+            }
+        }
 
         @Override
         public void onActivityResult(int requestCode, int resultCode, Intent data) {
             super.onActivityResult(requestCode, resultCode, data);
+
+            if (requestCode == COCOON_FOLDER_REQUEST_CODE && resultCode == Activity.RESULT_OK &&
+                    data != null && data.getData() != null) {
+                Uri tree = data.getData();
+
+                // The grant that came back dies with the process; this is what outlives a reboot.
+                try {
+                    requireActivity().getContentResolver().takePersistableUriPermission(tree,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                } catch (SecurityException e) {
+                    Toast.makeText(getActivity(), getString(R.string.pref_error_occurred) + e.getMessage(),
+                            Toast.LENGTH_LONG).show();
+                    return;
+                }
+
+                getPrefs().edit().putString(CocoonSync.FOLDER_PREF_STRING, tree.toString()).apply();
+
+                Preference folderPref = findPreference(CocoonSync.FOLDER_PREF_STRING);
+                if (folderPref != null) {
+                    showChosenFolder(folderPref);
+                }
+                return;
+            }
             if (requestCode == READ_REQUEST_CODE && resultCode == Activity.RESULT_OK && data.getData() != null) {
                 try {
                     Uri uri = data.getData();

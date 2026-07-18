@@ -997,6 +997,33 @@
     </PreferenceCategory>
 
     <PreferenceCategory
+        android:key="category_cocoon_sync"
+        android:title="@string/title_cocoon_sync"
+        app:iconSpaceReserved="false">
+
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="checkbox_cocoon_sync"
+            android:summary="@string/summary_cocoon_sync"
+            android:title="@string/title_cocoon_sync_enable"
+            app:iconSpaceReserved="false" />
+
+        <Preference
+            android:dependency="checkbox_cocoon_sync"
+            android:key="cocoon_sync_folder"
+            android:summary="@string/summary_cocoon_sync_folder"
+            android:title="@string/title_cocoon_sync_folder"
+            app:iconSpaceReserved="false" />
+
+        <ListPreference
+            android:dependency="checkbox_cocoon_sync"
+            android:key="cocoon_sync_host"
+            android:summary="@string/summary_cocoon_sync_host"
+            android:title="@string/title_cocoon_sync_host"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
         android:key="category_settings_misc"
         android:title="@string/title_settings_misc"
         app:initialExpandedChildrenCount="1"

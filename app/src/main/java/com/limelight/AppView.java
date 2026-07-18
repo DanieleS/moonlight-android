@@ -27,6 +27,7 @@ import com.limelight.profiles.ProfilesManager;
 import com.limelight.ui.AdapterFragment;
 import com.limelight.ui.AdapterFragmentCallbacks;
 import com.limelight.utils.CacheHelper;
+import com.limelight.utils.CocoonSync;
 import com.limelight.utils.Dialog;
 import com.limelight.utils.HelpLauncher;
 import com.limelight.utils.ServerHelper;
@@ -105,6 +106,8 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
     // Empty on stock hosts; fetched once per visit.
     private Map<String, AppMetadata> appMetadata = Collections.emptyMap();
     private boolean metadataFetchStarted;
+    // The app list as last handed to the frontend sync, so an unchanged one is not handed over again.
+    private String lastSyncedAppList;
 
     // The app id currently spotlighted on the companion, so a slow background load can tell it is
     // still wanted before applying. Backgrounds are cached across scrolls.
@@ -839,8 +842,39 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
 
                 // Now that we have apps, pull their metadata for the companion panel (once).
                 fetchAppMetadata();
+
+                // And hand the list to whatever frontend the user syncs their library with.
+                syncCocoonLibrary(appList);
             }
         });
+    }
+
+    // The poller says the same thing over and over, and the sync touches storage, so it only runs
+    // when the host's answer actually changes. Names matter as much as ids: a renamed game is a
+    // renamed file.
+    private void syncCocoonLibrary(final List<NvApp> appList) {
+        if (computer == null || !CocoonSync.isDesignatedHost(this, computer)) {
+            return;
+        }
+
+        StringBuilder signature = new StringBuilder();
+        for (NvApp app : appList) {
+            signature.append(app.getAppId()).append(':').append(app.getAppName()).append('\n');
+        }
+
+        if (signature.toString().equals(lastSyncedAppList)) {
+            return;
+        }
+        lastSyncedAppList = signature.toString();
+
+        final ComputerDetails syncComputer = computer;
+        final List<NvApp> syncApps = new ArrayList<>(appList);
+        new Thread() {
+            @Override
+            public void run() {
+                CocoonSync.sync(AppView.this, syncComputer, syncApps);
+            }
+        }.start();
     }
 
     @Override

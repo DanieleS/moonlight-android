@@ -579,6 +579,15 @@
     <string name="title_hide_clipboard_content">Hide clipboard content</string>
     <string name="summary_hide_clipboard_content">Mark remote clipboard as sensitive information</string>
     <string name="title_settings_misc">MISC</string>
+
+    <string name="title_cocoon_sync">COCOON</string>
+    <string name="title_cocoon_sync_enable">Sync library to a folder</string>
+    <string name="summary_cocoon_sync">Keep a folder of launcher files in step with your PC\'s games, for frontends like Cocoon that build their library by scanning a folder</string>
+    <string name="title_cocoon_sync_folder">Folder</string>
+    <string name="summary_cocoon_sync_folder">No folder chosen</string>
+    <string name="title_cocoon_sync_host">PC to sync</string>
+    <string name="summary_cocoon_sync_host">Only one PC is exported: the frontend shows every game in one list, so a second PC would only add titles you could not tell apart</string>
+    <string name="summary_cocoon_sync_no_pcs">No PCs paired yet</string>
     <string name="perf_overlay_lite_bandwidth">Bandwidth</string>
     <string name="perf_overlay_lite_network_decoding_delay">Network/Decoding delay</string>
     <string name="perf_overlay_lite_packet_loss">Packet loss</string>
