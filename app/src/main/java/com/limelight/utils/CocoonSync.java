@@ -162,6 +162,11 @@ public final class CocoonSync {
             forIdentity.add(file);
         }
 
+        // A file we wrote that reads back as "foreign" here — a stamp or host uuid that no longer
+        // matches — is one we will never delete, so name the reason it fell out of our hands.
+        LimeLog.info("CocoonSync: reconciling " + apps.size() + " apps against " + managed.size()
+                + " managed and " + foreignNames.size() + " unrecognised files (host " + computer.uuid + ")");
+
         List<String> written = new ArrayList<>();
         // Tracked by file, not by identity: on a rename the file under the old name and the one
         // under the new name share an identity, but only the current-named one is kept — the old
@@ -220,15 +225,23 @@ public final class CocoonSync {
         }
 
         int removed = 0;
+        int deleteFailed = 0;
         for (DocumentFile file : managed) {
-            if (!kept.contains(file) && file.delete()) {
+            if (kept.contains(file)) {
+                continue;
+            }
+            if (file.delete()) {
                 removed++;
+            } else {
+                // The file is ours and no app claims it, yet the platform would not delete it —
+                // the likeliest reason a removed game lingers in the frontend.
+                deleteFailed++;
+                LimeLog.warning("CocoonSync: could not delete stale entry " + file.getName());
             }
         }
 
-        if (!written.isEmpty() || removed > 0) {
-            LimeLog.info("CocoonSync: " + written.size() + " written, " + removed + " removed");
-        }
+        LimeLog.info("CocoonSync: " + written.size() + " written, " + removed + " removed, "
+                + kept.size() + " kept, " + deleteFailed + " delete failed");
     }
 
     /**
