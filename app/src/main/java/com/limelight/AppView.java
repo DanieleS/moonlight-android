@@ -105,7 +105,12 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
     // Playnite-enriched metadata keyed by upper-cased app UUID, shown on the companion panel.
     // Empty on stock hosts; fetched once per visit.
     private Map<String, AppMetadata> appMetadata = Collections.emptyMap();
-    private boolean metadataFetchStarted;
+    // Guards against overlapping metadata fetches only; it is not a permanent latch, so the
+    // companion keeps re-syncing as the library changes rather than freezing on the first snapshot.
+    private boolean metadataFetchInFlight;
+    // Whether at least one metadata fetch has completed, so the very first sync always runs even
+    // if the app list arrives unchanged (e.g. repopulated from a previous fragment instance).
+    private boolean metadataFetched;
     // The app list as last handed to the frontend sync, so an unchanged one is not handed over again.
     private String lastSyncedAppList;
 
@@ -840,8 +845,12 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
                     appGridAdapter.notifyDataSetChanged();
                 }
 
-                // Now that we have apps, pull their metadata for the companion panel (once).
-                fetchAppMetadata();
+                // Pull the host's metadata for the companion panel: on the first sync, and again
+                // whenever the library changed, so added/removed/renamed games don't leave the
+                // companion stuck on the first snapshot.
+                if (updated || !metadataFetched) {
+                    fetchAppMetadata();
+                }
 
                 // And hand the list to whatever frontend the user syncs their library with.
                 syncCocoonLibrary(appList);
@@ -1121,13 +1130,15 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         }
     }
 
-    // Pull Playnite-enriched metadata once per visit. It's a fork-only endpoint, so this quietly
-    // yields nothing on stock hosts; when it arrives we refresh whatever cover is centred.
+    // Pull Playnite-enriched metadata for the companion panel. It's a fork-only endpoint, so this
+    // quietly yields nothing on stock hosts; when it arrives we refresh whatever cover is centred.
+    // Called on the first sync and again on every library change; the in-flight guard only keeps
+    // overlapping fetches from stacking, so the companion never freezes on the first snapshot.
     private void fetchAppMetadata() {
-        if (metadataFetchStarted || computer == null || managerBinder == null) {
+        if (metadataFetchInFlight || computer == null || managerBinder == null) {
             return;
         }
-        metadataFetchStarted = true;
+        metadataFetchInFlight = true;
         new Thread(() -> {
             try {
                 NvHTTP http = new NvHTTP(
@@ -1139,6 +1150,7 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
                 final Map<String, AppMetadata> fetched = http.getAppMetadata();
                 runOnUiThread(() -> {
                     appMetadata = fetched;
+                    metadataFetched = true;
                     // Re-push whatever is spotlighted — centred in the carousel, focused in the
                     // grid — so it picks up its freshly-arrived metadata.
                     for (int i = 0; i < appGridAdapter.getCount(); i++) {
@@ -1151,6 +1163,10 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
                 });
             } catch (Exception e) {
                 LimeLog.warning("Failed to fetch app metadata: " + e.getMessage());
+            } finally {
+                // Clear the in-flight guard whatever happened, so the next library change can
+                // trigger a fresh fetch.
+                runOnUiThread(() -> metadataFetchInFlight = false);
             }
         }).start();
     }
