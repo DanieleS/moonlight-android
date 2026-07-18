@@ -308,6 +308,54 @@ public class ShortcutTrampoline extends AppCompatActivity {
         return true;
     }
 
+    /** The host's cached app list, or null when it is missing, empty or unreadable. */
+    private List<NvApp> readCachedAppList() {
+        try {
+            String rawAppList = CacheHelper.readInputStreamToString(
+                    CacheHelper.openCacheFileForInput(getCacheDir(), "applist", uuidString));
+            if (rawAppList.isEmpty()) {
+                return null;
+            }
+            return NvHTTP.getAppListByReader(new StringReader(rawAppList));
+        } catch (IOException | XmlPullParserException e) {
+            Log.e(TAG, "Error processing app list from cache", e);
+            return null;
+        }
+    }
+
+    /**
+     * The cached app matching any of the keys given, or null if none does. A UUID identifies an
+     * app on its own and an ID nearly so, whereas two apps may well share a name, so the stronger
+     * keys are tried against the whole list before the weaker ones get a look.
+     */
+    private static NvApp findCachedApp(List<NvApp> applist, String appUUID, int appID, String appName) {
+        if (appUUID != null && !appUUID.isEmpty()) {
+            for (NvApp candidate : applist) {
+                if (appUUID.equalsIgnoreCase(candidate.getAppUUID())) {
+                    return candidate;
+                }
+            }
+        }
+
+        if (appID > 0) {
+            for (NvApp candidate : applist) {
+                if (appID == candidate.getAppId()) {
+                    return candidate;
+                }
+            }
+        }
+
+        if (appName != null && !appName.isEmpty()) {
+            for (NvApp candidate : applist) {
+                if (appName.equalsIgnoreCase(candidate.getAppName())) {
+                    return candidate;
+                }
+            }
+        }
+
+        return null;
+    }
+
     private Map<String, String> parseArtFileData(Uri fileUri) {
         if (fileUri == null) {
             return null;
@@ -431,73 +479,55 @@ public class ShortcutTrampoline extends AppCompatActivity {
         setIntent(new Intent(getIntent()).putExtra(AppView.UUID_EXTRA, uuidString));
 
         if (validateAppInput(appUUID, appIDStr, appName)) {
-            // If app data came from .art file or was determined by appNameString from extras
-            if (appUUID != null && !appUUID.isEmpty()) {
-                app = new NvApp(appName, // appName can be null if only UUID is provided
-                        appUUID,
-                        -1, // App ID is not strictly needed if UUID is present
-                        getIntent().getBooleanExtra(Game.EXTRA_APP_HDR, false)); // HDR info still from intent
-            } else if (appIDStr != null && !appIDStr.isEmpty()) {
-                int appID = Integer.parseInt(appIDStr);
-                app = new NvApp(appName, // appName can be null if only App ID is provided
-                        null,
-                        appID,
-                        getIntent().getBooleanExtra(Game.EXTRA_APP_HDR, false)); // HDR info still from intent
-            } else if (appName != null && !appName.isEmpty()) {
-                // Use appNameString (from .art file or intent extra) to find the corresponding AppId and AppUUID
+            int appID = -1;
+            if (appIDStr != null && !appIDStr.isEmpty()) {
                 try {
-                    int appID = -1;
-                    String appUuidFromFile = null;
-                    String rawAppList = CacheHelper.readInputStreamToString(CacheHelper.openCacheFileForInput(getCacheDir(), "applist", uuidString));
-
-                    if (rawAppList.isEmpty()) {
-                        Dialog.displayDialog(ShortcutTrampoline.this,
-                                getResources().getString(R.string.conn_error_title),
-                                getResources().getString(R.string.scut_invalid_app_id) + " (applist cache empty or unreadable)",
-                                true);
-//                    finish();
-                        return;
-                    }
-                    List<NvApp> applist = NvHTTP.getAppListByReader(new StringReader(rawAppList));
-
-                    for (NvApp _app : applist) {
-                        if (_app.getAppName().equalsIgnoreCase(appName)) {
-                            appID = _app.getAppId();
-                            appUuidFromFile = _app.getAppUUID();
-                            break;
-                        }
-                    }
-                    if (appID < 0 && appUuidFromFile == null) { // Need at least one
-                        Dialog.displayDialog(ShortcutTrampoline.this,
-                                getResources().getString(R.string.conn_error_title),
-                                getResources().getString(R.string.scut_invalid_app_id) + " (app not found in cache)",
-                                true);
-//                    finish();
-                        return;
-                    }
-                    // Update intent with found app ID and UUID if they weren't originally there
-                    Intent currentIntent = getIntent();
-                    if (currentIntent.getStringExtra(Game.EXTRA_APP_ID) == null && appID != -1) {
-                        currentIntent.putExtra(Game.EXTRA_APP_ID, String.valueOf(appID));
-                    }
-                    if (currentIntent.getStringExtra(Game.EXTRA_APP_UUID) == null && appUuidFromFile != null) {
-                        currentIntent.putExtra(Game.EXTRA_APP_UUID, appUuidFromFile);
-                    }
-                    app = new NvApp(
-                            appName,
-                            appUuidFromFile,
-                            appID,
-                            getIntent().getBooleanExtra(Game.EXTRA_APP_HDR, false));
-                } catch (IOException | XmlPullParserException e) {
-                    Log.e(TAG, "Error processing app list from cache", e);
-                    Dialog.displayDialog(ShortcutTrampoline.this,
-                            getResources().getString(R.string.conn_error_title),
-                            getResources().getString(R.string.scut_invalid_app_id) + " (error parsing applist cache)",
-                            true);
-//                finish();
-                    return;
+                    appID = Integer.parseInt(appIDStr);
+                } catch (NumberFormatException e) {
+                    // validateAppInput only checks the App ID when no UUID came with it, so a
+                    // malformed one can still reach us. The other keys are enough to go on.
+                    Log.w(TAG, "Ignoring malformed App ID: " + appIDStr);
                 }
             }
+
+            // An entry naming a single key still deserves the others: the connection scene looks
+            // the cover up by App ID, and the companion panel keys metadata by App UUID.
+            List<NvApp> applist = readCachedAppList();
+            NvApp cachedApp = applist != null ? findCachedApp(applist, appUUID, appID, appName) : null;
+
+            if (cachedApp != null) {
+                if (appUUID == null || appUUID.isEmpty()) {
+                    appUUID = cachedApp.getAppUUID();
+                }
+                if (appID <= 0) {
+                    appID = cachedApp.getAppId();
+                }
+                if (appName == null || appName.isEmpty()) {
+                    appName = cachedApp.getAppName();
+                }
+            } else if ((appUUID == null || appUUID.isEmpty()) && appID <= 0) {
+                // Only a name was given, and without the cache it names nothing we can start.
+                Dialog.displayDialog(ShortcutTrampoline.this,
+                        getResources().getString(R.string.conn_error_title),
+                        getResources().getString(R.string.scut_invalid_app_id) +
+                                (applist == null ? " (applist cache empty or unreadable)" : " (app not found in cache)"),
+                        true);
+                return;
+            }
+
+            // Update intent with found app ID and UUID if they weren't originally there
+            Intent currentIntent = getIntent();
+            if (currentIntent.getStringExtra(Game.EXTRA_APP_ID) == null && appID > 0) {
+                currentIntent.putExtra(Game.EXTRA_APP_ID, String.valueOf(appID));
+            }
+            if (currentIntent.getStringExtra(Game.EXTRA_APP_UUID) == null && appUUID != null) {
+                currentIntent.putExtra(Game.EXTRA_APP_UUID, appUUID);
+            }
+
+            app = new NvApp(appName, // any of these can still be absent if the cache had nothing to add
+                    appUUID,
+                    appID,
+                    getIntent().getBooleanExtra(Game.EXTRA_APP_HDR, false)); // HDR info still from intent
         }
 
         // Bind to the computer manager service
