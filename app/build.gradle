@@ -40,7 +40,7 @@ android {
                     "obtainium_app_url",
                     "data:text/html;base64,PGgxPlJvb3QgYnVpbGQgaXMgbm90IGF2YWlsYWJsZTwvaDE+"
 
-            applicationId "dev.kylobyte.mani.root"
+            applicationId "dev.kylobyte.ratatoskr.root"
             dimension "root"
             buildConfigField "boolean", "ROOT_BUILD", "true"
         }
@@ -54,9 +54,9 @@ android {
 
             resValue "string",
                     "obtainium_app_url",
-                    "https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22dev.kylobyte.mani%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FDanieleS%2Fmoonlight-android%22%2C%22author%22%3A%22DanieleS%22%2C%22name%22%3A%22M%C3%A1ni%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22nonRoot%5C%22%2C%5C%22matchGroutToUse%5C%22%3A%5C%22%241%5C%22%2C%5C%22versionExtractionRegEx%5C%22%3A%5C%22v%28.%2B%29%5C%22%7D%22%7D"
+                    "https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22dev.kylobyte.ratatoskr%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FDanieleS%2Fmoonlight-android%22%2C%22author%22%3A%22DanieleS%22%2C%22name%22%3A%22Ratatoskr%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22nonRoot%5C%22%2C%5C%22matchGroutToUse%5C%22%3A%5C%22%241%5C%22%2C%5C%22versionExtractionRegEx%5C%22%3A%5C%22v%28.%2B%29%5C%22%7D%22%7D"
 
-            applicationId "dev.kylobyte.mani"
+            applicationId "dev.kylobyte.ratatoskr"
             dimension "root"
             buildConfigField "boolean", "ROOT_BUILD", "false"
         }
@@ -134,7 +134,7 @@ android {
             // is to please change the applicationId before you publish.
             //
             // TL;DR: don't publish under someone else's applicationId.
-            // Ours is set per flavor above: dev.kylobyte.mani.
+            // Ours is set per flavor above: dev.kylobyte.ratatoskr.
             resValue "string", "app_label", "Ratatoskr"
             resValue "string", "app_label_root", "Ratatoskr (Root)"
             resValue "string", "app_label_game", "Ratatoskr (Game)"
