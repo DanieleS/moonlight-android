@@ -16,6 +16,7 @@ import com.limelight.nvstream.http.AppMetadata;
 import com.limelight.computers.ComputerManagerListener;
 import com.limelight.computers.ComputerManagerService;
 import com.limelight.grid.AppGridAdapter;
+import com.limelight.grid.AppSortOrder;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
 import com.limelight.nvstream.http.NvHTTP;
@@ -106,6 +107,8 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
     // Empty on stock hosts; fetched once per visit.
     private Map<String, AppMetadata> appMetadata = Collections.emptyMap();
     private boolean metadataFetchStarted;
+    // The order the library is listed in. Read before the adapter exists, so it is held here.
+    private AppSortOrder sortOrder = AppSortOrder.HOST;
     // The app list as last handed to the frontend sync, so an unchanged one is not handed over again.
     private String lastSyncedAppList;
 
@@ -127,6 +130,11 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
     private final static int START_WITH_QUIT_VDISPLAY = 21;
 
     public final static String HIDDEN_APPS_PREF_FILENAME = "HiddenApps";
+
+    // The chosen order is one preference for the whole app, not one per PC: it is how the user
+    // likes to browse, not a property of any host.
+    private final static String SORT_ORDER_PREF_FILENAME = "LibrarySortOrder";
+    private final static String SORT_ORDER_PREF_KEY = "sortOrder";
 
     public final static String NAME_EXTRA = "Name";
     public final static String UUID_EXTRA = "UUID";
@@ -168,6 +176,7 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
                         return;
                     }
 
+                    appGridAdapter.setSortOrder(sortOrder);
                     appGridAdapter.updateHiddenApps(hiddenAppIds, true);
 
                     // Now make the binder visible. We must do this after appGridAdapter
@@ -392,6 +401,8 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
 
         // Toggle between the carousel and the "all games" grid, from the bar or from the
         // always-visible hint that advertises the gamepad shortcut for the same thing.
+        findViewById(R.id.sortButton)
+            .setOnClickListener(v -> showSortMenu());
         findViewById(R.id.viewModeButton)
             .setOnClickListener(v -> toggleViewMode());
         findViewById(R.id.viewModeHint)
@@ -418,6 +429,11 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
 
         showHiddenApps = getIntent().getBooleanExtra(SHOW_HIDDEN_APPS_EXTRA, false);
         uuidString = getIntent().getStringExtra(UUID_EXTRA);
+
+        sortOrder = AppSortOrder.fromKey(
+                getSharedPreferences(SORT_ORDER_PREF_FILENAME, MODE_PRIVATE)
+                        .getString(SORT_ORDER_PREF_KEY, null),
+                AppSortOrder.HOST);
 
         SharedPreferences hiddenAppsPrefs = getSharedPreferences(HIDDEN_APPS_PREF_FILENAME, MODE_PRIVATE);
         for (String hiddenAppIdStr : hiddenAppsPrefs.getStringSet(uuidString, new HashSet<String>())) {
@@ -651,6 +667,50 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         sheet.add(getString(R.string.applist_menu_export_launcher), () -> exportLauncher(app));
 
         sheet.showCentered(this);
+    }
+
+    // The library's own order, offered as a sheet from the app bar. The orders that rank by
+    // Playnite metadata are listed even on stock hosts: they fall back to the name there, which
+    // is a sane result rather than an empty library.
+    private void showSortMenu() {
+        MenuSheet sheet = new MenuSheet(this).setTitle(getString(R.string.title_sort_order));
+
+        for (AppSortOrder order : AppSortOrder.values()) {
+            sheet.addChecked(getString(order.getLabelRes()), order == sortOrder,
+                    () -> applySortOrder(order));
+        }
+
+        sheet.showCentered(this);
+    }
+
+    private void applySortOrder(AppSortOrder newSortOrder) {
+        if (newSortOrder == sortOrder) {
+            return;
+        }
+        sortOrder = newSortOrder;
+
+        getSharedPreferences(SORT_ORDER_PREF_FILENAME, MODE_PRIVATE)
+                .edit()
+                .putString(SORT_ORDER_PREF_KEY, newSortOrder.getKey())
+                .apply();
+
+        if (appGridAdapter != null) {
+            appGridAdapter.setSortOrder(newSortOrder);
+            returnToStartOfOrder();
+        }
+    }
+
+    // A re-sort leaves the carousel parked at an index that now holds a different game, and the
+    // centre-tracking only runs on scroll — so the backdrop, the title and the companion would all
+    // still show the old one. Go back to the head of the new order, which is where the user wants
+    // to be looking anyway, and let the scroll refresh the chrome.
+    private void returnToStartOfOrder() {
+        View grid = findViewById(R.id.fragmentView);
+        if (!(grid instanceof RecyclerView)) {
+            return;
+        }
+        coverflowCentered = -1;
+        ((RecyclerView) grid).scrollToPosition(0);
     }
 
     private void startApp(AppObject app, boolean vDisplay) {
@@ -1139,6 +1199,8 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
                 final Map<String, AppMetadata> fetched = http.getAppMetadata();
                 runOnUiThread(() -> {
                     appMetadata = fetched;
+                    // The orders that rank by metadata were sorting on nothing until now.
+                    appGridAdapter.setAppMetadata(fetched);
                     // Re-push whatever is spotlighted — centred in the carousel, focused in the
                     // grid — so it picks up its freshly-arrived metadata.
                     for (int i = 0; i < appGridAdapter.getCount(); i++) {

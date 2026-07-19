@@ -17,11 +17,14 @@ import com.limelight.grid.assets.NetworkAssetLoader;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.preferences.PreferenceConfiguration;
 
+import com.limelight.nvstream.http.AppMetadata;
+import com.limelight.utils.AppLaunchHistory;
+
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @SuppressWarnings("unchecked")
@@ -41,14 +44,49 @@ public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
     private Set<Integer> hiddenAppIds = new HashSet<>();
     private ArrayList<AppView.AppObject> allApps = new ArrayList<>();
 
+    private AppSortOrder sortOrder = AppSortOrder.HOST;
+    private Map<String, AppMetadata> appMetadata = Collections.emptyMap();
+    private final AppLaunchHistory launchHistory;
+
     public AppGridAdapter(Context context, PreferenceConfiguration prefs, ComputerDetails computer, String uniqueId, boolean showHiddenApps) {
         super(context, getLayoutIdForPreferences(prefs));
 
         this.computer = computer;
         this.uniqueId = uniqueId;
         this.showHiddenApps = showHiddenApps;
+        this.launchHistory = new AppLaunchHistory(context, computer != null ? computer.uuid : null);
 
         updateLayoutWithPreferences(context, prefs);
+    }
+
+    /** Changes the order the library is listed in, re-sorting what is already on screen. */
+    public void setSortOrder(AppSortOrder newSortOrder) {
+        if (newSortOrder == null || newSortOrder == sortOrder) {
+            return;
+        }
+        this.sortOrder = newSortOrder;
+        resort();
+    }
+
+    public AppSortOrder getSortOrder() {
+        return sortOrder;
+    }
+
+    /**
+     * Hands over the Playnite metadata the host served. It arrives after the apps do, so the
+     * orders that rank by it re-sort when it lands.
+     */
+    public void setAppMetadata(Map<String, AppMetadata> metadata) {
+        this.appMetadata = metadata == null ? Collections.<String, AppMetadata>emptyMap() : metadata;
+        if (sortOrder == AppSortOrder.RELEASE || sortOrder == AppSortOrder.SCORE) {
+            resort();
+        }
+    }
+
+    private void resort() {
+        sortList(allApps);
+        sortList(itemList);
+        notifyDataSetChanged();
     }
 
     public void updateHiddenApps(Set<Integer> newHiddenAppIds, boolean hideImmediately) {
@@ -139,19 +177,8 @@ public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
         loader.freeCacheMemory();
     }
 
-    private static void sortList(List<AppView.AppObject> list) {
-        Collections.sort(list, new Comparator<AppView.AppObject>() {
-            @Override
-            public int compare(AppView.AppObject lhs, AppView.AppObject rhs) {
-                int lIndex = lhs.app.getAppIndex();
-                int rIndex = rhs.app.getAppIndex();
-                if (lIndex == rIndex) {
-                    return lhs.app.getAppName().toLowerCase().compareTo(rhs.app.getAppName().toLowerCase());
-                } else {
-                    return lIndex - rIndex;
-                }
-            }
-        });
+    private void sortList(List<AppView.AppObject> list) {
+        Collections.sort(list, sortOrder.comparator(appMetadata, launchHistory));
     }
 
     public void addApp(AppView.AppObject app) {
