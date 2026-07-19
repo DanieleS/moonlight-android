@@ -1,5 +1,18 @@
 apply plugin: 'com.android.application'
 
+// Release signing. The keystore lives in key/, and its credentials in local.properties; both are
+// gitignored, so a checkout without them still builds — it just produces an unsigned release.
+// Losing this keystore means no device can ever update an installed Ratatoskr again, only
+// reinstall it from scratch, so it wants a backup somewhere durable.
+def keystorePropsFile = rootProject.file("local.properties")
+def keystoreProps = new Properties()
+if (keystorePropsFile.exists()) {
+    keystorePropsFile.withInputStream { keystoreProps.load(it) }
+}
+def releaseKeystorePath = keystoreProps["ratatoskr.keystore"]
+def releaseKeystore = releaseKeystorePath != null ? rootProject.file(releaseKeystorePath) : null
+def hasReleaseSigning = releaseKeystore != null && releaseKeystore.exists()
+
 android {
     ndkVersion "27.0.12077973"
 
@@ -16,6 +29,17 @@ android {
 
         // Generate native debug symbols to allow Google Play to symbolicate our native crashes
         ndk.debugSymbolLevel = 'FULL'
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            release {
+                storeFile releaseKeystore
+                storePassword keystoreProps["ratatoskr.keystorePassword"]
+                keyAlias keystoreProps["ratatoskr.keyAlias"]
+                keyPassword keystoreProps["ratatoskr.keyPassword"]
+            }
+        }
     }
 
     flavorDimensions.add("root")
@@ -138,6 +162,10 @@ android {
             resValue "string", "app_label", "Ratatoskr"
             resValue "string", "app_label_root", "Ratatoskr (Root)"
             resValue "string", "app_label_game", "Ratatoskr (Game)"
+
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
 
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
