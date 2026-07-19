@@ -775,6 +775,15 @@
     <string name="action_all_games">All games</string>
     <string name="action_carousel">Carousel</string>
     <string name="coverflow_count">%1$d / %2$d</string>
+
+    <!-- The order the library lists games in. -->
+    <string name="action_sort">Sort</string>
+    <string name="title_sort_order">Sort by</string>
+    <string name="sort_order_host">Host order</string>
+    <string name="sort_order_name">Name</string>
+    <string name="sort_order_recent">Recently played</string>
+    <string name="sort_order_release">Release date</string>
+    <string name="sort_order_score">Rating</string>
     <!-- The gamepad button that switches between the carousel and the grid. -->
     <string name="hint_button_y" translatable="false">Y</string>
     <string name="hint_button_rb" translatable="false">RB</string>

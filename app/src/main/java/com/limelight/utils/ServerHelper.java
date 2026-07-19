@@ -150,6 +150,9 @@ public class ServerHelper {
             return;
         }
 
+        // Note the launch before we leave, so the library can offer a "last played" order.
+        AppLaunchHistory.recordLaunch(parent, computer, app);
+
         Intent intent = createStartIntent(parent, app, computer, managerBinder, withVDisplay);
         parent.startActivity(intent);
     }

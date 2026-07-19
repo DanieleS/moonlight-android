@@ -46,6 +46,14 @@
             android:src="@drawable/ic_virtual_display"
             android:visibility="gone" />
 
+        <!-- The order the games are listed in. Lives here rather than in a game's own menu,
+             and so is reachable in the carousel too by revealing the bar. -->
+        <ImageButton
+            android:id="@+id/sortButton"
+            style="@style/TopBarAction"
+            android:contentDescription="@string/action_sort"
+            android:src="@drawable/ic_sort" />
+
         <ImageButton
             android:id="@+id/viewModeButton"
             style="@style/TopBarAction"
