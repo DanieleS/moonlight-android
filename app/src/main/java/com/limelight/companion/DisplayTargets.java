@@ -1,5 +1,6 @@
 package com.limelight.companion;
 
+import android.app.Activity;
 import android.content.Context;
 import android.graphics.Point;
 import android.hardware.display.DisplayManager;
@@ -91,6 +92,18 @@ public final class DisplayTargets {
         }
 
         return best;
+    }
+
+    /**
+     * The id of the companion display for an Activity, resolving the display the Activity itself
+     * lives on rather than assuming the default one, or {@link Display#INVALID_DISPLAY} when there
+     * is no companion display to use.
+     */
+    public static int findCompanionDisplayId(Activity activity) {
+        Display host = activity.getWindowManager().getDefaultDisplay();
+        int hostId = host != null ? host.getDisplayId() : Display.DEFAULT_DISPLAY;
+        Display companion = findCompanionDisplay(activity, hostId);
+        return companion != null ? companion.getDisplayId() : Display.INVALID_DISPLAY;
     }
 
     private static Point getRealSize(Display display) {

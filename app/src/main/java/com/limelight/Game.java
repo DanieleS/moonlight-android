@@ -29,6 +29,7 @@ import com.limelight.binding.video.MediaCodecDecoderRenderer;
 import com.limelight.binding.video.MediaCodecHelper;
 import com.limelight.binding.video.PerfOverlayListener;
 import com.limelight.binding.video.PerfStats;
+import com.limelight.companion.CompanionAppLauncher;
 import com.limelight.companion.CompanionDisplayManager;
 import com.limelight.companion.CompanionState;
 import com.limelight.nvstream.NvConnection;
@@ -3862,6 +3863,9 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 if (prefConfig.preventPacketLoss) {
                     timerHandler.postDelayed(backgroundPing, 1000);
                 }
+
+                // Open this game's companion app on the second screen, if one was assigned.
+                maybeAutoLaunchCompanionApp();
             }
         });
 
@@ -3881,6 +3885,29 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             // This may be null if launched from the "Resume Session" PC context menu item
             shortcutHelper.reportGameLaunched(computer, app);
         }
+    }
+
+    // Whether a companion app can be opened for this game right now (feature on, second screen
+    // present). The in-game menu uses it to decide whether to offer the action.
+    public boolean isCompanionAppSupported() {
+        return CompanionAppLauncher.isSupported(this);
+    }
+
+    // Open this game's companion app by hand, from the in-game menu. With none assigned yet, the
+    // picker opens so it can be chosen and launched on the spot.
+    public void openCompanionApp() {
+        CompanionAppLauncher.launchForGame(this, appUUID, appName, true);
+    }
+
+    // Auto-launch on connect: only where the feature is supported and this game has an app
+    // assigned. Held back a beat so the stream has settled on the main screen before the
+    // companion app claims the second one.
+    private void maybeAutoLaunchCompanionApp() {
+        if (!CompanionAppLauncher.isSupported(this)) {
+            return;
+        }
+        timerHandler.postDelayed(
+                () -> CompanionAppLauncher.launchForGame(Game.this, appUUID, appName, false), 1200);
     }
 
     @Override

@@ -816,5 +816,15 @@
     <string name="action_companion_hide">Hide companion screen</string>
     <string name="game_menu_companion_show">Show Companion Screen</string>
     <string name="game_menu_companion_hide">Hide Companion Screen</string>
+    <string name="title_enable_companion_app">Companion App on Second Screen (Beta)</string>
+    <string name="summary_enable_companion_app">Let each game open a chosen app on the secondary screen. Assign one from a game\'s menu in the library; it opens automatically when the game starts. Ignored when Fully External Display Mode is enabled.</string>
+    <string name="applist_menu_companion_app">Companion app…</string>
+    <string name="applist_menu_companion_app_set">Companion app: %1$s</string>
+    <string name="companion_app_pick_title">Choose a companion app</string>
+    <string name="companion_app_none">None</string>
+    <string name="companion_app_cleared">Companion app cleared</string>
+    <string name="companion_app_no_display">No secondary screen to open the companion app on</string>
+    <string name="companion_app_launch_failed">Couldn\'t open the companion app</string>
+    <string name="game_menu_companion_app">Companion App</string>
     <string name="action_virtual_display">Start virtual display</string>
 </resources>

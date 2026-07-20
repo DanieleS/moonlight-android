@@ -232,6 +232,11 @@ public class GameMenu implements Game.GameMenuCallbacks {
                     ? R.string.game_menu_companion_hide : R.string.game_menu_companion_show),
                     CompanionDisplayManager::toggle));
         }
+        if (game.isCompanionAppSupported()) {
+            // Open this game's companion app on the second screen (or pick one, if none yet).
+            options.add(new MenuOption(getString(R.string.game_menu_companion_app),
+                    game::openCompanionApp));
+        }
         options.add(new MenuOption(getString(R.string.game_menu_toggle_floating_button), true, game::toggleFloatingButtonVisibility));
         options.add(new MenuOption(getString(R.string.game_menu_toggle_keyboard_model), true, game::toggleKeyboardController));
         if (!game.isOnExternalDisplay()) {
