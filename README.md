@@ -8,6 +8,10 @@ Ratatoskr streams your collection of games from your Windows PC to your Android 
 the internet, and reworks how you *browse* that collection: a cover-flow library enriched with the
 Playnite metadata a Vibepollo host serves.
 
+It is tailored specifically for the [Ayn Thor](https://www.ayntec.com/products/ayn-thor) handheld: the layout, controls and
+library presentation are built around that device. It still runs on other Android devices, but the Thor
+is what it is designed for.
+
 # Library
 
 Ratatoskr's main addition over upstream Artemis is the library. When paired with a
