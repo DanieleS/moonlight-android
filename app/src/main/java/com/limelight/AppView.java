@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Map;
 
 import com.google.android.material.button.MaterialButton;
+import com.limelight.companion.CompanionAppLauncher;
+import com.limelight.companion.CompanionApps;
 import com.limelight.companion.CompanionDisplayManager;
 import com.limelight.companion.CompanionState;
 import com.limelight.binding.PlatformBinding;
@@ -648,6 +650,20 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         // The hide toggle is out only when this is not the running app, or it is already hidden.
         if (lastRunningAppId != app.app.getAppId() || app.isHidden) {
             sheet.addChecked(getString(R.string.applist_menu_hide_app), app.isHidden, () -> toggleHidden(app));
+        }
+
+        // Pick (or clear) the app that opens on the second screen alongside this game. Only
+        // where a second screen exists to open it on.
+        if (CompanionAppLauncher.isSupported(this)) {
+            String appUuid = app.app.getAppUUID();
+            String appName = app.app.getAppName();
+            ComponentName current = CompanionApps.get(this, appUuid, appName);
+            String companionLabel = current != null
+                    ? getString(R.string.applist_menu_companion_app_set,
+                            CompanionAppLauncher.labelFor(this, current))
+                    : getString(R.string.applist_menu_companion_app);
+            sheet.add(companionLabel,
+                    () -> CompanionAppLauncher.showPicker(this, appUuid, appName, null));
         }
 
         sheet.add(getString(R.string.applist_menu_details),

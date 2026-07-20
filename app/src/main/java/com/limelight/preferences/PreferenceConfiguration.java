@@ -49,6 +49,7 @@ public class PreferenceConfiguration {
     private static final String AUTO_ENTER_LAST_PC_PREF_STRING = "checkbox_auto_enter_last_pc";
     private static final String ENABLE_COMPANION_DISPLAY_PREF_STRING = "checkbox_enable_companion_display";
     private static final String ENABLE_COMPANION_STATS_PREF_STRING = "checkbox_enable_companion_stats";
+    private static final String ENABLE_COMPANION_APP_PREF_STRING = "checkbox_enable_companion_app";
     private static final String USE_VIRTUAL_DISPLAY_PREF_STRING = "checkbox_use_virtual_display";
     private static final String AUTO_INVERT_VIDEO_RESOLUTION_PREF_STRING = "checkbox_auto_invert_video_resolution";
     private static final String RESOLUTION_SCALE_FACTOR_PREF_STRING = "seekbar_resolution_scale_factor";
@@ -152,6 +153,10 @@ public class PreferenceConfiguration {
     // A companion panel with nothing on it is worth less than one showing the stats, so this is
     // on by default. It only takes effect once the companion display itself is switched on.
     private static final boolean DEFAULT_ENABLE_COMPANION_STATS = true;
+    // Independent of the companion panel: it only needs a secondary screen to open the app on,
+    // so it stays available even with the panel switched off. Harmless until a game is assigned
+    // one, and invisible on single-screen devices, so it is on by default.
+    private static final boolean DEFAULT_ENABLE_COMPANION_APP = true;
     private static final boolean DEFAULT_USE_VIRTUAL_DISPLAY = false;
     private static final String DEFAULT_VIDEO_SCALE_MODE = "fit";
     private static final boolean DEFAULT_AUTO_INVERT_VIDEO_RESOLUTION = true;
@@ -308,6 +313,8 @@ public class PreferenceConfiguration {
     public boolean enableNewAnalogStick;
 
     public boolean enableFullExDisplay;
+
+    public boolean enableCompanionApp;
 
     public boolean autoEnterLastPc;
 
@@ -986,6 +993,8 @@ private static int getFramePacingValue(Context context) {
         config.enableCompanionDisplay = prefs.getBoolean(ENABLE_COMPANION_DISPLAY_PREF_STRING, DEFAULT_ENABLE_COMPANION_DISPLAY);
 
         config.enableCompanionStats = prefs.getBoolean(ENABLE_COMPANION_STATS_PREF_STRING, DEFAULT_ENABLE_COMPANION_STATS);
+
+        config.enableCompanionApp = prefs.getBoolean(ENABLE_COMPANION_APP_PREF_STRING, DEFAULT_ENABLE_COMPANION_APP);
 
         config.alignDisplayTopCenter =prefs.getBoolean("checkbox_enable_view_top_center",false);
 

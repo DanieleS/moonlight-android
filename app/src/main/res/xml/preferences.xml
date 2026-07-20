@@ -232,6 +232,13 @@
             android:summary="@string/summary_enable_companion_stats"
             android:title="@string/title_enable_companion_stats"
             app:iconSpaceReserved="false" />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="checkbox_enable_companion_app"
+            android:summary="@string/summary_enable_companion_app"
+            android:title="@string/title_enable_companion_app"
+            app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
     <PreferenceCategory
