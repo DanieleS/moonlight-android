@@ -1,19 +1,32 @@
-# Artemis Android
+# Ratatoskr
 
-Previously named Moonlight Noir
+A fork of [Artemis](https://github.com/ClassicOldSong/moonlight-android) (itself a fork of Moonlight),
+an open source client for [Sunshine](https://github.com/LizardByte/Sunshine)/[Apollo](https://github.com/ClassicOldSong/Apollo)
+and the [Vibepollo](https://github.com/DanieleS/Vibepollo) fork.
 
-An open source client for [Apollo](https://github.com/ClassicOldSong/Apollo)/[Sunshine](https://github.com/LizardByte/Sunshine).
+Ratatoskr streams your collection of games from your Windows PC to your Android device, at home or over
+the internet, and reworks how you *browse* that collection: a cover-flow library enriched with the
+Playnite metadata a Vibepollo host serves.
 
-Artemis Android will allow you to stream your collection of games from your Windows PC to your Android device,
-whether in your own home or over the internet.
+# Library
 
-Artemis is currently the best fork of Moonlight with loads of optimizations for office usage.
+Ratatoskr's main addition over upstream Artemis is the library. When paired with a
+[Vibepollo](https://github.com/DanieleS/Vibepollo) host — which exposes Playnite metadata over its
+`/appmetadata` endpoint — the library becomes far richer than a plain grid of app names:
 
-A more seamless experience with virtual display will be Artemis paired with [Apollo](https://github.com/ClassicOldSong/Apollo).
+1. A cover-flow presentation with hero backgrounds, alongside an "All games" grid.
+2. Playnite metadata per game: cover art, description, genres, developers/publishers, release date and community score.
+3. Sort orders you choose from the app bar: host order, name, recently played, release date and community score.
+   "Recently played" uses Playnite's own last-played (PC sessions included), falling back to this device's launch history.
+4. A companion panel and an in-game menu.
+5. Library sync to a folder that external scanning frontends can read.
 
-# Features
+Everything degrades gracefully on a stock Sunshine/Apollo host: with no metadata to rank by, the
+metadata-driven orders simply fall back to alphabetical, so the library still works — it just shows less.
 
-If you switch back to the main stream version, you'll be missing the following awesome features which are very unlikely to be added there:
+# Inherited features
+
+Ratatoskr carries the full Artemis feature set on top of upstream Moonlight, including:
 
 1. Custom virtual buttons with import and export support.
 2. [Custom resolutions](https://github.com/moonlight-stream/moonlight-android/pull/1349).
@@ -47,38 +60,23 @@ If you switch back to the main stream version, you'll be missing the following a
 30. Clipboard sync (requires Apollo)
 31. SBS 3D for external Displays (Using AI MiDaS v2 Lite)
 
-# Disclaimer
-
-This is the `go away` version of Moonlight Android.
-
-I got kicked from Moonlight and Sunshine's Discord server literally for helping people out.
-
-This is what I got for finding a bug, opened an issue, getting no response, troubleshoot myself, fixed the issue myself, shared it by PR to the main repo hoping my efforts can help someone else during the maintainance gap.
-
-Yes, I'm going away. Fixes and improvements on this fork are not necessarily be merged to the main repo either. I have also started [a fork of Sunshine called Apollo](https://github.com/ClassicOldSong/Apollo) and will add useful features that will never get merged by the main repo shortly. [Apollo](https://github.com/ClassicOldSong/Apollo) and [Moonlight Noir](https://github.com/ClassicOldSong/moonlight-android) will no longer be compatible with OG Sunshine and OG Moonlight eventually, but they'll work even better with much more carefully designed features.
-
-The main repo had stayed silent for 5 months, with nobody actually responding to issues, and people are getting totally no help besides the limited FAQ in their Discord server. I tried to answer issues and questions, solve problems within my ablilty but I got kicked out just for helping others.
-
-**PRs for feature improvements are welcomed here unlike the main repo, your ideas are more likely to be appreciated and your efforts are actually being respected. We welcome people who can and willing to share their efforts, helping yourselves and other people in need.**
-
-**Update**: They have contacted me and apologized for this incident, but the fact it **happened** still motivated me to start my own fork.
-
 ## Downloads
-* [Download APK directly](https://github.com/ClassicOldSong/moonlight-android/releases)
-* [Use Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22com.limelight.noir%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FClassicOldSong%2Fmoonlight-android%22%2C%22author%22%3A%22ClassicOldSong%22%2C%22name%22%3A%22Artemis%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22nonRoot%5C%22%2C%5C%22matchGroutToUse%5C%22%3A%5C%22%241%5C%22%2C%5C%22versionExtractionRegEx%5C%22%3A%5C%22v(.%2B)%5C%22%7D%22%7D) (recommended)
+
+* [Download the APK directly](https://github.com/DanieleS/moonlight-android/releases) — grab the `nonRoot` APK from the latest release.
+* [Use Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22dev.kylobyte.ratatoskr%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FDanieleS%2Fmoonlight-android%22%2C%22author%22%3A%22DanieleS%22%2C%22name%22%3A%22Ratatoskr%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22nonRoot%5C%22%2C%5C%22matchGroutToUse%5C%22%3A%5C%22%241%5C%22%2C%5C%22versionExtractionRegEx%5C%22%3A%5C%22v(.%2B)%5C%22%7D%22%7D) (recommended) — auto-updates from the GitHub releases.
 
 ## Building
-* Install Android Studio and the Android NDK
-* Run ‘git submodule update --init --recursive’ from within moonlight-android/
-* In moonlight-android/, create a file called ‘local.properties’. Add an ‘ndk.dir=’ property to the local.properties file and set it equal to your NDK directory.
-* Build the APK using Android Studio or gradle
 
-## Authors
+* Install Android Studio and the Android NDK.
+* Run `git submodule update --init --recursive` from within the repository.
+* Create a `local.properties` file in the repository root. Add an `ndk.dir=` property pointing at your NDK directory.
+* Build the APK using Android Studio or Gradle. The installable flavor is `nonRoot_game` (e.g. `./gradlew :app:assembleNonRoot_gameRelease`).
 
-* [Cameron Gutman](https://github.com/cgutman)  
-* [Diego Waxemberg](https://github.com/dwaxemberg)  
-* [Aaron Neyer](https://github.com/Aaronneyer)  
-* [Andrew Hennessy](https://github.com/yetanothername)
+## Credits
 
-Moonlight is the work of students at [Case Western](http://case.edu) and was
-started as a project at [MHacks](http://mhacks.org).
+Ratatoskr builds on the work of:
+
+* [Artemis](https://github.com/ClassicOldSong/moonlight-android) by [ClassicOldSong](https://github.com/ClassicOldSong).
+* Moonlight, the work of students at [Case Western](http://case.edu), started as a project at [MHacks](http://mhacks.org):
+  [Cameron Gutman](https://github.com/cgutman), [Diego Waxemberg](https://github.com/dwaxemberg),
+  [Aaron Neyer](https://github.com/Aaronneyer) and [Andrew Hennessy](https://github.com/yetanothername).
