@@ -24,7 +24,10 @@ public enum AppSortOrder {
     /** Alphabetical by name, case-insensitive. */
     NAME("name", R.string.sort_order_name),
 
-    /** Most recently launched from this device first; never-launched games follow, by name. */
+    /**
+     * Most recently played first, by Playnite's last-played where the host serves it (PC sessions
+     * included), falling back to this device's own launch record. Never-played games follow, by name.
+     */
     RECENT("recent", R.string.sort_order_recent),
 
     /** Newest release first, for the games the host gave a release date. */
@@ -73,10 +76,14 @@ public enum AppSortOrder {
 
             case RECENT:
                 return (lhs, rhs) -> {
-                    long lTime = history == null ? 0 : history.getLastPlayed(lhs.app);
-                    long rTime = history == null ? 0 : history.getLastPlayed(rhs.app);
+                    long lTime = lastPlayed(metadata, history, lhs.app);
+                    long rTime = lastPlayed(metadata, history, rhs.app);
                     if (lTime == rTime) {
                         return compareNames(lhs, rhs);
+                    }
+                    if (lTime == 0 || rTime == 0) {
+                        // Played games come before never-played ones.
+                        return lTime == 0 ? 1 : -1;
                     }
                     // Most recent first, so the descending comparison.
                     return Long.compare(rTime, lTime);
@@ -139,6 +146,18 @@ public enum AppSortOrder {
             return null;
         }
         return metadata.get(uuid.toUpperCase());
+    }
+
+    // When the game was last played, most-recent wins. Playnite's own figure leads because it sees
+    // sessions played at the PC itself; this device's launch record is the fallback for games the
+    // host does not date (a stock host, or a game Playnite does not track), and the later of the two
+    // wins where both exist so a launch from here is never hidden by a stale host timestamp.
+    private static long lastPlayed(Map<String, AppMetadata> metadata, AppLaunchHistory history,
+                                   NvApp app) {
+        AppMetadata meta = metadataFor(metadata, app);
+        long hostTime = meta == null ? 0 : meta.getLastPlayedEpochMillis();
+        long localTime = history == null ? 0 : history.getLastPlayed(app);
+        return Math.max(hostTime, localTime);
     }
 
     private static String releaseDate(Map<String, AppMetadata> metadata, NvApp app) {

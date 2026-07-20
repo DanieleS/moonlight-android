@@ -78,7 +78,8 @@ public class AppGridAdapter extends GenericGridAdapter<AppView.AppObject> {
      */
     public void setAppMetadata(Map<String, AppMetadata> metadata) {
         this.appMetadata = metadata == null ? Collections.<String, AppMetadata>emptyMap() : metadata;
-        if (sortOrder == AppSortOrder.RELEASE || sortOrder == AppSortOrder.SCORE) {
+        if (sortOrder == AppSortOrder.RELEASE || sortOrder == AppSortOrder.SCORE
+                || sortOrder == AppSortOrder.RECENT) {
             resort();
         }
     }
