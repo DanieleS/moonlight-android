@@ -19,6 +19,57 @@
         <item name="android:navigationBarColor">@color/surface</item>
         <item name="android:colorBackground">@color/surface</item>
         <item name="android:windowBackground">@color/surface</item>
+
+        <!--
+            Ratatoskr's palette, bound to the Material 3 colour roles. Every Material
+            component the app inflates — dialogs, the top app bar, switches, preferences —
+            reads its colours from these roles, so it is skinned from this one palette
+            rather than from Material's lifted-grey defaults. Nothing here is a new colour;
+            it is only the map from our names to Material's.
+        -->
+        <item name="colorPrimary">@color/signal</item>
+        <item name="colorOnPrimary">@color/on_signal</item>
+        <item name="colorPrimaryContainer">@color/signal_container</item>
+        <item name="colorOnPrimaryContainer">@color/signal</item>
+        <item name="colorSecondary">@color/content_secondary</item>
+        <item name="colorOnSecondary">@color/on_signal</item>
+        <item name="colorSecondaryContainer">@color/surface_container_high</item>
+        <item name="colorOnSecondaryContainer">@color/content_primary</item>
+        <item name="colorTertiary">@color/signal</item>
+        <item name="colorOnTertiary">@color/on_signal</item>
+
+        <item name="colorSurface">@color/surface</item>
+        <item name="colorOnSurface">@color/content_primary</item>
+        <item name="colorSurfaceVariant">@color/surface_raised</item>
+        <item name="colorOnSurfaceVariant">@color/content_muted</item>
+        <item name="colorSurfaceContainerLowest">@color/surface_container_lowest</item>
+        <item name="colorSurfaceContainerLow">@color/surface_container_low</item>
+        <item name="colorSurfaceContainer">@color/surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/surface_container_high</item>
+        <item name="colorSurfaceContainerHighest">@color/surface_container_highest</item>
+        <item name="colorSurfaceBright">@color/surface_raised</item>
+        <item name="colorSurfaceDim">@color/surface_deep</item>
+
+        <item name="colorOutline">@color/outline</item>
+        <item name="colorOutlineVariant">@color/outline_variant</item>
+
+        <item name="colorError">@color/danger</item>
+        <item name="colorOnError">@color/on_danger</item>
+        <item name="colorErrorContainer">@color/danger_container</item>
+        <item name="colorOnErrorContainer">@color/danger</item>
+
+        <item name="android:textColorPrimary">@color/content_primary</item>
+        <item name="android:textColorSecondary">@color/content_secondary</item>
+        <item name="android:textColorHint">@color/content_faint</item>
+
+        <!-- The shape ladder, so a themed Material surface rounds like a hand-drawn one. -->
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Ratatoskr.SmallComponent</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Ratatoskr.MediumComponent</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Ratatoskr.LargeComponent</item>
+
+        <!-- Component overlays: the palette reaches dialogs and preferences through these. -->
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Ratatoskr.MaterialAlertDialog</item>
+        <item name="preferenceTheme">@style/PreferenceThemeOverlay.Ratatoskr</item>
     </style>
 
     <style name="StreamBaseTheme" parent="AppBaseTheme">
@@ -190,6 +241,105 @@
         <item name="android:layout_height">wrap_content</item>
         <item name="android:textColor">@color/content_secondary</item>
         <item name="android:textSize">12sp</item>
+    </style>
+
+    <!-- ============================================================================
+         Material 3 shape ladder. The three sizes Material reads off the theme, rounded
+         to Ratatoskr's own radii so a themed component and a hand-drawn one agree.
+         ============================================================================ -->
+    <style name="ShapeAppearance.Ratatoskr.SmallComponent" parent="ShapeAppearance.Material3.SmallComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">@dimen/shape_corner_small</item>
+    </style>
+
+    <style name="ShapeAppearance.Ratatoskr.MediumComponent" parent="ShapeAppearance.Material3.MediumComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">@dimen/shape_corner_medium</item>
+    </style>
+
+    <style name="ShapeAppearance.Ratatoskr.LargeComponent" parent="ShapeAppearance.Material3.LargeComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">@dimen/shape_corner_large</item>
+    </style>
+
+    <!-- ============================================================================
+         The dialog. A Material 3 alert dialog, wearing the same clothes as a menu sheet:
+         a raised surface on true black, rounded to the large step, the signal on its
+         buttons, and content in the app's four steps of prominence. Bound to the theme's
+         materialAlertDialogTheme, so every MaterialAlertDialogBuilder inherits it; also
+         applied by hand where a dialog is raised from the stream (a context that does not
+         descend from AppTheme).
+         ============================================================================ -->
+    <style name="ThemeOverlay.Ratatoskr.MaterialAlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <!-- Raise the dialog off the ground, like the menu sheet, rather than sitting it
+             flat on @color/surface. Both the old and new Material dialog backgrounds are
+             covered: colorSurface for 1.x, colorSurfaceContainerHigh for the newer roles. -->
+        <item name="colorSurface">@color/surface_raised</item>
+        <item name="colorSurfaceContainerHigh">@color/surface_raised</item>
+        <item name="android:colorBackground">@color/surface_raised</item>
+
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearanceOverlay.Ratatoskr.Dialog</item>
+
+        <item name="buttonBarPositiveButtonStyle">@style/Widget.Ratatoskr.Button.Dialog</item>
+        <item name="buttonBarNegativeButtonStyle">@style/Widget.Ratatoskr.Button.Dialog</item>
+        <item name="buttonBarNeutralButtonStyle">@style/Widget.Ratatoskr.Button.Dialog</item>
+
+        <item name="materialAlertDialogTitleTextStyle">@style/MaterialAlertDialog.Ratatoskr.Title</item>
+
+        <item name="android:textColorPrimary">@color/content_primary</item>
+        <item name="android:textColorSecondary">@color/content_secondary</item>
+    </style>
+
+    <style name="ShapeAppearanceOverlay.Ratatoskr.Dialog" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">@dimen/dialog_corner</item>
+    </style>
+
+    <!-- The dialog's buttons: text buttons carrying the signal, the wash on a press. -->
+    <style name="Widget.Ratatoskr.Button.Dialog" parent="Widget.Material3.Button.TextButton.Dialog">
+        <item name="android:textColor">@color/signal</item>
+        <item name="rippleColor">@color/signal_wash</item>
+    </style>
+
+    <style name="MaterialAlertDialog.Ratatoskr.Title" parent="MaterialAlertDialog.Material3.Title.Text">
+        <item name="android:textColor">@color/content_primary</item>
+    </style>
+
+    <!-- ============================================================================
+         Settings. The preference list, themed off the palette, with a category header
+         drawn in the app's quiet-label grammar (muted, tracked, upper case) rather than
+         Material's coloured one.
+         ============================================================================ -->
+    <style name="PreferenceThemeOverlay.Ratatoskr" parent="PreferenceThemeOverlay">
+        <item name="preferenceCategoryStyle">@style/Preference.Category.Ratatoskr</item>
+    </style>
+
+    <style name="Preference.Category.Ratatoskr" parent="Preference.Category.Material">
+        <item name="android:layout">@layout/preference_category_ratatoskr</item>
+        <item name="iconSpaceReserved">false</item>
+    </style>
+
+    <style name="TextAppearance.Ratatoskr.PreferenceCategory" parent="TextAppearance.Material3.LabelLarge">
+        <item name="android:textColor">@color/content_muted</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:letterSpacing">0.12</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <!-- The settings top app bar: a plain surface bar, its title in content_primary, its
+         back arrow and overflow in the secondary step. No lift, in keeping with the app. -->
+    <style name="Widget.Ratatoskr.Toolbar" parent="Widget.Material3.Toolbar.Surface">
+        <item name="android:background">@color/surface</item>
+        <item name="android:elevation">0dp</item>
+        <item name="titleTextColor">@color/content_primary</item>
+        <item name="titleTextAppearance">@style/TextAppearance.Ratatoskr.Toolbar.Title</item>
+        <item name="navigationIconTint">@color/content_secondary</item>
+    </style>
+
+    <style name="TextAppearance.Ratatoskr.Toolbar.Title" parent="TextAppearance.Material3.TitleLarge">
+        <item name="android:textColor">@color/content_primary</item>
+        <item name="android:textSize">20sp</item>
     </style>
 
 </resources>

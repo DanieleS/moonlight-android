@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    A settings category header. Not Material's coloured, small-caps rule, but the app's
+    own quiet label: muted, tracked, upper case, set off from the group above it by a
+    generous top margin so the list reads as sections rather than a wall of rows.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="@dimen/settings_gutter"
+    android:paddingEnd="@dimen/settings_gutter"
+    android:paddingTop="@dimen/settings_category_top"
+    android:paddingBottom="8dp">
+
+    <TextView
+        android:id="@android:id/title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:singleLine="true"
+        android:textAppearance="@style/TextAppearance.Ratatoskr.PreferenceCategory" />
+
+    <TextView
+        android:id="@android:id/summary"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:textColor="@color/content_faint"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
+</LinearLayout>

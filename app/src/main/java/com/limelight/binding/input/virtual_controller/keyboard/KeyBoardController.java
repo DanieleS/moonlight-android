@@ -4,7 +4,9 @@
 
 package com.limelight.binding.input.virtual_controller.keyboard;
 
-import android.app.AlertDialog;
+import androidx.appcompat.app.AlertDialog;
+
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import android.content.Context;
 import android.graphics.Color;
 import android.graphics.Point;
@@ -195,7 +197,7 @@ public class KeyBoardController {
         buttonClearAll.setAlpha(0.7f);
         buttonClearAll.setVisibility(View.GONE);
         buttonClearAll.setOnClickListener(v -> {
-            AlertDialog.Builder builder = new AlertDialog.Builder(context);
+            AlertDialog.Builder builder = new MaterialAlertDialogBuilder(context, R.style.ThemeOverlay_Ratatoskr_MaterialAlertDialog);
             builder.setTitle(context.getString(R.string.keyboard_clear_all_confirm_title));
             builder.setMessage(context.getString(R.string.keyboard_clear_all_confirm_message));
             builder.setPositiveButton(context.getString(R.string.yes), (dialog, which) -> {
@@ -502,7 +504,7 @@ public class KeyBoardController {
             String[] keyNames = keyNamesList.toArray(new String[0]);
             boolean[] checkedItems = new boolean[keyNames.length];
 
-            AlertDialog.Builder builder = new AlertDialog.Builder(context);
+            AlertDialog.Builder builder = new MaterialAlertDialogBuilder(context, R.style.ThemeOverlay_Ratatoskr_MaterialAlertDialog);
             builder.setTitle(context.getString(R.string.keyboard_select_keys));
             builder.setMultiChoiceItems(keyNames, checkedItems, (dialog, which, isChecked) -> {
                 checkedItems[which] = isChecked;

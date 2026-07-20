@@ -1,6 +1,5 @@
 package com.limelight.profiles;
 
-import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.text.format.DateUtils;
@@ -15,6 +14,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.limelight.EditProfileActivity;
 import com.limelight.R;
 
@@ -69,7 +69,7 @@ public class ProfilesAdapter extends RecyclerView.Adapter<ProfilesAdapter.Profil
         });
 
         holder.deleteProfile.setOnClickListener(v -> {
-            new AlertDialog.Builder(context)
+            new MaterialAlertDialogBuilder(context)
                 .setTitle(R.string.profile_manager_delete_profile)
                 .setMessage(context.getString(R.string.profile_manager_confirm_profile_deleteion, profile.getName()))
                 .setPositiveButton(R.string.profile_manager_delete, (dialog, which) -> {

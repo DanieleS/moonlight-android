@@ -58,4 +58,24 @@
     <dimen name="menu_row_min_height">44dp</dimen>
     <dimen name="menu_row_icon">22dp</dimen>
 
+    <!--
+        The Material 3 shape ladder, in this app's terms. Material components read these
+        three off the theme; the sizes are Ratatoskr's own rounding rather than M3's
+        defaults, so a themed dialog and a hand-drawn menu sheet round to the same eye.
+    -->
+    <dimen name="shape_corner_small">10dp</dimen>
+    <dimen name="shape_corner_medium">16dp</dimen>
+    <dimen name="shape_corner_large">24dp</dimen>
+
+    <!-- Dialogs round to the large step. Their own token so it can move without the ladder. -->
+    <dimen name="dialog_corner">24dp</dimen>
+
+    <!--
+        The settings screen. A top app bar over a scrolling column of preferences, laid on
+        the ground with the same 16dp gutter the rest of the app keeps.
+    -->
+    <dimen name="settings_bar_height">56dp</dimen>
+    <dimen name="settings_gutter">16dp</dimen>
+    <dimen name="settings_category_top">20dp</dimen>
+
 </resources>

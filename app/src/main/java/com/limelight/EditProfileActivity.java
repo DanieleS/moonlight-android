@@ -12,6 +12,8 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import androidx.appcompat.widget.Toolbar;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceGroup;
@@ -164,7 +166,7 @@ public class EditProfileActivity extends AppCompatActivity {
         input.setText(initial);
         input.setSelection(initial.length());
 
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.profile_manager_edit_profile_name)
                 .setView(input)
                 .setPositiveButton("OK", (dialog, which) -> {

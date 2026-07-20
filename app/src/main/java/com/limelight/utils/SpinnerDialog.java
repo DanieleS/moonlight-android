@@ -4,15 +4,27 @@ import java.util.ArrayList;
 import java.util.Iterator;
 
 import android.app.Activity;
-import android.app.ProgressDialog;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnCancelListener;
+import android.text.TextUtils;
+import android.util.TypedValue;
+import android.view.Gravity;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+
+import androidx.appcompat.app.AlertDialog;
+import androidx.core.content.ContextCompat;
+
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.progressindicator.CircularProgressIndicator;
+import com.limelight.R;
 
 public class SpinnerDialog implements Runnable,OnCancelListener {
     private final String title;
     private final String message;
     private final Activity activity;
-    private ProgressDialog progress;
+    private AlertDialog dialog;
+    private TextView messageView;
     private final boolean finish;
 
     private static final ArrayList<SpinnerDialog> rundownDialogs = new ArrayList<>();
@@ -22,7 +34,7 @@ public class SpinnerDialog implements Runnable,OnCancelListener {
         this.activity = activity;
         this.title = title;
         this.message = message;
-        this.progress = null;
+        this.dialog = null;
         this.finish = finish;
     }
 
@@ -41,8 +53,8 @@ public class SpinnerDialog implements Runnable,OnCancelListener {
                 SpinnerDialog dialog = i.next();
                 if (dialog.activity == activity) {
                     i.remove();
-                    if (dialog.progress.isShowing()) {
-                        dialog.progress.dismiss();
+                    if (dialog.dialog != null && dialog.dialog.isShowing()) {
+                        dialog.dialog.dismiss();
                     }
                 }
             }
@@ -51,7 +63,7 @@ public class SpinnerDialog implements Runnable,OnCancelListener {
 
     public void dismiss()
     {
-        // Running again with progress != null will destroy it
+        // Running again with dialog != null will destroy it
         activity.runOnUiThread(this);
     }
 
@@ -60,9 +72,49 @@ public class SpinnerDialog implements Runnable,OnCancelListener {
         activity.runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                progress.setMessage(message);
+                if (messageView != null) {
+                    messageView.setText(message);
+                }
             }
         });
+    }
+
+    private int dp(float value)
+    {
+        return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value,
+                activity.getResources().getDisplayMetrics());
+    }
+
+    // A spinner beside its message, laid out as the dialog's content view. The Material
+    // indicator carries the signal colour explicitly, so it stays on-brand even in the
+    // stream's context, which does not map the Material colour roles.
+    private LinearLayout buildContent()
+    {
+        LinearLayout row = new LinearLayout(activity);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(24), dp(8), dp(24), dp(8));
+
+        CircularProgressIndicator spinner = new CircularProgressIndicator(activity);
+        spinner.setIndeterminate(true);
+        spinner.setIndicatorSize(dp(36));
+        spinner.setTrackThickness(dp(3));
+        spinner.setIndicatorColor(ContextCompat.getColor(activity, R.color.signal));
+        spinner.setTrackColor(ContextCompat.getColor(activity, R.color.divider));
+
+        messageView = new TextView(activity);
+        messageView.setText(message);
+        messageView.setTextColor(ContextCompat.getColor(activity, R.color.content_secondary));
+        messageView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+
+        LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        textParams.setMarginStart(dp(20));
+        row.addView(spinner, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        row.addView(messageView, textParams);
+
+        return row;
     }
 
     @Override
@@ -73,36 +125,33 @@ public class SpinnerDialog implements Runnable,OnCancelListener {
             return;
         }
 
-        if (progress == null)
+        if (dialog == null)
         {
-            progress = new ProgressDialog(activity);
+            MaterialAlertDialogBuilder builder =
+                    new MaterialAlertDialogBuilder(activity, R.style.ThemeOverlay_Ratatoskr_MaterialAlertDialog);
 
-            progress.setTitle(title);
-            progress.setMessage(message);
-            progress.setProgressStyle(ProgressDialog.STYLE_SPINNER);
-            progress.setOnCancelListener(this);
+            if (!TextUtils.isEmpty(title)) {
+                builder.setTitle(title);
+            }
+            builder.setView(buildContent());
+            builder.setOnCancelListener(this);
 
             // If we want to finish the activity when this is killed, make it cancellable
-            if (finish)
-            {
-                progress.setCancelable(true);
-                progress.setCanceledOnTouchOutside(false);
-            }
-            else
-            {
-                progress.setCancelable(false);
-            }
+            builder.setCancelable(finish);
+
+            dialog = builder.create();
+            dialog.setCanceledOnTouchOutside(false);
 
             synchronized (rundownDialogs) {
                 rundownDialogs.add(this);
-                progress.show();
+                dialog.show();
             }
         }
         else
         {
             synchronized (rundownDialogs) {
-                if (rundownDialogs.remove(this) && progress.isShowing()) {
-                    progress.dismiss();
+                if (rundownDialogs.remove(this) && dialog.isShowing()) {
+                    dialog.dismiss();
                 }
             }
         }

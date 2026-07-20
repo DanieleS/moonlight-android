@@ -36,4 +36,47 @@
     <!-- The signal, thinned to a wash, for the moment a focused tile is pressed. -->
     <color name="signal_wash">#334FC3F7</color>
 
+    <!--
+        The signal, sunk into the ground: a deep, desaturated teal-blue for a filled
+        container that must still read as "the accent" without emitting the light a full
+        signal fill would. Used for Material's primaryContainer (selected chips, tonal
+        buttons) so those components stay on-brand and OLED-quiet.
+    -->
+    <color name="signal_container">#FF10333F</color>
+
+    <!--
+        Read on the signal. The accent is a light blue, so what sits on top of it is the
+        ground, not white.
+    -->
+    <color name="on_signal">#FF00131A</color>
+
+    <!--
+        The one warning hue. Kept for Material's error role (destructive dialogs, invalid
+        input). A muted rose rather than a fire-engine red, to sit inside the same cold,
+        low-glow scale as everything else.
+    -->
+    <color name="danger">#FFF2B8B5</color>
+    <color name="danger_container">#FF3A1512</color>
+    <color name="on_danger">#FF370B08</color>
+
+    <!--
+        Surface containers, the Material 3 tonal ladder, expressed in this app's terms:
+        near-black grounds that step up by a hair rather than by a lift. They exist so
+        Material components (dialogs, sheets, menus) that ask for a container surface get
+        one that belongs to the OLED scale instead of Material's lifted greys.
+    -->
+    <color name="surface_container_lowest">#FF000000</color>
+    <color name="surface_container_low">#FF161616</color>
+    <color name="surface_container">#FF1E1E1E</color>
+    <color name="surface_container_high">#FF262626</color>
+    <color name="surface_container_highest">#FF2E2E2E</color>
+
+    <!--
+        A solid outline, for the strokes Material draws (outlined buttons, text fields,
+        switch tracks). @color/divider is a translucent hairline meant to lie over a known
+        ground; an outline has to hold on its own, so it is opaque.
+    -->
+    <color name="outline">#FF4A5361</color>
+    <color name="outline_variant">#FF2A2E34</color>
+
 </resources>

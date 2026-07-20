@@ -4,7 +4,9 @@
 
 package com.limelight.binding.input.virtual_controller.keyboard;
 
-import android.app.AlertDialog;
+import androidx.appcompat.app.AlertDialog;
+
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.graphics.Canvas;
@@ -16,6 +18,7 @@ import android.view.View;
 import android.widget.FrameLayout;
 
 import com.limelight.Game;
+import com.limelight.R;
 import com.limelight.binding.input.virtual_controller.VirtualController;
 
 import org.json.JSONException;
@@ -240,7 +243,7 @@ public abstract class keyBoardVirtualControllerElement extends View {
     }
 
     protected void showConfigurationDialog() {
-        AlertDialog.Builder alertBuilder = new AlertDialog.Builder(getContext());
+        AlertDialog.Builder alertBuilder = new MaterialAlertDialogBuilder(getContext(), R.style.ThemeOverlay_Ratatoskr_MaterialAlertDialog);
 
         alertBuilder.setTitle("Configuration");
 

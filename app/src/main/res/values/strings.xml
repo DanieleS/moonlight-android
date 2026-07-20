@@ -212,6 +212,8 @@
     <string name="addpc_wrong_sitelocal">That address doesn\'t look right. You must use your router\'s public IP address for streaming over the Internet.</string>
 
     <!-- Preferences -->
+    <string name="title_stream_settings">Streaming Settings</string>
+    <string name="settings_back">Back</string>
     <string name="category_general_settings">General Settings</string>
     <string name="category_video_settings">Video Settings</string>
     <string name="title_resolution_list">Video resolution</string>

@@ -1,7 +1,6 @@
 package com.limelight;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.hardware.Sensor;
@@ -20,7 +19,10 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import com.limelight.utils.DeviceUtils;
 
@@ -87,7 +89,7 @@ public class DebugInfoActivity extends AppCompatActivity implements View.OnClick
         // Device Vibration
         if (v.getId() == R.id.bt_vibrator) {
             String[] titles = new String[]{getString(R.string.debug_info_simple_vibration), getString(R.string.debug_info_continuous_hd_vibration)};
-            new AlertDialog.Builder(this).setItems(titles, new DialogInterface.OnClickListener() {
+            new MaterialAlertDialogBuilder(this).setItems(titles, new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialog, int which) {
                     dialog.dismiss();
@@ -114,13 +116,13 @@ public class DebugInfoActivity extends AppCompatActivity implements View.OnClick
             for (int i = 0; i < ids.size(); i++) {
                 strings[i] = ids.get(i).getName();
             }
-            new AlertDialog.Builder(this).setItems(strings, new DialogInterface.OnClickListener() {
+            new MaterialAlertDialogBuilder(this).setItems(strings, new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialog, int which) {
                     dialog.dismiss();
                     if (ids.get(which).getVibrator().hasVibrator()) {
                         String[] titles = new String[]{getString(R.string.debug_info_simple_vibration), getString(R.string.debug_info_continuous_hd_vibration)};
-                        new AlertDialog.Builder(DebugInfoActivity.this).setItems(titles, new DialogInterface.OnClickListener() {
+                        new MaterialAlertDialogBuilder(DebugInfoActivity.this).setItems(titles, new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialog, int which2) {
                                 dialog.dismiss();
@@ -152,7 +154,7 @@ public class DebugInfoActivity extends AppCompatActivity implements View.OnClick
 
         if (v.getId() == R.id.bt_vibrator_value) {
             SeekBar mSeekBar = getSeekBar();
-            AlertDialog.Builder editDialog = new AlertDialog.Builder(this);
+            AlertDialog.Builder editDialog = new MaterialAlertDialogBuilder(this);
             editDialog.setTitle(getString(R.string.debug_info_set_amplitude));
             editDialog.setView(mSeekBar);
             editDialog.create().show();

@@ -3,10 +3,12 @@ package com.limelight.utils;
 import java.util.ArrayList;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.widget.Button;
 
+import androidx.appcompat.app.AlertDialog;
+
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.limelight.R;
 
 public class Dialog implements Runnable {
@@ -63,7 +65,7 @@ public class Dialog implements Runnable {
         if (activity.isFinishing())
             return;
 
-        alert = new AlertDialog.Builder(activity).create();
+        alert = new MaterialAlertDialogBuilder(activity).create();
 
         alert.setTitle(title);
         alert.setMessage(message);
