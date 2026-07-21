@@ -48,14 +48,8 @@ public class CompanionDisplayManager implements Application.ActivityLifecycleCal
     private int presentationDisplayId = Display.INVALID_DISPLAY;
     private int startedActivities;
 
-    // Set when the user dismisses the panel (a back gesture) so it is not brought straight back;
-    // cleared when they turn it on again.
-    private boolean userSuppressed;
-
-    // Set while a companion app holds the secondary screen. Kept apart from userSuppressed because
-    // this one is ours, not a preference: yielding the screen to an app must not be remembered as
-    // "the user turned the panel off", or the panel would stay dark long after the app is gone.
-    private boolean appSuppressed;
+    // Who owns the secondary screen lives in CompanionState, alongside what there is to show; this
+    // class is the part that acts on it, attaching and tearing down the panel to match.
 
     // Invoked when the panel's own menu button is pressed; the stream activity registers it to
     // raise the in-game menu here.
@@ -110,6 +104,7 @@ public class CompanionDisplayManager implements Application.ActivityLifecycleCal
         DisplayTargets.dumpDisplays(application);
         application.registerActivityLifecycleCallbacks(manager);
         manager.displayManager.registerDisplayListener(manager.displayListener, manager.handler);
+        manager.state.setOwnerListener(manager::onOwnerChanged);
         instance = manager;
     }
 
@@ -140,16 +135,14 @@ public class CompanionDisplayManager implements Application.ActivityLifecycleCal
      * explicit hide is not undone by the next screen change.
      */
     public static void setVisible(boolean visible) {
-        if (instance != null) {
-            instance.applyUserSuppressed(!visible);
-        }
+        CompanionState.getInstance().setOwner(
+                visible ? CompanionState.Owner.PANEL : CompanionState.Owner.OFF);
     }
 
     /** Flip the panel between on and off. */
     public static void toggle() {
-        if (instance != null) {
-            instance.applyUserSuppressed(!instance.userSuppressed);
-        }
+        CompanionState state = CompanionState.getInstance();
+        setVisible(state.getOwner() != CompanionState.Owner.PANEL);
     }
 
     // --- The in-game menu, when it is drawn on the companion panel ---
@@ -239,7 +232,7 @@ public class CompanionDisplayManager implements Application.ActivityLifecycleCal
      */
     public static boolean isCompanionAvailable(Activity activity) {
         return isEnabled(activity)
-                && !(instance != null && (instance.userSuppressed || instance.appSuppressed))
+                && CompanionState.getInstance().isPanelOwner()
                 && DisplayTargets.findCompanionDisplay(activity, getDisplayIdOf(activity)) != null;
     }
 
@@ -251,36 +244,29 @@ public class CompanionDisplayManager implements Application.ActivityLifecycleCal
      * actually goes away. Hiding it is the only way to let the app be seen.
      */
     public static void yieldToApp(boolean yield) {
-        if (instance != null) {
-            instance.applyAppSuppressed(yield);
+        CompanionState state = CompanionState.getInstance();
+        if (yield) {
+            state.setOwner(CompanionState.Owner.COMPANION_APP);
+        } else if (state.getOwner() == CompanionState.Owner.COMPANION_APP) {
+            // Only take the screen back from an app. If the user hid the panel meanwhile, their
+            // choice outranks ours.
+            state.setOwner(CompanionState.Owner.PANEL);
         }
     }
 
-    private void applyUserSuppressed(boolean suppressed) {
-        userSuppressed = suppressed;
-        if (suppressed) {
-            detach();
-        } else {
+    /** The owner region moved: put the panel up or take it down to match. */
+    private void onOwnerChanged() {
+        if (state.isPanelOwner()) {
             sync();
-        }
-    }
-
-    private void applyAppSuppressed(boolean suppressed) {
-        if (appSuppressed == suppressed) {
-            return;
-        }
-        appSuppressed = suppressed;
-        if (suppressed) {
-            detach();
         } else {
-            sync();
+            detach();
         }
     }
 
     /** Ensure a panel is up for the current owner, if conditions allow and one is not already. */
     private void sync() {
         if (owner == null || startedActivities == 0 || !isEnabled(application)
-                || userSuppressed || appSuppressed) {
+                || !state.isPanelOwner()) {
             detach();
             return;
         }
@@ -312,7 +298,7 @@ public class CompanionDisplayManager implements Application.ActivityLifecycleCal
      */
     private void rehost() {
         if (owner == null || startedActivities == 0 || !isEnabled(application)
-                || userSuppressed || appSuppressed) {
+                || !state.isPanelOwner()) {
             detach();
             return;
         }
@@ -378,7 +364,7 @@ public class CompanionDisplayManager implements Application.ActivityLifecycleCal
                 && display.getState() == Display.STATE_ON;
         if (displayAlive) {
             LimeLog.info("CompanionDisplay: dismissed by the user; staying off until turned on");
-            userSuppressed = true;
+            state.setOwner(CompanionState.Owner.OFF);
         } else {
             handler.post(this::sync);
         }

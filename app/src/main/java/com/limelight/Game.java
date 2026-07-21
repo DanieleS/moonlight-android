@@ -249,7 +249,31 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
      * When the companion panel is there to show the stats, they go there instead of on top of
      * the game. Resolved once at startup so the overlay does not appear and disappear mid-stream.
      */
-    private boolean statsOnCompanion;
+    /** Show or hide the on-stream stats overlay, leaving the lite/big choice as configured. */
+    private void syncLocalPerfOverlay(boolean visible) {
+        if (performanceOverlayView == null) {
+            return;
+        }
+        int visibility = visible ? View.VISIBLE : View.GONE;
+        if (performanceOverlayView.getVisibility() == visibility) {
+            return;
+        }
+        performanceOverlayView.setVisibility(visibility);
+        if (prefConfig.enablePerfOverlayLite) {
+            performanceOverlayLite.setVisibility(visibility);
+        } else {
+            performanceOverlayBig.setVisibility(visibility);
+        }
+    }
+
+    /**
+     * Where the stats belong right now. Asked afresh each time rather than settled at startup: the
+     * panel can be hidden, turned back on, or handed to a companion app at any point during the
+     * stream, and a decision made once at connect time would be wrong for the rest of it.
+     */
+    private boolean statsOnCompanion() {
+        return prefConfig.enableCompanionStats && CompanionDisplayManager.isCompanionAvailable(this);
+    }
 
     /**
      * Whether the stats are on screen at all, wherever they are drawn. The companion shows them
@@ -666,12 +690,13 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             }
         }
 
-        // A companion panel earns its keep by showing the stats, so it does not wait to be asked.
-        statsOnCompanion = prefConfig.enableCompanionStats && CompanionDisplayManager.isCompanionAvailable(this);
-        statsVisible = statsOnCompanion || prefConfig.enablePerfOverlay;
+        // Stats are collected whenever they could be shown anywhere — the panel may be off now and
+        // switched on mid-stream, and asking the decoder for them only at startup would leave it
+        // with nothing to report by then.
+        statsVisible = prefConfig.enableCompanionStats || prefConfig.enablePerfOverlay;
 
         // Check if the user has enabled performance stats overlay
-        if (statsVisible && !statsOnCompanion) {
+        if (statsVisible && !statsOnCompanion()) {
             performanceOverlayView.setVisibility(View.VISIBLE);
             if (prefConfig.enablePerfOverlayLite) {
                 performanceOverlayLite.setVisibility(View.VISIBLE);
@@ -1322,7 +1347,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                     keyBoardLayoutController.show();
                 }
 
-                if (statsVisible && !statsOnCompanion) {
+                if (statsVisible && !statsOnCompanion()) {
                     performanceOverlayView.setVisibility(View.VISIBLE);
                 }
 
@@ -1767,7 +1792,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         CompanionDisplayManager.hideMenu();
         // Whatever companion app we opened was for this stream; the panel owns the screen again.
         CompanionDisplayManager.yieldToApp(false);
-        CompanionState.getInstance().clearStats();
+        CompanionState.getInstance().leaveStreaming();
 
         if (prefConfig.enableFullExDisplay) handleDisplayRemoved();
 
@@ -3866,6 +3891,9 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                     timerHandler.postDelayed(backgroundPing, 1000);
                 }
 
+                // The companion is showing a stream now, whether or not the panel is up to see it.
+                CompanionState.getInstance().enterStreaming();
+
                 // Open this game's companion app on the second screen, if one was assigned.
                 maybeAutoLaunchCompanionApp();
             }
@@ -4122,13 +4150,22 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                if (statsOnCompanion) {
+                // Routed per update, so switching the panel on or off mid-stream moves the stats
+                // rather than stranding them where they were when the stream started.
+                boolean onCompanion = statsOnCompanion();
+                if (onCompanion) {
                     CompanionState.getInstance().setStats(stats);
                 }
                 else if(prefConfig.enablePerfOverlayLite){
                     performanceOverlayLite.setText(text);
                 }else{
                     performanceOverlayBig.setText(text);
+                }
+
+                // The local overlay is the fallback for when the panel is not showing them, so it
+                // has to come and go with it.
+                if (statsVisible) {
+                    syncLocalPerfOverlay(!onCompanion);
                 }
             }
         });
@@ -4398,25 +4435,14 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             decoderRenderer.setPerfStatsRequested(statsVisible);
         }
 
-        if (statsOnCompanion) {
-            // Switching off stops the updates, so drop the numbers already there: otherwise the
-            // companion would sit on a frozen snapshot instead of returning to the idle surface.
-            if (!statsVisible) {
-                CompanionState.getInstance().clearStats();
-            }
-            return;
+        // Switching off stops the updates, so drop the numbers already there: otherwise the panel
+        // would sit on a frozen snapshot. It stays on the streaming surface either way — the
+        // library spotlight belongs to a game that is not the one being played.
+        if (!statsVisible) {
+            CompanionState.getInstance().clearStats();
         }
 
-        if (statsVisible) {
-            performanceOverlayView.setVisibility(View.VISIBLE);
-            if(prefConfig.enablePerfOverlayLite){
-                performanceOverlayLite.setVisibility(View.VISIBLE);
-            }else{
-                performanceOverlayBig.setVisibility(View.VISIBLE);
-            }
-        } else {
-            performanceOverlayView.setVisibility(View.GONE);
-        }
+        syncLocalPerfOverlay(statsVisible && !statsOnCompanion());
     }
 
     //切换触控灵敏度开关

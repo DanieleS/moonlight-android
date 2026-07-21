@@ -1,6 +1,7 @@
 package com.limelight.companion;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.Html;
@@ -149,19 +150,38 @@ public class CompanionPresentation extends android.app.Presentation implements C
             return;
         }
 
-        PerfStats stats = state.getStats();
-        if (stats == null) {
-            statsView.setVisibility(View.GONE);
-            idleView.setVisibility(View.VISIBLE);
-            // No game, no in-game menu: take its button and any open panel away with the stats.
-            menuButton.setVisibility(View.GONE);
+        // One surface per content state. The in-game menu belongs to a running game, so its button
+        // follows the streaming state and nothing else.
+        CompanionState.Content content = state.getContent();
+        boolean streaming = content == CompanionState.Content.STREAMING;
+        menuButton.setVisibility(streaming ? View.VISIBLE : View.GONE);
+        if (!streaming) {
             hideMenu();
-            renderIdle();
-            return;
         }
 
+        switch (content) {
+            case BROWSING:
+                showSpotlight(state.getBrowsingTitle(), state.getBrowsingMetadata(),
+                        state.getBrowsingBackground());
+                return;
+            case STREAMING:
+                PerfStats streamStats = state.getStats();
+                if (streamStats != null) {
+                    showStats(streamStats);
+                } else {
+                    // Stats switched off mid-stream: a bare surface. Not the library spotlight —
+                    // that game is not the one being played.
+                    showSpotlight(null, null, null);
+                }
+                return;
+            case IDLE:
+            default:
+                showSpotlight(null, null, null);
+        }
+    }
+
+    private void showStats(PerfStats stats) {
         idleView.setVisibility(View.GONE);
-        menuButton.setVisibility(View.VISIBLE);
         // The hero backdrop belongs to the idle library surface, not the stats dashboard.
         setBackdrop(null);
         // Nor is there any point animating a description nobody can see while a game is running.
@@ -192,17 +212,19 @@ public class CompanionPresentation extends android.app.Presentation implements C
         }
     }
 
-    // The idle surface spotlights whatever game the library has centred. Title always shows;
-    // the meta line and description appear only when the host gave us metadata for it.
-    private void renderIdle() {
+    /**
+     * The non-stats surface: a spotlight on the given game, or a bare panel when passed nothing.
+     * Callers hand it the content to draw rather than a mode to interpret, so "nothing to show"
+     * and "show this game" are the same code path with different arguments.
+     */
+    private void showSpotlight(String title, AppMetadata meta, Bitmap backdrop) {
         if (idleTitleView == null) {
             return;
         }
 
-        String title = state.getBrowsingTitle();
-        AppMetadata meta = state.getBrowsingMetadata();
-
-        setBackdrop(state.getBrowsingBackground());
+        statsView.setVisibility(View.GONE);
+        idleView.setVisibility(View.VISIBLE);
+        setBackdrop(backdrop);
 
         // A new game starts its description from the top; a re-render of the same one (the hero
         // art landing, say) leaves the reader where they were.

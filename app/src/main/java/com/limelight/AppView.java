@@ -506,9 +506,6 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
 
         releaseCoverflowDataObserver();
 
-        // Stop spotlighting a game on the companion panel once we leave the library.
-        CompanionState.getInstance().clearBrowsing();
-
         if (managerBinder != null) {
             unbindService(serviceConnection);
         }
@@ -546,6 +543,19 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         profilesButton.setText(ProfilesManager.getInstance().getActiveName());
 
         refreshCompanionButton();
+        // We may be coming back from a stream, which left the browsing surface empty.
+        repushCompanionBrowsing();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+
+        // The library is no longer on screen — a game may well be running on top of it, and its
+        // spotlight must not outlive it. Doing this in onDestroy was too late: launching a game
+        // stops this Activity without destroying it, so the metadata stayed behind and surfaced
+        // again the moment the panel came back up mid-stream.
+        CompanionState.getInstance().clearBrowsing();
     }
 
     // The companion toggle is only offered where the feature is on; its icon follows whether a
@@ -1177,6 +1187,22 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         pushCompanionBrowsing(app.app);
     }
 
+    // Push the spotlighted game — centred in the carousel, focused in the grid — at the companion
+    // again. Used when its metadata lands late, and when we come back to the library and the
+    // browsing surface has to be rebuilt from scratch.
+    private void repushCompanionBrowsing() {
+        if (appGridAdapter == null) {
+            return;
+        }
+        for (int i = 0; i < appGridAdapter.getCount(); i++) {
+            AppObject app = (AppObject) appGridAdapter.getItem(i);
+            if (app != null && app.app.getAppId() == browsingAppId) {
+                pushCompanionBrowsing(app.app);
+                return;
+            }
+        }
+    }
+
     // Spotlight the centred game on the companion panel, with whatever metadata the host gave us.
     private void pushCompanionBrowsing(NvApp app) {
         AppMetadata metadata = null;
@@ -1278,15 +1304,8 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
                     appMetadata = fetched;
                     // The orders that rank by metadata were sorting on nothing until now.
                     appGridAdapter.setAppMetadata(fetched);
-                    // Re-push whatever is spotlighted — centred in the carousel, focused in the
-                    // grid — so it picks up its freshly-arrived metadata.
-                    for (int i = 0; i < appGridAdapter.getCount(); i++) {
-                        AppObject app = (AppObject) appGridAdapter.getItem(i);
-                        if (app != null && app.app.getAppId() == browsingAppId) {
-                            pushCompanionBrowsing(app.app);
-                            break;
-                        }
-                    }
+                    // Re-push whatever is spotlighted so it picks up its freshly-arrived metadata.
+                    repushCompanionBrowsing();
                 });
             } catch (Exception e) {
                 LimeLog.warning("Failed to fetch app metadata: " + e.getMessage());
