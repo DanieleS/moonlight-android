@@ -98,6 +98,10 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
     // The carousel is the front door; the grid is "all games", one button away.
     private boolean coverflowMode = true;
     private int coverflowCentered = -1;
+    // What is actually centred, not just where. A re-sort can leave the index alone and swap the
+    // game under it, and the index on its own cannot tell those apart.
+    private AppObject coverflowCenteredApp;
+    private RecyclerView.AdapterDataObserver coverflowDataObserver;
 
     // The host's "Virtual Display" shortcut is kept out of the library and offered as a
     // dedicated app-bar action instead. Null until the host advertises it.
@@ -498,6 +502,8 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         SpinnerDialog.closeDialogs(this);
         Dialog.closeDialogs();
 
+        releaseCoverflowDataObserver();
+
         // Stop spotlighting a game on the companion panel once we leave the library.
         CompanionState.getInstance().clearBrowsing();
 
@@ -710,6 +716,7 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
             return;
         }
         coverflowCentered = -1;
+        coverflowCenteredApp = null;
         ((RecyclerView) grid).scrollToPosition(0);
     }
 
@@ -966,6 +973,9 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
     }
 
     private void setupGrid(RecyclerView recyclerView) {
+        // The adapter outlives the carousel's views, so an observer left registered here would
+        // keep updating chrome that is no longer on screen — and hold it alive.
+        releaseCoverflowDataObserver();
         appGridAdapter.setCoverflowLayout(false, prefConfig);
         appGridAdapter.setItemsFocusableInTouchMode(false);
         boolean small = PreferenceConfiguration.readPreferences(this).smallIconMode;
@@ -1011,6 +1021,7 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         appGridAdapter.setCoverflowLayout(true, prefConfig);
         appGridAdapter.setItemsFocusableInTouchMode(UiHelper.isGamepadConnected());
         coverflowCentered = -1;
+        coverflowCenteredApp = null;
         float density = getResources().getDisplayMetrics().density;
         int itemWidthPx = Math.round(180 * density);
         int gapPx = Math.round(24 * density);
@@ -1067,7 +1078,50 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
                 updateCoverflowCenter(rv, backdrop, title, count);
             }
         });
+
+        // Scrolling is not the only thing that changes what is centred. The Playnite metadata
+        // lands after the apps do and re-sorts the orders that rank by it, so the carousel can be
+        // left parked on index 0 with a different game under it and no scroll to notice. Follow
+        // the data as well as the finger. Posted because the observer fires before the
+        // RecyclerView has re-laid out its children, so positions are not yet trustworthy.
+        releaseCoverflowDataObserver();
+        coverflowDataObserver = new RecyclerView.AdapterDataObserver() {
+            @Override
+            public void onChanged() {
+                recyclerView.post(() -> updateCoverflowCenter(recyclerView, backdrop, title, count));
+            }
+
+            // The granular callbacks matter too: hiding an app notifies a range, not the whole set.
+            @Override
+            public void onItemRangeChanged(int positionStart, int itemCount) {
+                onChanged();
+            }
+
+            @Override
+            public void onItemRangeInserted(int positionStart, int itemCount) {
+                onChanged();
+            }
+
+            @Override
+            public void onItemRangeRemoved(int positionStart, int itemCount) {
+                onChanged();
+            }
+
+            @Override
+            public void onItemRangeMoved(int fromPosition, int toPosition, int itemCount) {
+                onChanged();
+            }
+        };
+        appGridAdapter.registerAdapterDataObserver(coverflowDataObserver);
+
         recyclerView.post(() -> updateCoverflowCenter(recyclerView, backdrop, title, count));
+    }
+
+    private void releaseCoverflowDataObserver() {
+        if (coverflowDataObserver != null) {
+            appGridAdapter.unregisterAdapterDataObserver(coverflowDataObserver);
+            coverflowDataObserver = null;
+        }
     }
 
     // Follow whichever cover is nearest the centre: name it, count it, and blur it behind.
@@ -1086,11 +1140,18 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
                 bestPos = rv.getChildAdapterPosition(c);
             }
         }
-        if (bestPos == RecyclerView.NO_POSITION || bestPos == coverflowCentered) {
+        // A removal can leave a laid-out child pointing past the end of the shortened list.
+        if (bestPos == RecyclerView.NO_POSITION || bestPos >= appGridAdapter.getCount()) {
+            return;
+        }
+        AppObject app = (AppObject) appGridAdapter.getItem(bestPos);
+        // Bail only when the same game is still centred. Comparing the index alone would miss a
+        // re-sort that kept the position and changed what sits there.
+        if (bestPos == coverflowCentered && app == coverflowCenteredApp) {
             return;
         }
         coverflowCentered = bestPos;
-        AppObject app = (AppObject) appGridAdapter.getItem(bestPos);
+        coverflowCenteredApp = app;
         title.setText(app.app.getAppName());
         count.setText(getString(R.string.coverflow_count, bestPos + 1, appGridAdapter.getCount()));
         ImageView art = bestChild.findViewById(R.id.grid_image);
