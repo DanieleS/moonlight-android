@@ -52,6 +52,11 @@ public class CompanionDisplayManager implements Application.ActivityLifecycleCal
     // cleared when they turn it on again.
     private boolean userSuppressed;
 
+    // Set while a companion app holds the secondary screen. Kept apart from userSuppressed because
+    // this one is ours, not a preference: yielding the screen to an app must not be remembered as
+    // "the user turned the panel off", or the panel would stay dark long after the app is gone.
+    private boolean appSuppressed;
+
     // Invoked when the panel's own menu button is pressed; the stream activity registers it to
     // raise the in-game menu here.
     private Runnable menuRequestListener;
@@ -234,8 +239,21 @@ public class CompanionDisplayManager implements Application.ActivityLifecycleCal
      */
     public static boolean isCompanionAvailable(Activity activity) {
         return isEnabled(activity)
-                && !(instance != null && instance.userSuppressed)
+                && !(instance != null && (instance.userSuppressed || instance.appSuppressed))
                 && DisplayTargets.findCompanionDisplay(activity, getDisplayIdOf(activity)) != null;
+    }
+
+    /**
+     * Give the secondary screen up to a companion app, or take it back when the app is done.
+     *
+     * The panel is a {@code TYPE_PRESENTATION} window, which the platform layers above every
+     * application window on that display — so an app launched there is invisible until the panel
+     * actually goes away. Hiding it is the only way to let the app be seen.
+     */
+    public static void yieldToApp(boolean yield) {
+        if (instance != null) {
+            instance.applyAppSuppressed(yield);
+        }
     }
 
     private void applyUserSuppressed(boolean suppressed) {
@@ -247,9 +265,22 @@ public class CompanionDisplayManager implements Application.ActivityLifecycleCal
         }
     }
 
+    private void applyAppSuppressed(boolean suppressed) {
+        if (appSuppressed == suppressed) {
+            return;
+        }
+        appSuppressed = suppressed;
+        if (suppressed) {
+            detach();
+        } else {
+            sync();
+        }
+    }
+
     /** Ensure a panel is up for the current owner, if conditions allow and one is not already. */
     private void sync() {
-        if (owner == null || startedActivities == 0 || !isEnabled(application) || userSuppressed) {
+        if (owner == null || startedActivities == 0 || !isEnabled(application)
+                || userSuppressed || appSuppressed) {
             detach();
             return;
         }
@@ -280,7 +311,8 @@ public class CompanionDisplayManager implements Application.ActivityLifecycleCal
      * then dismiss the one it replaces.
      */
     private void rehost() {
-        if (owner == null || startedActivities == 0 || !isEnabled(application) || userSuppressed) {
+        if (owner == null || startedActivities == 0 || !isEnabled(application)
+                || userSuppressed || appSuppressed) {
             detach();
             return;
         }

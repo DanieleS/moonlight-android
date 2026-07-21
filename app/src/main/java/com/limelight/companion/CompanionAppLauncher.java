@@ -96,11 +96,16 @@ public final class CompanionAppLauncher {
         launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
         Bundle options = ActivityOptions.makeBasic().setLaunchDisplayId(displayId).toBundle();
+        // The panel must come down first: it is a presentation window, so it sits above anything
+        // launched onto that display and would otherwise hide the app completely.
+        CompanionDisplayManager.yieldToApp(true);
         try {
             host.startActivity(launchIntent, options);
             return true;
         } catch (Exception e) {
             LimeLog.warning("CompanionApp: failed to launch " + component + ": " + e.getMessage());
+            // Nothing took the screen, so take it back rather than leaving it dark.
+            CompanionDisplayManager.yieldToApp(false);
             if (announce) {
                 Toast.makeText(host, R.string.companion_app_launch_failed, Toast.LENGTH_SHORT).show();
             }

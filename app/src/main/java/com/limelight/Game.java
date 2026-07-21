@@ -1765,6 +1765,8 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         CompanionDisplayManager.setMenuClosedListener(null);
         companionMenuActive = false;
         CompanionDisplayManager.hideMenu();
+        // Whatever companion app we opened was for this stream; the panel owns the screen again.
+        CompanionDisplayManager.yieldToApp(false);
         CompanionState.getInstance().clearStats();
 
         if (prefConfig.enableFullExDisplay) handleDisplayRemoved();
