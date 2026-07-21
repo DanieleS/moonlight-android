@@ -226,12 +226,6 @@ public class GameMenu implements Game.GameMenuCallbacks {
         }
         
         options.add(new MenuOption(getString(R.string.game_menu_toggle_hud), true, game::toggleHUD));
-        if (CompanionDisplayManager.isConfigured(game)) {
-            // Bring the companion panel back after a back gesture closed it, or send it away.
-            options.add(new MenuOption(getString(CompanionDisplayManager.isShowing()
-                    ? R.string.game_menu_companion_hide : R.string.game_menu_companion_show),
-                    CompanionDisplayManager::toggle));
-        }
         if (game.isCompanionAppSupported()) {
             // Open this game's companion app on the second screen (or pick one, if none yet).
             options.add(new MenuOption(getString(R.string.game_menu_companion_app),
@@ -311,6 +305,15 @@ public class GameMenu implements Game.GameMenuCallbacks {
         if (dialogScreenContext == game) {
             options.add(new MenuOption(getString(R.string.game_menu_rotate_screen), true,
                     game::rotateScreen));
+        }
+
+        if (CompanionDisplayManager.isConfigured(game)) {
+            // Front and centre rather than buried in Advanced: with a companion app able to take
+            // the second screen mid-game, sending the panel away and calling it back is something
+            // reached often, not a setting configured once.
+            options.add(new MenuOption(getString(CompanionDisplayManager.isShowing()
+                    ? R.string.game_menu_companion_hide : R.string.game_menu_companion_show),
+                    CompanionDisplayManager::toggle));
         }
 
         options.add(new MenuOption(getString(R.string.game_menu_advanced), true,
