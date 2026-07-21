@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The dialog surface for the AppCompat path. MaterialAlertDialogBuilder installs its own
+    rounded MaterialShapeDrawable in code, so dialogs raised through it need nothing here;
+    androidx.preference builds its dialogs with AppCompat's AlertDialog, which takes the
+    window background straight from the theme and would otherwise land square-cornered on
+    a stock grey. Same surface and same corner token as the Material path.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/surface_raised" />
+    <corners android:radius="@dimen/dialog_corner" />
+</shape>

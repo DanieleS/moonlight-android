@@ -10,7 +10,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/surface"
+    android:background="@color/surface_deep"
     android:orientation="vertical"
     tools:context=".preferences.StreamSettings">
 
@@ -18,7 +18,7 @@
         android:id="@+id/settings_appbar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/surface"
+        android:background="@color/surface_deep"
         app:elevation="0dp"
         app:liftOnScroll="false">
 

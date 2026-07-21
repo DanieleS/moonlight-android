@@ -69,6 +69,10 @@
 
         <!-- Component overlays: the palette reaches dialogs and preferences through these. -->
         <item name="materialAlertDialogTheme">@style/ThemeOverlay.Ratatoskr.MaterialAlertDialog</item>
+        <!-- androidx.preference raises its ListPreference/EditTextPreference dialogs
+             through AppCompat's AlertDialog, which reads alertDialogTheme and never sees
+             materialAlertDialogTheme; without this they stay on Material's stock grey. -->
+        <item name="alertDialogTheme">@style/ThemeOverlay.Ratatoskr.AlertDialog</item>
         <item name="preferenceTheme">@style/PreferenceThemeOverlay.Ratatoskr</item>
     </style>
 
@@ -295,6 +299,24 @@
         <item name="cornerSize">@dimen/dialog_corner</item>
     </style>
 
+    <!-- ============================================================================
+         The same dialog for the AppCompat path, which androidx.preference uses. Parented
+         on Dialog.Alert rather than the MaterialAlertDialog overlay: that one is meant for
+         MaterialAlertDialogBuilder and swaps in a layout whose ids AppCompat does not
+         inflate into. Only colour, type and a rounded surface are set here; the dialog's
+         structure is left to AppCompat.
+         ============================================================================ -->
+    <style name="ThemeOverlay.Ratatoskr.AlertDialog" parent="ThemeOverlay.Material3.Dialog.Alert">
+        <item name="colorSurface">@color/surface_raised</item>
+        <item name="colorSurfaceContainerHigh">@color/surface_raised</item>
+        <item name="android:colorBackground">@color/surface_raised</item>
+        <item name="android:windowBackground">@drawable/dialog_background_ratatoskr</item>
+
+        <item name="android:textColorPrimary">@color/content_primary</item>
+        <item name="android:textColorSecondary">@color/content_secondary</item>
+        <item name="android:textColorAlertDialogListItem">@color/content_primary</item>
+    </style>
+
     <!-- The dialog's buttons: text buttons carrying the signal, the wash on a press. -->
     <style name="Widget.Ratatoskr.Button.Dialog" parent="Widget.Material3.Button.TextButton.Dialog">
         <item name="android:textColor">@color/signal</item>
@@ -312,11 +334,60 @@
          ============================================================================ -->
     <style name="PreferenceThemeOverlay.Ratatoskr" parent="PreferenceThemeOverlay">
         <item name="preferenceCategoryStyle">@style/Preference.Category.Ratatoskr</item>
+
+        <!-- Every row the settings screen actually uses. androidx picks the style per
+             preference type, so the layout has to be hung on each one; the types not
+             listed (checkBoxPreferenceStyle, which SmallIconCheckboxPreference rides on)
+             keep their own layout on purpose. -->
+        <item name="preferenceStyle">@style/Preference.Ratatoskr</item>
+        <item name="switchPreferenceCompatStyle">@style/Preference.Ratatoskr.Switch</item>
+        <item name="dialogPreferenceStyle">@style/Preference.Ratatoskr.Dialog</item>
+        <item name="editTextPreferenceStyle">@style/Preference.Ratatoskr.EditText</item>
     </style>
 
     <style name="Preference.Category.Ratatoskr" parent="Preference.Category.Material">
         <item name="android:layout">@layout/preference_category_ratatoskr</item>
         <item name="iconSpaceReserved">false</item>
+    </style>
+
+    <!-- The app's settings row: see @layout/preference_ratatoskr for the reasoning. -->
+    <style name="Preference.Ratatoskr" parent="Preference.Material">
+        <item name="android:layout">@layout/preference_ratatoskr</item>
+        <item name="iconSpaceReserved">false</item>
+    </style>
+
+    <style name="Preference.Ratatoskr.Switch" parent="Preference.SwitchPreferenceCompat.Material">
+        <item name="android:layout">@layout/preference_ratatoskr</item>
+        <item name="iconSpaceReserved">false</item>
+    </style>
+
+    <!--
+        Each of these must keep its own androidx parent. Only android:layout — the row in
+        the list — is ours; a dialog preference carries android:dialogLayout and its button
+        labels in the same style, so re-parenting these onto the plain Preference style
+        drops the EditText out of the dialog and takes the button bar with it.
+    -->
+    <style name="Preference.Ratatoskr.Dialog" parent="Preference.DialogPreference.Material">
+        <item name="android:layout">@layout/preference_ratatoskr</item>
+        <item name="iconSpaceReserved">false</item>
+    </style>
+
+    <style name="Preference.Ratatoskr.EditText" parent="Preference.DialogPreference.EditTextPreference.Material">
+        <item name="android:layout">@layout/preference_ratatoskr</item>
+        <item name="iconSpaceReserved">false</item>
+    </style>
+
+    <!-- Two steps of the prominence ladder, not one: the title carries the row, the
+         explanation stays underneath it and out of the way. -->
+    <style name="TextAppearance.Ratatoskr.PreferenceTitle" parent="TextAppearance.Material3.BodyLarge">
+        <item name="android:textColor">@color/content_primary</item>
+        <item name="android:textSize">16sp</item>
+    </style>
+
+    <style name="TextAppearance.Ratatoskr.PreferenceSummary" parent="TextAppearance.Material3.BodySmall">
+        <item name="android:textColor">@color/content_muted</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:lineSpacingMultiplier">1.15</item>
     </style>
 
     <style name="TextAppearance.Ratatoskr.PreferenceCategory" parent="TextAppearance.Material3.LabelLarge">
@@ -330,7 +401,7 @@
     <!-- The settings top app bar: a plain surface bar, its title in content_primary, its
          back arrow and overflow in the secondary step. No lift, in keeping with the app. -->
     <style name="Widget.Ratatoskr.Toolbar" parent="Widget.Material3.Toolbar.Surface">
-        <item name="android:background">@color/surface</item>
+        <item name="android:background">@color/surface_deep</item>
         <item name="android:elevation">0dp</item>
         <item name="titleTextColor">@color/content_primary</item>
         <item name="titleTextAppearance">@style/TextAppearance.Ratatoskr.Toolbar.Title</item>
