@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    One app in the companion picker: its own icon over its name. The tile takes the signal
+    ring on focus and fills on a press, the same grammar as a menu row, and the check rides
+    the icon's corner when this is the app the game already opens.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/menu_row_bg"
+    android:clickable="true"
+    android:focusable="true"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:paddingStart="4dp"
+    android:paddingEnd="4dp"
+    android:paddingTop="12dp"
+    android:paddingBottom="10dp">
+
+    <FrameLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content">
+
+        <ImageView
+            android:id="@+id/companionAppIcon"
+            android:layout_width="@dimen/companion_app_icon"
+            android:layout_height="@dimen/companion_app_icon" />
+
+        <ImageView
+            android:id="@+id/companionAppCheck"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_gravity="bottom|end"
+            android:background="@drawable/companion_check_bg"
+            android:src="@drawable/ic_check"
+            android:tint="@color/signal"
+            android:visibility="gone" />
+
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/companionAppLabel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:ellipsize="end"
+        android:gravity="center_horizontal"
+        android:maxLines="2"
+        android:textColor="@color/content_primary"
+        android:textSize="12sp" />
+
+</LinearLayout>

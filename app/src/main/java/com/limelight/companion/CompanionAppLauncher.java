@@ -7,7 +7,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
-import android.content.pm.ResolveInfo;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.Display;
@@ -16,13 +15,6 @@ import android.widget.Toast;
 import com.limelight.LimeLog;
 import com.limelight.R;
 import com.limelight.preferences.PreferenceConfiguration;
-import com.limelight.ui.MenuSheet;
-
-import java.text.Collator;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
 
 /**
  * Opens a per-game companion app on the secondary screen, and lets the user pick which one.
@@ -114,54 +106,11 @@ public final class CompanionAppLauncher {
     }
 
     /**
-     * Show every launchable app as a sheet; the pick is stored for this game and handed back.
-     * The current choice, if any, wears the check, and a "None" row clears it.
+     * Show every launchable app as a grid of icons; the pick is stored for this game and handed
+     * back. The current choice, if any, wears the check, and a "None" row clears it.
      */
     public static void showPicker(Activity host, String appUuid, String appName, OnChosen onChosen) {
-        final PackageManager pm = host.getPackageManager();
-        Intent query = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
-
-        // Drop our own app: opening it beside itself is never the intent.
-        String self = host.getPackageName();
-        List<ResolveInfo> apps = new ArrayList<>();
-        for (ResolveInfo info : pm.queryIntentActivities(query, 0)) {
-            if (info.activityInfo != null && !self.equals(info.activityInfo.packageName)) {
-                apps.add(info);
-            }
-        }
-
-        final Collator collator = Collator.getInstance();
-        Collections.sort(apps, new Comparator<ResolveInfo>() {
-            @Override
-            public int compare(ResolveInfo a, ResolveInfo b) {
-                return collator.compare(a.loadLabel(pm).toString(), b.loadLabel(pm).toString());
-            }
-        });
-
-        MenuSheet sheet = new MenuSheet(host).setTitle(host.getString(R.string.companion_app_pick_title));
-
-        ComponentName current = CompanionApps.get(host, appUuid, appName);
-        if (current != null) {
-            // Clearing comes first so it is always in reach.
-            sheet.add(host.getString(R.string.companion_app_none), () -> {
-                CompanionApps.clear(host, appUuid, appName);
-                Toast.makeText(host, R.string.companion_app_cleared, Toast.LENGTH_SHORT).show();
-            });
-        }
-
-        for (ResolveInfo info : apps) {
-            final ComponentName component = new ComponentName(
-                    info.activityInfo.packageName, info.activityInfo.name);
-            final CharSequence label = info.loadLabel(pm);
-            sheet.addChecked(label, component.equals(current), () -> {
-                CompanionApps.set(host, appUuid, appName, component);
-                if (onChosen != null) {
-                    onChosen.onChosen(component);
-                }
-            });
-        }
-
-        sheet.showCentered(host);
+        CompanionAppPicker.show(host, appUuid, appName, onChosen);
     }
 
     /** A readable name for a stored component, falling back to the package when it is gone. */

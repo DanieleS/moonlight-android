@@ -58,6 +58,13 @@
     <dimen name="menu_row_min_height">44dp</dimen>
     <dimen name="menu_row_icon">22dp</dimen>
 
+    <!-- The companion picker's grid of installed apps. The column is the icon plus room for a
+         two-line name; the icon is launcher-sized, since recognising it is the whole point. -->
+    <dimen name="companion_app_icon">52dp</dimen>
+    <dimen name="companion_app_column">96dp</dimen>
+    <dimen name="companion_app_spacing">6dp</dimen>
+    <dimen name="companion_picker_max_width">460dp</dimen>
+
     <!--
         The Material 3 shape ladder, in this app's terms. Material components read these
         three off the theme; the sizes are Ratatoskr's own rounding rather than M3's
