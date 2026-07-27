@@ -72,6 +72,34 @@ public class CompanionPresentation extends android.app.Presentation
     private String loadedTelemetryHtml;
     /** Whether the loaded view has finished loading and can be handed frames. */
     private boolean telemetryViewReady;
+
+    /**
+     * How often a view is handed the whole picture again, whether it asked or not.
+     *
+     * <p>A view builds its state by applying diffs, and nothing stops it from losing that state —
+     * one exception in the middle of a render and it carries on drawing numbers that stopped being
+     * true. There is deliberately no channel for it to ask for a resync, so the resync is simply
+     * unconditional. Short enough that a broken view rights itself before anyone reads it as fact,
+     * and free: the picture is already in memory here, so this costs no network at all.
+     */
+    private static final long TELEMETRY_RESYNC_MS = 5000;
+
+    private final Runnable telemetryResync = new Runnable() {
+        @Override
+        public void run() {
+            if (telemetryView == null || telemetryView.getVisibility() != View.VISIBLE) {
+                return;
+            }
+            TelemetryStream stream = state.getTelemetryStream();
+            if (stream != null) {
+                JSONObject picture = stream.getPicture();
+                if (picture != null) {
+                    deliver("snapshot", picture);
+                }
+            }
+            telemetryView.postDelayed(this, TELEMETRY_RESYNC_MS);
+        }
+    };
     private TextView resolutionView;
     private TextView fpsView;
     private TextView latencyView;
@@ -166,6 +194,9 @@ public class CompanionPresentation extends android.app.Presentation
         if (stream != null) {
             stream.removeListener(this);
         }
+        if (telemetryView != null) {
+            telemetryView.removeCallbacks(telemetryResync);
+        }
         super.onStop();
     }
 
@@ -251,14 +282,10 @@ public class CompanionPresentation extends android.app.Presentation
                 telemetryViewReady = true;
                 // The view missed every frame that arrived while it was loading, so it starts from
                 // the accumulated picture rather than from the next diff — which on its own would
-                // tell it almost nothing.
-                TelemetryStream stream = state.getTelemetryStream();
-                if (stream != null) {
-                    JSONObject picture = stream.getPicture();
-                    if (picture != null) {
-                        deliver("snapshot", picture);
-                    }
-                }
+                // tell it almost nothing. From here the same delivery repeats on a timer, so a view
+                // that later loses its state does not stay wrong.
+                view.removeCallbacks(telemetryResync);
+                telemetryResync.run();
             }
         });
     }
@@ -289,6 +316,7 @@ public class CompanionPresentation extends android.app.Presentation
         if (telemetryView == null || telemetryView.getVisibility() == View.GONE) {
             return;
         }
+        telemetryView.removeCallbacks(telemetryResync);
         telemetryView.setVisibility(View.GONE);
         // Dropped rather than left paused: a view holds a dead game's numbers, and the next game is
         // entitled to a view that has never seen them.
