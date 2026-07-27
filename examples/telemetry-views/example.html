@@ -1,0 +1,145 @@
+<!--
+  A reference telemetry view.
+
+  HOW TO USE IT
+    Copy this file onto the device as:
+      Android/data/<package>/files/telemetry-views/<profile>.html
+    where <profile> is the profile name the host reports — the label from the scry profile that
+    claimed the game, not the app name. Add "@<contract>" before ".html" to tie a view to one
+    contract version; that file wins over the plain one when the profile declares that contract.
+
+  THE CONTRACT
+    The app calls one function on this page:
+
+      window.scry.onFrame(kind, body)
+
+    kind === "snapshot"  body is the complete picture:
+                           { attached, slug, process, profile, contract?, values: {...} }
+                         Sent when the stream opens, when a new game attaches, and again after any
+                         gap. Treat it as "forget what you had and use this".
+
+    kind === "diff"      body is { name: value, ... } for the watches that changed this tick, and
+                         nothing else. A value of null means the watch became unreadable, which is
+                         a different claim from the watch being absent.
+
+    kind === "detached"  body is empty. The game is gone; what is on screen is now history.
+
+    Diffs are delivered rather than merged states precisely so a view can react to a change. If you
+    only ever redraw the current numbers, a value that went 100 -> 90 -> 100 between two frames will
+    look to you like nothing happened — and for a health bar, something very much did.
+
+  WHAT THIS PAGE CANNOT DO
+    It is loaded with no origin: no network, no file access, no storage. Everything it draws must
+    arrive through onFrame. Nothing it does can reach back into the app. Keep views self-contained —
+    inline your CSS and JS, and embed images as data: URIs.
+-->
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0;
+    padding: 28px;
+    font: 16px/1.5 system-ui, sans-serif;
+    color: #f2f4f7;
+    background: transparent;
+  }
+  h1 { margin: 0 0 4px; font-size: 20px; font-weight: 600; }
+  .meta { margin: 0 0 20px; font-size: 13px; opacity: 0.6; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 7px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+  td.name { opacity: 0.7; }
+  td.value { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+  td.value.unreadable { opacity: 0.35; font-weight: 400; }
+  /* The point of receiving diffs: a value that changed is briefly marked, even if it changes back. */
+  td.value.changed { animation: flash 600ms ease-out; }
+  @keyframes flash {
+    from { color: #ffd166; }
+    to { color: inherit; }
+  }
+  .gone { opacity: 0.5; font-style: italic; }
+</style>
+
+<h1 id="title">Waiting for a game…</h1>
+<p class="meta" id="meta"></p>
+<table><tbody id="rows"></tbody></table>
+
+<script>
+  var values = {};
+  var rows = {};
+
+  function render(name) {
+    var row = rows[name];
+    if (!row) {
+      row = document.createElement('tr');
+      var nameCell = document.createElement('td');
+      nameCell.className = 'name';
+      nameCell.textContent = name;
+      var valueCell = document.createElement('td');
+      valueCell.className = 'value';
+      row.appendChild(nameCell);
+      row.appendChild(valueCell);
+      document.getElementById('rows').appendChild(row);
+      rows[name] = row;
+    }
+
+    var cell = row.lastChild;
+    var value = values[name];
+    var unreadable = value === null || value === undefined;
+    cell.textContent = unreadable ? '—' : format(value);
+    cell.classList.toggle('unreadable', unreadable);
+
+    // Restart the animation rather than relying on the class being absent: the same value changing
+    // twice in a row must flash twice.
+    cell.classList.remove('changed');
+    void cell.offsetWidth;
+    cell.classList.add('changed');
+  }
+
+  function format(value) {
+    if (typeof value === 'number') {
+      return Number.isInteger(value) ? value : value.toFixed(2);
+    }
+    if (typeof value === 'object') {
+      return JSON.stringify(value);
+    }
+    return String(value);
+  }
+
+  function reset() {
+    values = {};
+    rows = {};
+    document.getElementById('rows').textContent = '';
+  }
+
+  window.scry = {
+    onFrame: function (kind, body) {
+      if (kind === 'snapshot') {
+        reset();
+        document.body.classList.remove('gone');
+        if (!body.attached) {
+          document.getElementById('title').textContent = 'Waiting for a game…';
+          document.getElementById('meta').textContent = '';
+          return;
+        }
+        document.getElementById('title').textContent = body.slug || body.process || 'Game';
+        document.getElementById('meta').textContent =
+          body.profile + (body.contract != null ? ' · contract ' + body.contract : '');
+        values = body.values || {};
+        Object.keys(values).sort().forEach(render);
+        return;
+      }
+
+      if (kind === 'diff') {
+        Object.keys(body).forEach(function (name) {
+          values[name] = body[name];
+          render(name);
+        });
+        return;
+      }
+
+      if (kind === 'detached') {
+        document.body.classList.add('gone');
+        document.getElementById('title').textContent = 'Game ended';
+      }
+    }
+  };
+</script>

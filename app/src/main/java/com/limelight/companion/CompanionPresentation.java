@@ -2,6 +2,7 @@ package com.limelight.companion;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.Html;
@@ -13,6 +14,10 @@ import android.view.Display;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.WindowManager;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -24,19 +29,25 @@ import com.limelight.binding.video.PerfStats;
 import com.limelight.nvstream.http.AppMetadata;
 import com.limelight.ui.MaxHeightScrollView;
 
+import org.json.JSONObject;
+
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * The companion surface rendered on the secondary panel.
  *
- * While a stream is running it draws the performance stats, which would otherwise sit on top of
- * the game. The rest of the time it shows nothing but the app name.
+ * While a stream is running it draws the game's own telemetry view when one is installed, and the
+ * performance stats — which would otherwise sit on top of the game — when there is none. The rest
+ * of the time it shows nothing but the app name.
  *
  * It never polls: {@link CompanionState} pushes, roughly once a second, and only while it is on
- * screen.
+ * screen. Telemetry frames are the exception, and deliberately bypass that path: they arrive up to
+ * twenty times a second and go straight into the view already on screen, rather than redrawing the
+ * surface to deliver a number.
  */
-public class CompanionPresentation extends android.app.Presentation implements CompanionState.Listener {
+public class CompanionPresentation extends android.app.Presentation
+        implements CompanionState.Listener, TelemetryStream.Listener {
 
     /** Matches the padding on the idle surface in @layout/companion_surface. */
     private static final int IDLE_PADDING_DP = 28;
@@ -56,6 +67,11 @@ public class CompanionPresentation extends android.app.Presentation implements C
     private ImageView backdropView;
     private View backdropScrimView;
     private View statsView;
+    private WebView telemetryView;
+    /** The HTML currently loaded, so a redraw does not restart a running view from scratch. */
+    private String loadedTelemetryHtml;
+    /** Whether the loaded view has finished loading and can be handed frames. */
+    private boolean telemetryViewReady;
     private TextView resolutionView;
     private TextView fpsView;
     private TextView latencyView;
@@ -103,6 +119,8 @@ public class CompanionPresentation extends android.app.Presentation implements C
         backdropView = findViewById(R.id.companionBackdrop);
         backdropScrimView = findViewById(R.id.companionBackdropScrim);
         statsView = findViewById(R.id.companionStats);
+        telemetryView = findViewById(R.id.companionTelemetryView);
+        configureTelemetryView();
         resolutionView = findViewById(R.id.companionResolution);
         fpsView = findViewById(R.id.companionFps);
         latencyView = findViewById(R.id.companionLatency);
@@ -129,6 +147,13 @@ public class CompanionPresentation extends android.app.Presentation implements C
         super.onStart();
 
         state.setListener(this);
+        // Frames come straight from the stream rather than through CompanionState, because they
+        // arrive far too often to redraw the surface for. Attached here, alongside the state
+        // listener, so a panel that is re-hosted picks the stream back up on the way in.
+        TelemetryStream stream = state.getTelemetryStream();
+        if (stream != null) {
+            stream.addListener(this);
+        }
         render();
     }
 
@@ -137,6 +162,10 @@ public class CompanionPresentation extends android.app.Presentation implements C
         // Only give up the listener if it is still ours: during a re-host the replacement panel
         // has already registered by the time this one stops.
         state.clearListener(this);
+        TelemetryStream stream = state.getTelemetryStream();
+        if (stream != null) {
+            stream.removeListener(this);
+        }
         super.onStop();
     }
 
@@ -165,6 +194,13 @@ public class CompanionPresentation extends android.app.Presentation implements C
                         state.getBrowsingBackground());
                 return;
             case STREAMING:
+                // A game that has a view: that view is what the panel is for, and the stats are what
+                // it falls back to when there is none.
+                String view = state.getTelemetryView();
+                if (view != null) {
+                    showTelemetryView(view);
+                    return;
+                }
                 PerfStats streamStats = state.getStats();
                 if (streamStats != null) {
                     showStats(streamStats);
@@ -180,7 +216,127 @@ public class CompanionPresentation extends android.app.Presentation implements C
         }
     }
 
+    /**
+     * Lock the telemetry view down to what a renderer needs and nothing else.
+     *
+     * <p>The HTML comes from outside this app, so the settings here are the boundary. JavaScript is
+     * on because a view without it cannot render anything; everything else that would let the page
+     * reach beyond its own markup is off. In particular there is no
+     * {@code addJavascriptInterface}: frames go <em>in</em> via {@code evaluateJavascript} and
+     * nothing comes back out, so a view has no channel to this app at all.
+     */
+    private void configureTelemetryView() {
+        if (telemetryView == null) {
+            return;
+        }
+        WebSettings settings = telemetryView.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setAllowFileAccess(false);
+        settings.setAllowContentAccess(false);
+        settings.setDomStorageEnabled(false);
+        settings.setGeolocationEnabled(false);
+        settings.setMediaPlaybackRequiresUserGesture(true);
+        // A view is a renderer, not a browser: it has no business navigating, and a page that tries
+        // is a page doing something other than drawing telemetry.
+        settings.setSupportMultipleWindows(false);
+        telemetryView.setBackgroundColor(Color.TRANSPARENT);
+        telemetryView.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                return true;
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                telemetryViewReady = true;
+                // The view missed every frame that arrived while it was loading, so it starts from
+                // the accumulated picture rather than from the next diff — which on its own would
+                // tell it almost nothing.
+                TelemetryStream stream = state.getTelemetryStream();
+                if (stream != null) {
+                    JSONObject picture = stream.getPicture();
+                    if (picture != null) {
+                        deliver("snapshot", picture);
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * Show the game's own telemetry view, in place of the stats.
+     *
+     * <p>Loaded with a null base URL, which gives the page an opaque origin: it cannot read files,
+     * cannot reach the network, and cannot be reached. Everything it draws has to arrive through
+     * {@link #deliver}.
+     */
+    private void showTelemetryView(String html) {
+        idleView.setVisibility(View.GONE);
+        setBackdrop(null);
+        descriptionImages.setAnimating(false);
+        statsView.setVisibility(View.GONE);
+        telemetryView.setVisibility(View.VISIBLE);
+
+        if (html.equals(loadedTelemetryHtml)) {
+            return;
+        }
+        loadedTelemetryHtml = html;
+        telemetryViewReady = false;
+        telemetryView.loadDataWithBaseURL(null, html, "text/html", "utf-8", null);
+    }
+
+    private void hideTelemetryView() {
+        if (telemetryView == null || telemetryView.getVisibility() == View.GONE) {
+            return;
+        }
+        telemetryView.setVisibility(View.GONE);
+        // Dropped rather than left paused: a view holds a dead game's numbers, and the next game is
+        // entitled to a view that has never seen them.
+        telemetryView.loadUrl("about:blank");
+        loadedTelemetryHtml = null;
+        telemetryViewReady = false;
+    }
+
+    // --- TelemetryStream.Listener ---
+
+    @Override
+    public void onTelemetrySnapshot(JSONObject snapshot) {
+        deliver("snapshot", snapshot);
+    }
+
+    @Override
+    public void onTelemetryDiff(JSONObject diff) {
+        deliver("diff", diff);
+    }
+
+    @Override
+    public void onTelemetryDetached() {
+        deliver("detached", new JSONObject());
+    }
+
+    /**
+     * Hand one frame to the view.
+     *
+     * <p>Dropped silently until the page has finished loading, because a call into a page that has
+     * not run its script yet goes nowhere. Nothing is lost by it: {@code onPageFinished} follows up
+     * with the full picture.
+     */
+    private void deliver(String kind, JSONObject body) {
+        if (telemetryView == null || !telemetryViewReady) {
+            return;
+        }
+        // The payload crosses as a quoted string that the page parses, rather than being
+        // interpolated into the expression as raw JSON. Pasting JSON into JavaScript source is very
+        // nearly correct, which is the problem: U+2028 and U+2029 are legal inside a JSON string and
+        // were line terminators in JavaScript, so a game whose text contains one would turn a value
+        // into a syntax error, or worse. Quoting sidesteps the whole question.
+        String script = "window.scry && window.scry.onFrame && window.scry.onFrame("
+                + JSONObject.quote(kind) + ", JSON.parse(" + JSONObject.quote(body.toString()) + "));";
+        telemetryView.evaluateJavascript(script, null);
+    }
+
     private void showStats(PerfStats stats) {
+        hideTelemetryView();
         idleView.setVisibility(View.GONE);
         // The hero backdrop belongs to the idle library surface, not the stats dashboard.
         setBackdrop(null);
@@ -218,6 +374,7 @@ public class CompanionPresentation extends android.app.Presentation implements C
      * and "show this game" are the same code path with different arguments.
      */
     private void showSpotlight(String title, AppMetadata meta, Bitmap backdrop) {
+        hideTelemetryView();
         if (idleTitleView == null) {
             return;
         }

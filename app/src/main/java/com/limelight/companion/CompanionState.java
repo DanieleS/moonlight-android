@@ -119,10 +119,14 @@ public class CompanionState {
         setContent(Content.STREAMING);
     }
 
-    /** The stream ended; its stats go with it. */
+    /** The stream ended; its stats and telemetry go with it. */
     public void leaveStreaming() {
         if (content == Content.STREAMING) {
             stats = null;
+            // Both belong to the game that just ended. Left behind, the panel would keep drawing a
+            // view fed by a stream that has stopped — the last frame of a dead game, forever.
+            telemetryView = null;
+            telemetryStream = null;
             setContent(Content.IDLE);
         }
     }
@@ -162,6 +166,45 @@ public class CompanionState {
 
     public PerfStats getStats() {
         return stats;
+    }
+
+    // --- Telemetry ---
+    //
+    // Only the two facts that change rarely live here: whether this game has a view, and the stream
+    // to follow. The frames themselves do not — they arrive up to twenty times a second, and pushing
+    // each one through notifyChanged() would redraw the whole surface to deliver a number. A frame
+    // goes straight into the view that is already on screen, the way a video frame does.
+
+    /** The HTML view for the running game, or null when it has none installed. */
+    private String telemetryView;
+    private TelemetryStream telemetryStream;
+
+    /**
+     * Give the panel a view to draw for the running game. Null means this game has none, and the
+     * panel falls back to the stats.
+     */
+    public void setTelemetryView(String html) {
+        if (telemetryView == null ? html == null : telemetryView.equals(html)) {
+            return;
+        }
+        telemetryView = html;
+        notifyChanged();
+    }
+
+    public String getTelemetryView() {
+        return telemetryView;
+    }
+
+    /**
+     * The stream the panel should follow. Held here because the panel is created and destroyed as
+     * the surface moves between activities, while the stream outlives any one of them.
+     */
+    public void setTelemetryStream(TelemetryStream stream) {
+        telemetryStream = stream;
+    }
+
+    public TelemetryStream getTelemetryStream() {
+        return telemetryStream;
     }
 
     // --- The owner region ---
