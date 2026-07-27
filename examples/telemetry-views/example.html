@@ -15,8 +15,15 @@
 
     kind === "snapshot"  body is the complete picture:
                            { attached, slug, process, profile, contract?, values: {...} }
-                         Sent when the stream opens, when a new game attaches, and again after any
-                         gap. Treat it as "forget what you had and use this".
+                         Sent when the stream opens, when a new game attaches, after any gap, and
+                         then every few seconds regardless. Treat it as "this is the truth, adopt
+                         it" — and note that most of the time it will say exactly what you already
+                         had. Adopt it *quietly*: do not animate, do not restart anything, or you
+                         will do it every few seconds for no reason. If you need to react to a new
+                         game rather than a repeat, compare `slug` or `profile` with what you had.
+
+                         The repetition is the resync: a view that loses its state has no way to ask
+                         for a fresh one, so it is given one whether it needs it or not.
 
     kind === "diff"      body is { name: value, ... } for the watches that changed this tick, and
                          nothing else. A value of null means the watch became unreadable, which is
@@ -65,8 +72,12 @@
 <script>
   var values = {};
   var rows = {};
+  // Which game the rows on screen belong to, so a resync is told apart from a new game.
+  var identity = null;
 
-  function render(name) {
+  // `flash` is off for snapshots: those repeat every few seconds as a resync, and marking every
+  // value as changed each time would turn the whole table into a metronome.
+  function render(name, flash) {
     var row = rows[name];
     if (!row) {
       row = document.createElement('tr');
@@ -87,11 +98,13 @@
     cell.textContent = unreadable ? '—' : format(value);
     cell.classList.toggle('unreadable', unreadable);
 
-    // Restart the animation rather than relying on the class being absent: the same value changing
-    // twice in a row must flash twice.
     cell.classList.remove('changed');
-    void cell.offsetWidth;
-    cell.classList.add('changed');
+    if (flash) {
+      // Restart the animation rather than relying on the class being absent: the same value
+      // changing twice in a row must flash twice.
+      void cell.offsetWidth;
+      cell.classList.add('changed');
+    }
   }
 
   function format(value) {
@@ -113,30 +126,54 @@
   window.scry = {
     onFrame: function (kind, body) {
       if (kind === 'snapshot') {
-        reset();
         document.body.classList.remove('gone');
         if (!body.attached) {
+          identity = null;
+          reset();
           document.getElementById('title').textContent = 'Waiting for a game…';
           document.getElementById('meta').textContent = '';
           return;
         }
-        document.getElementById('title').textContent = body.slug || body.process || 'Game';
-        document.getElementById('meta').textContent =
-          body.profile + (body.contract != null ? ' · contract ' + body.contract : '');
+
+        // Most snapshots are resyncs for the game already on screen. Rebuilding the table for one
+        // would throw away scroll position and anything else the DOM was holding, several times a
+        // minute, to arrive at the same result. Only a different game earns a rebuild.
+        var next = (body.profile || '') + '\u0000' + (body.slug || '');
+        if (next !== identity) {
+          identity = next;
+          reset();
+          document.getElementById('title').textContent = body.slug || body.process || 'Game';
+          document.getElementById('meta').textContent =
+            body.profile + (body.contract != null ? ' · contract ' + body.contract : '');
+        }
+
         values = body.values || {};
-        Object.keys(values).sort().forEach(render);
+
+        // A snapshot is the whole truth, so a row it does not mention describes a watch that no
+        // longer exists. Left alone it would sit there showing its last value forever.
+        Object.keys(rows).forEach(function (name) {
+          if (!(name in values)) {
+            rows[name].parentNode.removeChild(rows[name]);
+            delete rows[name];
+          }
+        });
+
+        Object.keys(values).sort().forEach(function (name) {
+          render(name, false);
+        });
         return;
       }
 
       if (kind === 'diff') {
         Object.keys(body).forEach(function (name) {
           values[name] = body[name];
-          render(name);
+          render(name, true);
         });
         return;
       }
 
       if (kind === 'detached') {
+        identity = null;
         document.body.classList.add('gone');
         document.getElementById('title').textContent = 'Game ended';
       }
