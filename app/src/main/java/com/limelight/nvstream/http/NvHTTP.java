@@ -838,6 +838,21 @@ public class NvHTTP {
         return metadata;
     }
 
+    /**
+     * Open the host's game telemetry stream, a Vibepollo fork addition.
+     *
+     * <p>The response is a long-lived {@code text/event-stream} the caller reads incrementally and
+     * closes when done, so this uses the no-read-timeout client: silence on this stream is normal
+     * (a paused game changes nothing) and must not be mistaken for a dead connection.
+     *
+     * <p>Throws {@link FileNotFoundException} on hosts without the endpoint or with telemetry
+     * switched off, and {@link HostHttpResponseException} with 403 when this client is not the one
+     * currently streaming — both of which are answers, not faults.
+     */
+    public ResponseBody openTelemetryStream() throws HostHttpResponseException, IOException {
+        return openHttpConnection(httpClientLongConnectNoReadTimeout, getHttpsUrl(true), "telemetry", null, null);
+    }
+
     public LinkedList<NvApp> getAppList() throws HostHttpResponseException, IOException, XmlPullParserException {
         if (verbose) {
             // Use the raw function so the app list is printed

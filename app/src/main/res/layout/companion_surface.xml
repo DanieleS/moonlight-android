@@ -309,6 +309,17 @@
 
     </LinearLayout>
 
+    <!--
+        A game's telemetry view. Sits above the stats because when a game has a view, that view is
+        what the panel is for; the stats are what it falls back to. Its content comes from the host
+        and is rendered with no origin and no file access - see CompanionPresentation.
+    -->
+    <WebView
+        android:id="@+id/companionTelemetryView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone" />
+
     <!-- Opens the in-game menu here on the panel. Only out while a game is streaming; the
          idle library surface has no menu to raise. Kept at the bottom so it clears the stats
          header, whose FPS readout owns the top-right corner. -->

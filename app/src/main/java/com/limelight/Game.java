@@ -32,6 +32,7 @@ import com.limelight.binding.video.PerfStats;
 import com.limelight.companion.CompanionAppLauncher;
 import com.limelight.companion.CompanionDisplayManager;
 import com.limelight.companion.CompanionState;
+import com.limelight.companion.TelemetryController;
 import com.limelight.nvstream.NvConnection;
 import com.limelight.nvstream.NvConnectionListener;
 import com.limelight.nvstream.StreamConfiguration;
@@ -337,6 +338,8 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private boolean clipboardSyncRunning = false;
 
     private NvHTTP httpConn;
+    /** Follows the host's game telemetry for as long as this stream lasts. Null when not streaming. */
+    private TelemetryController telemetryController;
 
     public interface GameMenuCallbacks {
         void showMenu(GameInputDevice devic);
@@ -1792,6 +1795,10 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         CompanionDisplayManager.hideMenu();
         // Whatever companion app we opened was for this stream; the panel owns the screen again.
         CompanionDisplayManager.yieldToApp(false);
+        if (telemetryController != null) {
+            telemetryController.stop();
+            telemetryController = null;
+        }
         CompanionState.getInstance().leaveStreaming();
 
         if (prefConfig.enableFullExDisplay) handleDisplayRemoved();
@@ -3894,6 +3901,8 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 // The companion is showing a stream now, whether or not the panel is up to see it.
                 CompanionState.getInstance().enterStreaming();
 
+                startTelemetry();
+
                 // Open this game's companion app on the second screen, if one was assigned.
                 maybeAutoLaunchCompanionApp();
             }
@@ -3927,6 +3936,22 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     // picker opens so it can be chosen and launched on the spot.
     public void openCompanionApp() {
         CompanionAppLauncher.launchForGame(this, appUUID, appName, true);
+    }
+
+    /**
+     * Start following the host's game telemetry, if it has any to give.
+     *
+     * Started unconditionally rather than behind a check: whether telemetry exists is a question
+     * only the host can answer, and it answers by refusing the request. Nothing is shown unless a
+     * game turns out to have both a profile on the host and a view installed here, so a host without
+     * telemetry costs one failed request per session.
+     */
+    private void startTelemetry() {
+        if (httpConn == null || telemetryController != null) {
+            return;
+        }
+        telemetryController = new TelemetryController(this, httpConn, CompanionState.getInstance());
+        telemetryController.start();
     }
 
     // Auto-launch on connect: only where the feature is supported and this game has an app
