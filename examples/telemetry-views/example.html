@@ -39,6 +39,17 @@
     It is loaded with no origin: no network, no file access, no storage. Everything it draws must
     arrive through onFrame. Nothing it does can reach back into the app. Keep views self-contained —
     inline your CSS and JS, and embed images as data: URIs.
+
+    "Self-contained" is the constraint that shapes how a real view gets built: a framework has to be
+    bundled into the file rather than fetched, so anything beyond a page like this one wants a build
+    step that emits a single HTML output.
+
+  IF YOU ARE USING A FRAMEWORK
+    Most of the care taken below is the price of updating the DOM by hand. Hand a snapshot to React
+    or Vue as state and reconciliation does the rest: an identical snapshot produces no visible
+    render and fires no transition, so the resync needs no special handling at all. The one thing
+    that still matters is where an animation is keyed — drive it from a value having changed, not
+    from a render having happened.
 -->
 <style>
   :root { color-scheme: dark; }
