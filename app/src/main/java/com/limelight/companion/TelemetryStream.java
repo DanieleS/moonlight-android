@@ -89,9 +89,20 @@ public class TelemetryStream {
     /**
      * The last complete picture, or null if none has arrived. A renderer that starts late calls
      * this once to initialise itself, then follows the diffs.
+     *
+     * <p>A copy, not the picture itself: the caller is on the main thread and the original keeps
+     * being written here on every tick. Handing out the live object would make every late-loading
+     * view a race against the next diff.
      */
     public synchronized JSONObject getPicture() {
-        return picture;
+        if (picture == null) {
+            return null;
+        }
+        try {
+            return new JSONObject(picture.toString());
+        } catch (JSONException e) {
+            return null;
+        }
     }
 
     public void start() {
@@ -207,8 +218,21 @@ public class TelemetryStream {
 
         switch (event) {
             case "snapshot":
-                synchronized (this) {
-                    picture = parsed;
+                // Parsed a second time rather than shared. The accumulating picture is written by
+                // this thread on every diff from here on, and the object handed to listeners is read
+                // on the main thread — one object serving both roles is a data race, and the copy
+                // costs one parse per connection rather than one per tick.
+                try {
+                    JSONObject own = new JSONObject(data);
+                    synchronized (this) {
+                        picture = own;
+                    }
+                } catch (JSONException e) {
+                    // It parsed a moment ago, so this cannot happen; if it somehow does, having no
+                    // picture is better than having one that is half-built.
+                    synchronized (this) {
+                        picture = null;
+                    }
                 }
                 main.post(() -> {
                     for (Listener l : listeners) {
