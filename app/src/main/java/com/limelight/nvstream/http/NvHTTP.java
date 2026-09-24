@@ -56,6 +56,7 @@ import com.limelight.nvstream.http.PairingManager.PairState;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.utils.DeviceUtils;
 
+import okhttp3.Call;
 import okhttp3.ConnectionPool;
 import okhttp3.HttpUrl;
 import okhttp3.MediaType;
@@ -502,13 +503,21 @@ public class NvHTTP {
     // The initial pair query does require outside action (user entering a PIN) but subsequent pairing
     // queries do not.
     private ResponseBody openHttpConnection(OkHttpClient client, HttpUrl baseUrl, String path, String query, RequestBody requestBody) throws IOException {
+        return execute(newCall(client, baseUrl, path, query, requestBody));
+    }
+
+    private Call newCall(OkHttpClient client, HttpUrl baseUrl, String path, String query, RequestBody requestBody) {
         HttpUrl completeUrl = getCompleteUrl(baseUrl, path, query);
         Request.Builder _builder = new Request.Builder().url(completeUrl);
         Request request;
         if (requestBody == null) request = _builder.get().build();
         else request = _builder.post(requestBody).build();
 
-        Response response = performAndroidTlsHack(client).newCall(request).execute();
+        return performAndroidTlsHack(client).newCall(request);
+    }
+
+    private static ResponseBody execute(Call call) throws IOException {
+        Response response = call.execute();
 
         ResponseBody body = response.body();
         
@@ -522,7 +531,7 @@ public class NvHTTP {
         }
         
         if (response.code() == 404) {
-            throw new FileNotFoundException(completeUrl.toString());
+            throw new FileNotFoundException(call.request().url().toString());
         }
         else {
             throw new HostHttpResponseException(response.code(), response.message());
@@ -836,6 +845,34 @@ public class NvHTTP {
         }
 
         return metadata;
+    }
+
+    /**
+     * The request for the host's game telemetry stream, a Vibepollo fork addition, not yet sent.
+     *
+     * <p>The response is a long-lived {@code text/event-stream} the caller reads incrementally and
+     * closes when done. It is handed out as a {@link Call} so whoever follows the stream can
+     * {@link Call#cancel()} it from any thread, which is the one way to stop it that neither writes
+     * to the network nor waits on it. Send it with {@link #openTelemetryStream(Call)}.
+     *
+     * <p>The stream is read with the ordinary read timeout. The host writes something at least once
+     * a second, a frame or a keepalive, so seven seconds of silence means the host is gone: Wi-Fi
+     * dropped, or the PC went to sleep without closing the socket. Without the timeout the reader
+     * would wait for it forever and never reconnect.
+     */
+    public Call newTelemetryCall() throws IOException {
+        return newCall(httpClientLongConnectTimeout, getHttpsUrl(true), "telemetry", null, null);
+    }
+
+    /**
+     * Send a call from {@link #newTelemetryCall()}.
+     *
+     * <p>Throws {@link FileNotFoundException} on hosts without the endpoint or with telemetry
+     * switched off, and {@link HostHttpResponseException} with 403 when this client is not the one
+     * currently streaming — both of which are answers, not faults.
+     */
+    public ResponseBody openTelemetryStream(Call call) throws HostHttpResponseException, IOException {
+        return execute(call);
     }
 
     public LinkedList<NvApp> getAppList() throws HostHttpResponseException, IOException, XmlPullParserException {

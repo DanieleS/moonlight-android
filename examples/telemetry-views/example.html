@@ -1,0 +1,201 @@
+<!--
+  A reference telemetry view.
+
+  HOW TO USE IT
+    Views are found by the contract the telemetry follows, not by profile or app name. They live in
+      Android/data/<package>/files/telemetry-views/
+    next to an index.json listing each view's contract id, the version range it reads (a caret
+    range: "^2.0" is 2.0 up to, not including, 3.0), its file and its sha256. The panel picks the
+    view whose range includes the version the host announces, and draws nothing for any other.
+    ratatoskr-telemetry-views builds both and `npm run push` copies them over. To try this page by
+    hand, give it an entry in index.json for the contract you are streaming.
+
+  THE CONTRACT
+    The app calls one function on this page:
+
+      window.scry.onFrame(kind, body)
+
+    kind === "snapshot"  body is the complete picture:
+                           { attached, slug, process, profile, contract?: {id, version}, values: {...} }
+                         Sent when the stream opens, when a new game attaches, after any gap, and
+                         then every few seconds regardless. Treat it as "this is the truth, adopt
+                         it" — and note that most of the time it will say exactly what you already
+                         had. Adopt it *quietly*: do not animate, do not restart anything, or you
+                         will do it every few seconds for no reason. If you need to react to a new
+                         game rather than a repeat, compare `slug` or `profile` with what you had.
+
+                         The repetition is the resync: a view that loses its state has no way to ask
+                         for a fresh one, so it is given one whether it needs it or not.
+
+    kind === "diff"      body is { name: value, ... } for the watches that changed this tick, and
+                         nothing else. A value of null means the watch became unreadable, which is
+                         a different claim from the watch being absent.
+
+    kind === "detached"  body is empty. The game is gone, and the panel removes this page right
+                         after delivering it, going back to the stats. There is nothing to draw for
+                         it: just do not fail on it.
+
+  A PAGE IS ONLY SHOWN WHILE A GAME IS ATTACHED
+    The panel loads a view from the first snapshot that names its contract, and removes it on
+    `detached` or on a snapshot with `attached: false`. So a view needs no "no game" screen and no
+    "game ended" screen; nobody would see either. A game that is attached but has nothing to show
+    yet, such as a title screen, is still the view's to handle.
+
+    Diffs are delivered rather than merged states precisely so a view can react to a change. If you
+    only ever redraw the current numbers, a value that went 100 -> 90 -> 100 between two frames will
+    look to you like nothing happened — and for a health bar, something very much did.
+
+  WHAT THIS PAGE CANNOT DO
+    It is loaded with no origin and with network loads refused: no network, no file access, no
+    storage. A <script src> or an <img> pointing anywhere but a data: URI simply fails. Everything
+    it draws must arrive through onFrame. Nothing it does can reach back into the app. Keep views self-contained —
+    inline your CSS and JS, and embed images as data: URIs.
+
+    "Self-contained" is the constraint that shapes how a real view gets built: a framework has to be
+    bundled into the file rather than fetched, so anything beyond a page like this one wants a build
+    step that emits a single HTML output.
+
+  IF YOU ARE USING A FRAMEWORK
+    Most of the care taken below is the price of updating the DOM by hand. Hand a snapshot to React
+    or Vue as state and reconciliation does the rest: an identical snapshot produces no visible
+    render and fires no transition, so the resync needs no special handling at all. The one thing
+    that still matters is where an animation is keyed — drive it from a value having changed, not
+    from a render having happened.
+-->
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0;
+    padding: 28px;
+    font: 16px/1.5 system-ui, sans-serif;
+    color: #f2f4f7;
+    background: transparent;
+  }
+  h1 { margin: 0 0 4px; font-size: 20px; font-weight: 600; }
+  .meta { margin: 0 0 20px; font-size: 13px; opacity: 0.6; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 7px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+  td.name { opacity: 0.7; }
+  td.value { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+  td.value.unreadable { opacity: 0.35; font-weight: 400; }
+  /* The point of receiving diffs: a value that changed is briefly marked, even if it changes back. */
+  td.value.changed { animation: flash 600ms ease-out; }
+  @keyframes flash {
+    from { color: #ffd166; }
+    to { color: inherit; }
+  }
+</style>
+
+<h1 id="title">Waiting for a game…</h1>
+<p class="meta" id="meta"></p>
+<table><tbody id="rows"></tbody></table>
+
+<script>
+  var values = {};
+  var rows = {};
+  // Which game the rows on screen belong to, so a resync is told apart from a new game.
+  var identity = null;
+
+  // `flash` is off for snapshots: those repeat every few seconds as a resync, and marking every
+  // value as changed each time would turn the whole table into a metronome.
+  function render(name, flash) {
+    var row = rows[name];
+    if (!row) {
+      row = document.createElement('tr');
+      var nameCell = document.createElement('td');
+      nameCell.className = 'name';
+      nameCell.textContent = name;
+      var valueCell = document.createElement('td');
+      valueCell.className = 'value';
+      row.appendChild(nameCell);
+      row.appendChild(valueCell);
+      document.getElementById('rows').appendChild(row);
+      rows[name] = row;
+    }
+
+    var cell = row.lastChild;
+    var value = values[name];
+    var unreadable = value === null || value === undefined;
+    cell.textContent = unreadable ? '—' : format(value);
+    cell.classList.toggle('unreadable', unreadable);
+
+    cell.classList.remove('changed');
+    if (flash) {
+      // Restart the animation rather than relying on the class being absent: the same value
+      // changing twice in a row must flash twice.
+      void cell.offsetWidth;
+      cell.classList.add('changed');
+    }
+  }
+
+  function format(value) {
+    if (typeof value === 'number') {
+      return Number.isInteger(value) ? value : value.toFixed(2);
+    }
+    if (typeof value === 'object') {
+      return JSON.stringify(value);
+    }
+    return String(value);
+  }
+
+  function reset() {
+    values = {};
+    rows = {};
+    document.getElementById('rows').textContent = '';
+  }
+
+  window.scry = {
+    onFrame: function (kind, body) {
+      if (kind === 'snapshot') {
+        if (!body.attached) {
+          identity = null;
+          reset();
+          document.getElementById('title').textContent = 'Waiting for a game…';
+          document.getElementById('meta').textContent = '';
+          return;
+        }
+
+        // Most snapshots are resyncs for the game already on screen. Rebuilding the table for one
+        // would throw away scroll position and anything else the DOM was holding, several times a
+        // minute, to arrive at the same result. Only a different game earns a rebuild.
+        var next = (body.profile || '') + '\u0000' + (body.slug || '');
+        if (next !== identity) {
+          identity = next;
+          reset();
+          document.getElementById('title').textContent = body.slug || body.process || 'Game';
+          document.getElementById('meta').textContent =
+            body.profile + (body.contract ? ' · ' + body.contract.id + ' ' + body.contract.version : '');
+        }
+
+        values = body.values || {};
+
+        // A snapshot is the whole truth, so a row it does not mention describes a watch that no
+        // longer exists. Left alone it would sit there showing its last value forever.
+        Object.keys(rows).forEach(function (name) {
+          if (!(name in values)) {
+            rows[name].parentNode.removeChild(rows[name]);
+            delete rows[name];
+          }
+        });
+
+        Object.keys(values).sort().forEach(function (name) {
+          render(name, false);
+        });
+        return;
+      }
+
+      if (kind === 'diff') {
+        Object.keys(body).forEach(function (name) {
+          values[name] = body[name];
+          render(name, true);
+        });
+        return;
+      }
+
+      // Nothing to draw: the panel removes this page right after a detach.
+      if (kind === 'detached') {
+        identity = null;
+      }
+    }
+  };
+</script>

@@ -826,6 +826,8 @@
     <string name="companion_value_frames">%1$.0f / %2$.0f fps</string>
     <string name="companion_value_host_latency">%1$.1f / %2$.1f / %3$.1f ms</string>
     <string name="companion_value_unavailable">—</string>
+    <!-- The quiet line under a game's telemetry view: frame rate and network latency. -->
+    <string name="companion_telemetry_strip">%1$d fps · %2$d ms</string>
     <string name="action_companion_show">Show companion screen</string>
     <string name="action_companion_hide">Hide companion screen</string>
     <string name="game_menu_companion_show">Show Companion Screen</string>

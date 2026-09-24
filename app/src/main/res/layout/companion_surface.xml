@@ -309,6 +309,68 @@
 
     </LinearLayout>
 
+    <!--
+        A game's telemetry view, and beneath it a strip the panel keeps for itself. Sits above the
+        stats because when a game has a view, that view is what the panel is for; the stats are
+        what it falls back to. Shown only while a view is on screen.
+
+        The strip is what keeps the menu button off the view. A view may be interactive, and it is
+        written without knowing where the panel puts its controls, so the only placement that holds
+        for every view is one the view never covers: the WebView gets the space above the strip and
+        nothing else. The strip carries a quiet line of stream stats so it is not dead space.
+    -->
+    <LinearLayout
+        android:id="@+id/companionTelemetry"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <!-- Empty unless a view is on screen: the WebView is created only when one is, since most
+             surfaces never need it. Its content is a file installed on this device, rendered with
+             no origin, no file access and no network - see CompanionPresentation. -->
+        <FrameLayout
+            android:id="@+id/companionTelemetryContainer"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="20dp"
+            android:paddingEnd="10dp">
+
+            <TextView
+                android:id="@+id/companionTelemetryStats"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:fontFamily="monospace"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:textColor="@color/content_faint"
+                android:textSize="12sp" />
+
+            <!-- Just the glyph, in the stats' own grey: a floating disc belongs over content, and
+                 here there is none to float over. The touch target stays 40dp; with the 10dp
+                 end padding the glyph ends 20dp from the edge, mirroring the stats' start. -->
+            <ImageButton
+                android:id="@+id/companionTelemetryMenuButton"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/menu_button"
+                android:padding="10dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_menu"
+                android:tint="@color/content_faint" />
+        </LinearLayout>
+    </LinearLayout>
+
     <!-- Opens the in-game menu here on the panel. Only out while a game is streaming; the
          idle library surface has no menu to raise. Kept at the bottom so it clears the stats
          header, whose FPS readout owns the top-right corner. -->
