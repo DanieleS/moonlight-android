@@ -36,8 +36,9 @@
     look to you like nothing happened — and for a health bar, something very much did.
 
   WHAT THIS PAGE CANNOT DO
-    It is loaded with no origin: no network, no file access, no storage. Everything it draws must
-    arrive through onFrame. Nothing it does can reach back into the app. Keep views self-contained —
+    It is loaded with no origin and with network loads refused: no network, no file access, no
+    storage. A <script src> or an <img> pointing anywhere but a data: URI simply fails. Everything
+    it draws must arrive through onFrame. Nothing it does can reach back into the app. Keep views self-contained —
     inline your CSS and JS, and embed images as data: URIs.
 
     "Self-contained" is the constraint that shapes how a real view gets built: a framework has to be

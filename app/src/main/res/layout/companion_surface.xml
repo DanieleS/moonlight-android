@@ -311,8 +311,9 @@
 
     <!--
         A game's telemetry view. Sits above the stats because when a game has a view, that view is
-        what the panel is for; the stats are what it falls back to. Its content comes from the host
-        and is rendered with no origin and no file access - see CompanionPresentation.
+        what the panel is for; the stats are what it falls back to. Its content is a file installed on
+        this device, rendered with no origin, no file access and no network - see
+        CompanionPresentation.
     -->
     <WebView
         android:id="@+id/companionTelemetryView"

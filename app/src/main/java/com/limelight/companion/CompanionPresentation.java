@@ -1,5 +1,6 @@
 package com.limelight.companion;
 
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Color;
@@ -13,8 +14,11 @@ import android.util.DisplayMetrics;
 import android.view.Display;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -24,6 +28,7 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import com.limelight.LimeLog;
 import com.limelight.R;
 import com.limelight.binding.video.PerfStats;
 import com.limelight.nvstream.http.AppMetadata;
@@ -31,6 +36,7 @@ import com.limelight.ui.MaxHeightScrollView;
 
 import org.json.JSONObject;
 
+import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -72,6 +78,8 @@ public class CompanionPresentation extends android.app.Presentation
     private String loadedTelemetryHtml;
     /** Whether the loaded view has finished loading and can be handed frames. */
     private boolean telemetryViewReady;
+    /** A view whose renderer died while it was loaded, so it is not loaded into the next one. */
+    private String crashedTelemetryHtml;
     /** The stream this panel is subscribed to, so a new or ended one can be told apart from it. */
     private TelemetryStream followedStream;
 
@@ -246,7 +254,7 @@ public class CompanionPresentation extends android.app.Presentation
                 // A game that has a view: that view is what the panel is for, and the stats are what
                 // it falls back to when there is none.
                 String view = state.getTelemetryView();
-                if (view != null) {
+                if (view != null && telemetryView != null && !view.equals(crashedTelemetryHtml)) {
                     showTelemetryView(view);
                     return;
                 }
@@ -288,10 +296,46 @@ public class CompanionPresentation extends android.app.Presentation
         // A view is a renderer, not a browser: it has no business navigating, and a page that tries
         // is a page doing something other than drawing telemetry.
         settings.setSupportMultipleWindows(false);
+        // An opaque origin does not stop a page from loading subresources: an <img>, a <script> or
+        // a no-cors fetch would still reach the network, since the app holds INTERNET. A view could
+        // then send live telemetry off the device, or pull in code nobody reviewed. This turns
+        // network loads off; shouldInterceptRequest below refuses whatever else gets through.
+        settings.setBlockNetworkLoads(true);
         telemetryView.setBackgroundColor(Color.TRANSPARENT);
         telemetryView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                return true;
+            }
+
+            // The overload above is API 24+. Below that, this is the one the WebView calls, and
+            // without it a view could navigate the panel anywhere.
+            @Override
+            @SuppressWarnings("deprecation")
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                return true;
+            }
+
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                String scheme = request.getUrl().getScheme();
+                // A self-contained view only ever loads what is already inside it.
+                if ("data".equals(scheme) || "blob".equals(scheme) || "about".equals(scheme)) {
+                    return null;
+                }
+                return new WebResourceResponse("text/plain", "utf-8", 403, "Forbidden",
+                        null, new ByteArrayInputStream(new byte[0]));
+            }
+
+            // The view's renderer can crash or be killed for memory. On API 26+ the default answer
+            // is to kill this app with it, which would end the stream over a panel. Handled here,
+            // the panel drops the view and falls back to the stats.
+            @Override
+            @TargetApi(Build.VERSION_CODES.O)
+            public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+                LimeLog.warning("Telemetry: the view's renderer "
+                        + (detail.didCrash() ? "crashed" : "was killed to free memory"));
+                replaceTelemetryView(view);
                 return true;
             }
 
@@ -309,11 +353,43 @@ public class CompanionPresentation extends android.app.Presentation
     }
 
     /**
+     * Swap a WebView whose renderer is gone for a fresh one. The old instance cannot be used again;
+     * the only thing left to do with it is destroy it.
+     *
+     * <p>The view that was loaded is not loaded again. Whatever took its renderer down would most
+     * likely do it again, so for the rest of this panel's life that view gives way to the stats.
+     */
+    private void replaceTelemetryView(WebView dead) {
+        dead.removeCallbacks(telemetryResync);
+        crashedTelemetryHtml = loadedTelemetryHtml;
+        loadedTelemetryHtml = null;
+        telemetryViewReady = false;
+
+        ViewGroup parent = (ViewGroup) dead.getParent();
+        if (parent != null) {
+            int index = parent.indexOfChild(dead);
+            ViewGroup.LayoutParams params = dead.getLayoutParams();
+            parent.removeView(dead);
+
+            WebView fresh = new WebView(getContext());
+            fresh.setId(R.id.companionTelemetryView);
+            fresh.setVisibility(View.GONE);
+            parent.addView(fresh, index, params);
+            telemetryView = fresh;
+            configureTelemetryView();
+        } else {
+            telemetryView = null;
+        }
+        dead.destroy();
+        render();
+    }
+
+    /**
      * Show the game's own telemetry view, in place of the stats.
      *
-     * <p>Loaded with a null base URL, which gives the page an opaque origin: it cannot read files,
-     * cannot reach the network, and cannot be reached. Everything it draws has to arrive through
-     * {@link #deliver}.
+     * <p>Loaded with a null base URL, which gives the page an opaque origin: it cannot read files
+     * and cannot be reached. Network loads are blocked in {@link #configureTelemetryView}.
+     * Everything it draws has to arrive through {@link #deliver}.
      */
     private void showTelemetryView(String html) {
         idleView.setVisibility(View.GONE);
