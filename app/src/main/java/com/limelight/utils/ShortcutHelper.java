@@ -250,8 +250,11 @@ public class ShortcutHelper {
         if (app.getAppId() > 0) {
             sb.append("[").append(KEY_APP_ID).append("] ").append(app.getAppId()).append("\n");
         }
-        if (app.getAppName() != null && !app.getAppName().isEmpty()) {
-            sb.append("[").append(KEY_APP_NAME).append("] ").append(app.getAppName()).append("\n");
+        // Trimmed: a host title can carry stray whitespace, which only ever gets in the way of
+        // matching the entry back to the game.
+        String appName = app.getAppName() != null ? app.getAppName().trim() : "";
+        if (!appName.isEmpty()) {
+            sb.append("[").append(KEY_APP_NAME).append("] ").append(appName).append("\n");
         }
 
         return sb.toString();

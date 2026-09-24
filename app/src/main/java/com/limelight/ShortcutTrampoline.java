@@ -345,9 +345,13 @@ public class ShortcutTrampoline extends AppCompatActivity {
             }
         }
 
-        if (appName != null && !appName.isEmpty()) {
+        // Trimmed on both sides: a host can carry stray whitespace around a title (Playnite names
+        // sometimes do), and the launcher file stores the name trimmed.
+        String wanted = appName != null ? appName.trim() : "";
+        if (!wanted.isEmpty()) {
             for (NvApp candidate : applist) {
-                if (appName.equalsIgnoreCase(candidate.getAppName())) {
+                String name = candidate.getAppName();
+                if (name != null && wanted.equalsIgnoreCase(name.trim())) {
                     return candidate;
                 }
             }
@@ -496,10 +500,15 @@ public class ShortcutTrampoline extends AppCompatActivity {
             NvApp cachedApp = applist != null ? findCachedApp(applist, appUUID, appID, appName) : null;
 
             if (cachedApp != null) {
-                if (appUUID == null || appUUID.isEmpty()) {
+                // The cache wins over the entry. A launcher file is written once and can outlive
+                // the host's handles for the game: a host update can give an app a new UUID and
+                // ID, and an entry still carrying the old ones only reaches the game through its
+                // name. Keeping those old keys would ask for a cover under an ID nothing is
+                // cached as, and start the game by a UUID the host no longer knows.
+                if (cachedApp.getAppUUID() != null && !cachedApp.getAppUUID().isEmpty()) {
                     appUUID = cachedApp.getAppUUID();
                 }
-                if (appID <= 0) {
+                if (cachedApp.getAppId() > 0) {
                     appID = cachedApp.getAppId();
                 }
                 if (appName == null || appName.isEmpty()) {
