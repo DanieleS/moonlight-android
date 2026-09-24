@@ -119,9 +119,25 @@ public class TelemetryStream {
         stopped = true;
         // Closing the body is what unblocks the reader: it is parked in a read with no timeout, so
         // interrupting the thread alone would not wake it.
+        //
+        // Just not from here. stop() runs on the main thread — Game.onDestroy calls it — and letting
+        // go of a TLS connection writes a close_notify first, which is network I/O; StrictMode answers
+        // that with NetworkOnMainThreadException, and the activity fails to destroy. The close still
+        // has to happen, so it happens on a thread that is allowed to do it.
         ResponseBody open = body;
         if (open != null) {
-            open.close();
+            Thread closer = new Thread(() -> {
+                try {
+                    open.close();
+                } catch (RuntimeException e) {
+                    // A connection that is already broken can throw on the way out. Nothing here is
+                    // worth keeping alive for, and an uncaught throw on this thread would take the
+                    // process down as surely as the one we came here to avoid.
+                    LimeLog.info("Telemetry: closing the stream threw: " + e.getMessage());
+                }
+            }, "TelemetryStream-close");
+            closer.setDaemon(true);
+            closer.start();
         }
         thread = null;
     }
