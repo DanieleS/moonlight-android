@@ -29,7 +29,15 @@
                          nothing else. A value of null means the watch became unreadable, which is
                          a different claim from the watch being absent.
 
-    kind === "detached"  body is empty. The game is gone; what is on screen is now history.
+    kind === "detached"  body is empty. The game is gone, and the panel removes this page right
+                         after delivering it, going back to the stats. There is nothing to draw for
+                         it: just do not fail on it.
+
+  A PAGE IS ONLY SHOWN WHILE A GAME IS ATTACHED
+    The panel loads a view from the first snapshot that names its profile, and removes it on
+    `detached` or on a snapshot with `attached: false`. So a view needs no "no game" screen and no
+    "game ended" screen; nobody would see either. A game that is attached but has nothing to show
+    yet, such as a title screen, is still the view's to handle.
 
     Diffs are delivered rather than merged states precisely so a view can react to a change. If you
     only ever redraw the current numbers, a value that went 100 -> 90 -> 100 between two frames will
@@ -74,7 +82,6 @@
     from { color: #ffd166; }
     to { color: inherit; }
   }
-  .gone { opacity: 0.5; font-style: italic; }
 </style>
 
 <h1 id="title">Waiting for a game…</h1>
@@ -138,7 +145,6 @@
   window.scry = {
     onFrame: function (kind, body) {
       if (kind === 'snapshot') {
-        document.body.classList.remove('gone');
         if (!body.attached) {
           identity = null;
           reset();
@@ -184,10 +190,9 @@
         return;
       }
 
+      // Nothing to draw: the panel removes this page right after a detach.
       if (kind === 'detached') {
         identity = null;
-        document.body.classList.add('gone');
-        document.getElementById('title').textContent = 'Game ended';
       }
     }
   };
