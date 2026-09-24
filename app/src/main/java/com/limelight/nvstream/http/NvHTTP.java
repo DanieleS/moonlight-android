@@ -850,7 +850,11 @@ public class NvHTTP {
      * currently streaming — both of which are answers, not faults.
      */
     public ResponseBody openTelemetryStream() throws HostHttpResponseException, IOException {
-        return openHttpConnection(httpClientLongConnectNoReadTimeout, getHttpsUrl(true), "telemetry", null, null);
+        // A read timeout on a stream that never ends is deliberate. The host writes something at
+        // least once a second, a frame or a keepalive, so seven seconds of silence means the host
+        // is gone: Wi-Fi dropped, or the PC went to sleep without closing the socket. Without the
+        // timeout the reader would wait for it forever and never reconnect.
+        return openHttpConnection(httpClientLongConnectTimeout, getHttpsUrl(true), "telemetry", null, null);
     }
 
     public LinkedList<NvApp> getAppList() throws HostHttpResponseException, IOException, XmlPullParserException {

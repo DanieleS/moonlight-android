@@ -117,8 +117,9 @@ public class TelemetryStream {
 
     public void stop() {
         stopped = true;
-        // Closing the body is what unblocks the reader: it is parked in a read with no timeout, so
-        // interrupting the thread alone would not wake it.
+        // Closing the body is what unblocks the reader promptly: it is parked in a read, and
+        // interrupting the thread alone would not wake it. The read timeout would, but only after
+        // seven seconds.
         //
         // Just not from here. stop() runs on the main thread — Game.onDestroy calls it — and letting
         // go of a TLS connection writes a close_notify first, which is network I/O; StrictMode answers
@@ -182,7 +183,8 @@ public class TelemetryStream {
      *
      * <p>Events are delimited by a blank line, per SSE. Comment lines (a leading colon) are the
      * host's keepalive and carry nothing; they exist so that a client that has gone away is noticed
-     * even while the game is quiet.
+     * even while the game is quiet. They work the other way too: they keep the read timeout from
+     * firing on a live host, so a timeout here means the host is gone.
      */
     private void readStream() throws IOException, HostHttpResponseException {
         ResponseBody open = http.openTelemetryStream();
