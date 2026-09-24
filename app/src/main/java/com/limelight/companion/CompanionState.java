@@ -198,9 +198,16 @@ public class CompanionState {
     /**
      * The stream the panel should follow. Held here because the panel is created and destroyed as
      * the surface moves between activities, while the stream outlives any one of them.
+     *
+     * <p>A panel already on screen has to hear about it: the stream starts after the session has
+     * connected, which is well after the panel was hosted for it.
      */
     public void setTelemetryStream(TelemetryStream stream) {
+        if (telemetryStream == stream) {
+            return;
+        }
         telemetryStream = stream;
+        notifyChanged();
     }
 
     public TelemetryStream getTelemetryStream() {

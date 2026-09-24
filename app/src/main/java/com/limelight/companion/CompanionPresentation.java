@@ -72,6 +72,8 @@ public class CompanionPresentation extends android.app.Presentation
     private String loadedTelemetryHtml;
     /** Whether the loaded view has finished loading and can be handed frames. */
     private boolean telemetryViewReady;
+    /** The stream this panel is subscribed to, so a new or ended one can be told apart from it. */
+    private TelemetryStream followedStream;
 
     /**
      * How often a view is handed the whole picture again, whether it asked or not.
@@ -175,13 +177,6 @@ public class CompanionPresentation extends android.app.Presentation
         super.onStart();
 
         state.setListener(this);
-        // Frames come straight from the stream rather than through CompanionState, because they
-        // arrive far too often to redraw the surface for. Attached here, alongside the state
-        // listener, so a panel that is re-hosted picks the stream back up on the way in.
-        TelemetryStream stream = state.getTelemetryStream();
-        if (stream != null) {
-            stream.addListener(this);
-        }
         render();
     }
 
@@ -190,9 +185,9 @@ public class CompanionPresentation extends android.app.Presentation
         // Only give up the listener if it is still ours: during a re-host the replacement panel
         // has already registered by the time this one stops.
         state.clearListener(this);
-        TelemetryStream stream = state.getTelemetryStream();
-        if (stream != null) {
-            stream.removeListener(this);
+        if (followedStream != null) {
+            followedStream.removeListener(this);
+            followedStream = null;
         }
         if (telemetryView != null) {
             telemetryView.removeCallbacks(telemetryResync);
@@ -205,10 +200,33 @@ public class CompanionPresentation extends android.app.Presentation
         render();
     }
 
+    /**
+     * Subscribe to whichever stream the state holds now.
+     *
+     * <p>Frames come straight from the stream rather than through CompanionState, because they
+     * arrive far too often to redraw the surface for. Checked on every redraw rather than once on
+     * the way in, because the two rarely line up: the panel is hosted when the game's activity
+     * resumes, and the stream only starts once the session has connected, some seconds later.
+     */
+    private void followTelemetryStream() {
+        TelemetryStream current = state.getTelemetryStream();
+        if (current == followedStream) {
+            return;
+        }
+        if (followedStream != null) {
+            followedStream.removeListener(this);
+        }
+        followedStream = current;
+        if (current != null) {
+            current.addListener(this);
+        }
+    }
+
     private void render() {
         if (statsView == null) {
             return;
         }
+        followTelemetryStream();
 
         // One surface per content state. The in-game menu belongs to a running game, so its button
         // follows the streaming state and nothing else.
