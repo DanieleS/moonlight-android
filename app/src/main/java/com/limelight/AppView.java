@@ -318,7 +318,7 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
                 lastRawApplist = details.rawAppList;
 
                 try {
-                    updateUiWithAppList(NvHTTP.getAppListByReader(new StringReader(details.rawAppList)));
+                    updateUiWithAppList(NvHTTP.getAppListByReader(new StringReader(details.rawAppList)), true);
                     updateUiWithServerinfo(details);
 
                     if (blockingLoadSpinner != null) {
@@ -479,7 +479,7 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
             // Try to load from cache
             lastRawApplist = CacheHelper.readInputStreamToString(CacheHelper.openCacheFileForInput(getCacheDir(), "applist", uuidString));
             List<NvApp> applist = NvHTTP.getAppListByReader(new StringReader(lastRawApplist));
-            updateUiWithAppList(applist);
+            updateUiWithAppList(applist, false);
             LimeLog.info("Loaded applist from cache");
         } catch (IOException | XmlPullParserException e) {
             if (lastRawApplist != null) {
@@ -849,7 +849,13 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         });
     }
 
-    private void updateUiWithAppList(final List<NvApp> rawAppList) {
+    /**
+     * @param fromHost whether the list is the host's answer just now, as opposed to the copy cached
+     *                 from the last visit. Only the host's answer is synced to the frontend's folder:
+     *                 the cache can be months old, and syncing it removed every game added since,
+     *                 only for the host's list a second later to write them back as new entries.
+     */
+    private void updateUiWithAppList(final List<NvApp> rawAppList, final boolean fromHost) {
         AppView.this.runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -937,7 +943,9 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
                 fetchAppMetadata();
 
                 // And hand the list to whatever frontend the user syncs their library with.
-                syncCocoonLibrary(appList);
+                if (fromHost) {
+                    syncCocoonLibrary(appList);
+                }
             }
         });
     }
