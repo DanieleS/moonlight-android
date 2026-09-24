@@ -629,14 +629,6 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
         app = new NvApp(appName != null ? appName : "app", appUUID, appId, appSupportsHdr);
 
-        // Now that the game is known, dress the connection scene: its cover (the same file
-        // the library caches) and its name, with the host underneath.
-        String pcUuid = getIntent().getStringExtra(EXTRA_PC_UUID);
-        File boxArt = pcUuid != null
-                ? CacheHelper.openPath(false, getCacheDir(), "boxart", pcUuid, appId + ".png")
-                : null;
-        connectionOverlay.bind(boxArt, appName, pcName);
-
         try {
             if (derCertData != null) {
                 serverCert = (X509Certificate) CertificateFactory.getInstance("X.509")
@@ -647,6 +639,21 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         } catch (Exception e) {
             e.printStackTrace();
         }
+
+        // Now that the game is known, dress the connection scene: its cover (the same file
+        // the library caches) and its name, with the host underneath. A launch that skipped the
+        // library may find nothing cached, so the scene may ask the host for the art itself.
+        String pcUuid = getIntent().getStringExtra(EXTRA_PC_UUID);
+        File boxArt = pcUuid != null
+                ? CacheHelper.openPath(false, getCacheDir(), "boxart", pcUuid, appId + ".png")
+                : null;
+        final NvHTTP coverConn = httpConn;
+        final NvApp coverApp = app;
+        connectionOverlay.bind(boxArt,
+                coverConn != null && appId != StreamConfiguration.INVALID_APP_ID
+                        ? () -> coverConn.getBoxArt(coverApp)
+                        : null,
+                appName, pcName);
 
         if (appId == StreamConfiguration.INVALID_APP_ID) {
             finish();

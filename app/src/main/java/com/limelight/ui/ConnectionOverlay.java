@@ -12,9 +12,15 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.google.android.material.imageview.ShapeableImageView;
+import com.limelight.LimeLog;
 import com.limelight.R;
+import com.limelight.utils.CacheHelper;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.concurrent.Callable;
 
 /**
  * The connection scene: the game's cover on the true-black ground, a living signal halo
@@ -76,7 +82,23 @@ public class ConnectionOverlay {
      * Fill the scene in once the game is known. The cover is decoded off the main thread;
      * until it arrives (or if the host has none) the game's name stands in its place.
      */
+    /** The same ceiling the library's disk cache uses for one cover. */
+    private static final long MAX_COVER_BYTES = 5 * 1024 * 1024;
+
     public void bind(final File boxArt, String appName, String hostName) {
+        bind(boxArt, null, appName, hostName);
+    }
+
+    /**
+     * Dress the scene for a game: its name, its host, and its cover.
+     *
+     * <p>The cover is the library's cached copy when there is one. A launch that did not come
+     * through the library, from a frontend's launcher file for instance, can arrive before the
+     * library ever fetched that game's art, and the scene used to stay on the bare title. So when
+     * {@code fetch} is given and nothing is cached, the art is asked of the host and written into
+     * the same cache, which also spares the library the download later.
+     */
+    public void bind(final File boxArt, final Callable<InputStream> fetch, String appName, String hostName) {
         title.setText(appName != null ? appName : "");
         if (TextUtils.isEmpty(hostName)) {
             pcName.setVisibility(View.GONE);
@@ -85,12 +107,15 @@ public class ConnectionOverlay {
         }
         showCoverTitle(appName);
 
-        if (boxArt == null || !boxArt.exists()) {
+        if (boxArt == null || (!boxArt.exists() && fetch == null)) {
             return;
         }
 
         final String path = boxArt.getAbsolutePath();
         new Thread(() -> {
+            if (!boxArt.exists() && !download(fetch, boxArt)) {
+                return;
+            }
             final Bitmap bmp = BitmapFactory.decodeFile(path);
             if (bmp == null) {
                 return;
@@ -104,6 +129,36 @@ public class ConnectionOverlay {
                 coverTitle.setVisibility(View.GONE);
             });
         }, "ConnectionCoverDecode").start();
+    }
+
+    /**
+     * Fetch a cover into {@code target}. Written next to it and renamed into place only once it is
+     * whole, so a download cut off half-way never leaves a file the library would take for art.
+     */
+    private static boolean download(Callable<InputStream> fetch, File target) {
+        File parent = target.getParentFile();
+        if (parent != null && !parent.exists() && !parent.mkdirs()) {
+            return false;
+        }
+        File partial = new File(target.getPath() + ".part");
+        try (InputStream in = fetch.call()) {
+            if (in == null) {
+                return false;
+            }
+            try (OutputStream out = new FileOutputStream(partial)) {
+                CacheHelper.writeInputStreamToOutputStream(in, out, MAX_COVER_BYTES);
+            }
+            if (!partial.renameTo(target)) {
+                partial.delete();
+                return false;
+            }
+            return true;
+        } catch (Exception e) {
+            // No cover is a cosmetic loss; the scene still has the game's name.
+            LimeLog.info("Connection cover fetch failed: " + e.getMessage());
+            partial.delete();
+            return false;
+        }
     }
 
     /** Advance the story from a native stage name (or the app-launch phase). */
