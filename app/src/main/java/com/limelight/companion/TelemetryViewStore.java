@@ -11,20 +11,23 @@ import org.json.JSONObject;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
 
 /**
  * Finds the HTML view that renders a given game's telemetry.
- *
- * <h3>Why this is an interface with one implementation</h3>
- *
- * How views reach a device is not settled: a folder to drop files into today, an index fetched from
- * the views repository later. What a renderer needs is settled: given the contract the telemetry
- * follows, hand me the page that draws it. Keeping that behind one method means the packaging
- * decision can be made later without touching the renderer or the transport.
  *
  * <h3>Keyed on the contract, not the profile or the app</h3>
  *
@@ -33,11 +36,25 @@ import java.security.NoSuchAlgorithmException;
  * is the wrong key, and renaming it must never unbind a view. The app name is wronger still: on a
  * Vibepollo host it is whatever the user typed when they added the game. See scry's
  * {@code docs/contracts-and-views.md}.
+ *
+ * <h3>Where views come from</h3>
+ *
+ * ratatoskr-telemetry-views builds each view into one HTML file and lists them in an
+ * {@code index.json}: the contract id, the caret range of versions the view reads, the file, and
+ * its sha256. The same index is read from two places, in this order ({@link Chain}):
+ * <ol>
+ *   <li>{@link LocalFolder}, filled by hand over USB with {@code npm run push}, so a view can be
+ *   tried on the device before it is published;</li>
+ *   <li>{@link Published}, the index on GitHub Pages, from which only the view for the contract
+ *   actually announced is downloaded.</li>
+ * </ol>
+ *
+ * <p>{@link #find} may touch the disk and the network, so it is never called on the main thread.
  */
 public interface TelemetryViewStore {
 
     /**
-     * The view for {@code contract}, or null if none installed reads it.
+     * The view for {@code contract}, or null if none reads it. Blocking.
      */
     String find(Contract contract);
 
@@ -94,30 +111,34 @@ public interface TelemetryViewStore {
         }
     }
 
-    /**
-     * Views kept as files in a directory on this device, listed by the {@code index.json} the
-     * views repository builds next to them.
-     *
-     * <p>Deliberately the first backend: it mirrors how scry profiles are handled host-side today,
-     * dropped into a folder by hand ({@code npm run push} in ratatoskr-telemetry-views), so a view
-     * can be written and tried without any distribution mechanism existing yet.
-     */
-    class LocalFolder implements TelemetryViewStore {
-
-        /** Under getExternalFilesDir, so it can be filled over USB without root. */
-        private static final String DIRECTORY = "telemetry-views";
-        private static final String INDEX = "index.json";
+    /** Reading an {@code index.json}, wherever it came from. */
+    final class Index {
         /** The only index layout this reader understands. */
-        private static final int INDEX_FORMAT = 1;
+        private static final int FORMAT = 1;
 
-        private final File root;
+        private Index() {
+        }
 
-        public LocalFolder(Context context) {
-            this.root = context.getExternalFilesDir(DIRECTORY);
+        /** The index in {@code bytes}, or null if it is not one this app can read. */
+        static JSONObject parse(byte[] bytes, String from) {
+            if (bytes == null) {
+                return null;
+            }
+            try {
+                JSONObject index = new JSONObject(new String(bytes, StandardCharsets.UTF_8));
+                if (index.optInt("format", 0) != FORMAT) {
+                    LimeLog.warning("Telemetry: the view index at " + from + " has a format this app does not read");
+                    return null;
+                }
+                return index;
+            } catch (JSONException e) {
+                LimeLog.warning("Telemetry: the view index at " + from + " is not valid JSON");
+                return null;
+            }
         }
 
         /**
-         * The view whose declared range includes the announced version. When several do, the one
+         * The entry whose declared range includes the announced version. When several do, the one
          * with the highest lower bound wins: it was written against the most recent minor, so it
          * knows the most about what that version carries.
          *
@@ -125,18 +146,8 @@ public interface TelemetryViewStore {
          * it was not written for shows values under the wrong names, or none, with nothing to say
          * so; showing the stats instead is the honest answer.
          */
-        @Override
-        public String find(Contract contract) {
-            if (root == null || contract == null) {
-                return null;
-            }
-
-            JSONObject index = readIndex();
-            if (index == null) {
-                return null;
-            }
-
-            JSONArray views = index.optJSONArray("views");
+        static JSONObject pick(JSONObject index, Contract contract) {
+            JSONArray views = index != null ? index.optJSONArray("views") : null;
             if (views == null) {
                 return null;
             }
@@ -148,8 +159,15 @@ public interface TelemetryViewStore {
                 if (view == null || !contract.id.equals(view.optString("contract", ""))) {
                     continue;
                 }
-                int[] min = caretMinimum(view.optString("range", ""));
+                String range = view.optString("range", "");
+                // Caret is the only kind the views repository writes: "^2.1" is every version from
+                // 2.1 up to, not including, 3.0.
+                int[] min = range.startsWith("^") ? Contract.parseVersion(range.substring(1)) : null;
                 if (min == null || !satisfies(min, contract)) {
+                    continue;
+                }
+                if (!isPlainFileName(view.optString("file", ""))) {
+                    LimeLog.warning("Telemetry: the view index names a file that is not a plain name");
                     continue;
                 }
                 if (bestMin == null || compare(min, bestMin) > 0) {
@@ -157,54 +175,13 @@ public interface TelemetryViewStore {
                     bestMin = min;
                 }
             }
-            if (best == null) {
-                return null;
-            }
-
-            String file = best.optString("file", "");
-            if (!isPlainFileName(file)) {
-                LimeLog.warning("Telemetry: index names a view file that is not a plain name: " + file);
-                return null;
-            }
-            byte[] bytes = readBytes(new File(root, file));
-            if (bytes == null) {
-                return null;
-            }
-            // The index is written by the same build that wrote the view. A file that no longer
-            // matches it was replaced by hand or cut short on the way, and is not the view the
-            // index describes.
-            String expected = best.optString("sha256", "");
-            if (!expected.isEmpty() && !expected.equalsIgnoreCase(sha256(bytes))) {
-                LimeLog.warning("Telemetry: " + file + " does not match its hash in the index");
-                return null;
-            }
-            return new String(bytes, StandardCharsets.UTF_8);
+            return best;
         }
 
-        private JSONObject readIndex() {
-            byte[] bytes = readBytes(new File(root, INDEX));
-            if (bytes == null) {
-                return null;
-            }
-            try {
-                JSONObject index = new JSONObject(new String(bytes, StandardCharsets.UTF_8));
-                if (index.optInt("format", 0) != INDEX_FORMAT) {
-                    LimeLog.warning("Telemetry: " + INDEX + " has a format this app does not read");
-                    return null;
-                }
-                return index;
-            } catch (JSONException e) {
-                LimeLog.warning("Telemetry: " + INDEX + " is not valid JSON");
-                return null;
-            }
-        }
-
-        /**
-         * The lower bound of a caret range, {@code "^2.1"} being every version from 2.1 up to, not
-         * including, 3.0. Caret is the only kind the views repository writes.
-         */
-        private static int[] caretMinimum(String range) {
-            return range.startsWith("^") ? Contract.parseVersion(range.substring(1)) : null;
+        /** Whether {@code bytes} are the file the entry describes. */
+        static boolean matches(JSONObject entry, byte[] bytes) {
+            String expected = entry.optString("sha256", "");
+            return bytes != null && !expected.isEmpty() && expected.equalsIgnoreCase(sha256(bytes));
         }
 
         private static boolean satisfies(int[] min, Contract version) {
@@ -217,9 +194,9 @@ public interface TelemetryViewStore {
         }
 
         /**
-         * The index arrives on the device from outside the app, so the file it names is treated as
-         * data, never as a path: anything but a plain name ending in {@code .html} is refused, which
-         * means a lookup can fail but can never read a file that was not put there to be read.
+         * The index comes from outside the app, so the file it names is treated as data, never as a
+         * path: anything but a plain name ending in {@code .html} is refused. A lookup can fail, but
+         * it can never read or write a file that was not meant for it.
          */
         private static boolean isPlainFileName(String name) {
             return name.endsWith(".html") && !name.contains("/") && !name.contains("\\")
@@ -239,23 +216,213 @@ public interface TelemetryViewStore {
                 throw new IllegalStateException(e);
             }
         }
+    }
 
-        private static byte[] readBytes(File file) {
+    /** The first store that has a view for the contract wins. */
+    final class Chain implements TelemetryViewStore {
+        private final TelemetryViewStore[] stores;
+
+        public Chain(TelemetryViewStore... stores) {
+            this.stores = stores;
+        }
+
+        @Override
+        public String find(Contract contract) {
+            for (TelemetryViewStore store : stores) {
+                String html = store.find(contract);
+                if (html != null) {
+                    return html;
+                }
+            }
+            return null;
+        }
+    }
+
+    /**
+     * Views pushed onto the device by hand, next to their {@code index.json}.
+     *
+     * <p>Checked first, so a view can be tried on the device before it is published; with nothing
+     * pushed, it simply finds nothing and the published views are used.
+     */
+    final class LocalFolder implements TelemetryViewStore {
+
+        /** Under getExternalFilesDir, so it can be filled over USB without root. */
+        private static final String DIRECTORY = "telemetry-views";
+
+        private final File root;
+
+        public LocalFolder(Context context) {
+            this.root = context.getExternalFilesDir(DIRECTORY);
+        }
+
+        @Override
+        public String find(Contract contract) {
+            if (root == null || contract == null) {
+                return null;
+            }
+            File indexFile = new File(root, "index.json");
+            JSONObject entry = Index.pick(Index.parse(Files.read(indexFile), indexFile.getPath()), contract);
+            if (entry == null) {
+                return null;
+            }
+            String file = entry.optString("file");
+            byte[] bytes = Files.read(new File(root, file));
+            if (bytes == null) {
+                return null;
+            }
+            // The index is written by the same build that wrote the view. A file that no longer
+            // matches it was replaced by hand or cut short on the way.
+            if (!Index.matches(entry, bytes)) {
+                LimeLog.warning("Telemetry: " + file + " does not match its hash in the local index");
+                return null;
+            }
+            return new String(bytes, StandardCharsets.UTF_8);
+        }
+    }
+
+    /**
+     * The views published to GitHub Pages by ratatoskr-telemetry-views.
+     *
+     * <p>Only the index and the view for the contract actually announced are downloaded, never the
+     * whole catalogue. Both are kept in the app's private files, so a view downloaded once keeps
+     * working without a network. The index is fetched again at most once a day, and also when it
+     * does not know a contract a game announces, since that contract's view may have been published
+     * since; but only once per contract per run of the app, so a game with no view does not ask on
+     * every snapshot.
+     */
+    final class Published implements TelemetryViewStore {
+
+        private static final String BASE_URL = "https://danieles.github.io/ratatoskr-telemetry-views/";
+        private static final String DIRECTORY = "telemetry-views-published";
+        private static final String INDEX = "index.json";
+        private static final long INDEX_MAX_AGE_MS = TimeUnit.DAYS.toMillis(1);
+        /** Far above any real view (the Sea of Stars one is 134 KB), and a bound on a bad response. */
+        private static final long MAX_BYTES = 8L * 1024 * 1024;
+
+        private final File root;
+        private final OkHttpClient http = new OkHttpClient.Builder()
+                .connectTimeout(10, TimeUnit.SECONDS)
+                .readTimeout(20, TimeUnit.SECONDS)
+                .build();
+        /** Contracts the index was already refetched for in this run, found or not. */
+        private final Set<String> refetchedFor = new HashSet<>();
+
+        public Published(Context context) {
+            this.root = new File(context.getFilesDir(), DIRECTORY);
+        }
+
+        @Override
+        public synchronized String find(Contract contract) {
+            if (contract == null || (!root.isDirectory() && !root.mkdirs())) {
+                return null;
+            }
+
+            File indexFile = new File(root, INDEX);
+            boolean fresh = indexFile.isFile()
+                    && System.currentTimeMillis() - indexFile.lastModified() < INDEX_MAX_AGE_MS;
+            JSONObject index = fresh ? Index.parse(Files.read(indexFile), indexFile.getPath()) : fetchIndex(indexFile);
+            JSONObject entry = Index.pick(index, contract);
+
+            if (entry == null && refetchedFor.add(contract.toString())) {
+                JSONObject refreshed = fetchIndex(indexFile);
+                if (refreshed != null) {
+                    entry = Index.pick(refreshed, contract);
+                }
+            }
+            if (entry == null) {
+                return null;
+            }
+
+            String file = entry.optString("file");
+            File cached = new File(root, file);
+            byte[] bytes = Files.read(cached);
+            if (!Index.matches(entry, bytes)) {
+                bytes = download(BASE_URL + file);
+                if (!Index.matches(entry, bytes)) {
+                    // Pages caches for a few minutes, so a new index can briefly name a view the CDN
+                    // still serves the old copy of. Nothing is kept; the next resolve tries again.
+                    LimeLog.warning("Telemetry: the published " + file + " does not match its hash in the index");
+                    return null;
+                }
+                Files.writeAtomically(cached, bytes);
+            }
+            return new String(bytes, StandardCharsets.UTF_8);
+        }
+
+        /**
+         * Fetch the index and keep it. Without a network the copy already kept is used, however old,
+         * and a failed fetch touches nothing.
+         */
+        private JSONObject fetchIndex(File indexFile) {
+            byte[] bytes = download(BASE_URL + INDEX);
+            JSONObject index = Index.parse(bytes, BASE_URL + INDEX);
+            if (index != null) {
+                Files.writeAtomically(indexFile, bytes);
+                return index;
+            }
+            return Index.parse(Files.read(indexFile), indexFile.getPath());
+        }
+
+        private byte[] download(String url) {
+            Request request = new Request.Builder().url(url).get().build();
+            try (Response response = http.newCall(request).execute()) {
+                ResponseBody body = response.body();
+                if (!response.isSuccessful() || body == null) {
+                    LimeLog.info("Telemetry: " + url + " answered " + response.code());
+                    return null;
+                }
+                return Files.readBounded(body.byteStream(), MAX_BYTES);
+            } catch (IOException e) {
+                LimeLog.info("Telemetry: could not fetch " + url + ": " + e.getMessage());
+                return null;
+            }
+        }
+    }
+
+    /** File helpers, by hand rather than with java.nio.file, which is API 26 and this app supports 21. */
+    final class Files {
+        private Files() {
+        }
+
+        static byte[] read(File file) {
             if (!file.isFile()) {
                 return null;
             }
-            // Read by hand rather than with java.nio.file, which is API 26 and this app supports 21.
             try (FileInputStream in = new FileInputStream(file)) {
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
-                byte[] chunk = new byte[8192];
-                int read;
-                while ((read = in.read(chunk)) != -1) {
-                    out.write(chunk, 0, read);
-                }
-                return out.toByteArray();
+                return readBounded(in, Long.MAX_VALUE);
             } catch (IOException e) {
                 LimeLog.warning("Telemetry: could not read " + file.getName() + ": " + e.getMessage());
                 return null;
+            }
+        }
+
+        static byte[] readBounded(InputStream in, long max) throws IOException {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] chunk = new byte[8192];
+            long total = 0;
+            int read;
+            while ((read = in.read(chunk)) != -1) {
+                total += read;
+                if (total > max) {
+                    throw new IOException("larger than " + max + " bytes");
+                }
+                out.write(chunk, 0, read);
+            }
+            return out.toByteArray();
+        }
+
+        /** Written next to the target and renamed over it, so a reader never sees half a file. */
+        static void writeAtomically(File target, byte[] bytes) {
+            File partial = new File(target.getPath() + ".part");
+            try (FileOutputStream out = new FileOutputStream(partial)) {
+                out.write(bytes);
+            } catch (IOException e) {
+                LimeLog.warning("Telemetry: could not write " + target.getName() + ": " + e.getMessage());
+                partial.delete();
+                return;
+            }
+            if (!partial.renameTo(target)) {
+                partial.delete();
             }
         }
     }

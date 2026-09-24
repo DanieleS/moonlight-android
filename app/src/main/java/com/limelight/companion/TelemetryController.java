@@ -1,11 +1,16 @@
 package com.limelight.companion;
 
 import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
 
 import com.limelight.LimeLog;
 import com.limelight.nvstream.http.NvHTTP;
 
 import org.json.JSONObject;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Ties a stream session's telemetry together: follows the host's stream, works out which view draws
@@ -24,6 +29,17 @@ public class TelemetryController implements TelemetryStream.Listener {
     private final CompanionState state;
     private final TelemetryViewStore views;
     private final TelemetryStream stream;
+    /**
+     * Where views are resolved. Finding one reads files and may download from GitHub Pages, and
+     * snapshots arrive on the main thread, which may do neither. One thread, so two resolves never
+     * race to write the same cached file.
+     */
+    private final ExecutorService resolver = Executors.newSingleThreadExecutor(r -> {
+        Thread thread = new Thread(r, "TelemetryViews");
+        thread.setDaemon(true);
+        return thread;
+    });
+    private final Handler main = new Handler(Looper.getMainLooper());
 
     /** The contract a view was last resolved for, so an unchanged one is not re-resolved. */
     private String resolvedContract;
@@ -32,7 +48,10 @@ public class TelemetryController implements TelemetryStream.Listener {
 
     public TelemetryController(Context context, NvHTTP http, CompanionState state) {
         this.state = state;
-        this.views = new TelemetryViewStore.LocalFolder(context);
+        // A view pushed onto the device by hand wins, so one can be tried before it is published.
+        this.views = new TelemetryViewStore.Chain(
+                new TelemetryViewStore.LocalFolder(context),
+                new TelemetryViewStore.Published(context));
         this.stream = new TelemetryStream(http);
     }
 
@@ -43,6 +62,7 @@ public class TelemetryController implements TelemetryStream.Listener {
     }
 
     public void stop() {
+        resolver.shutdownNow();
         stream.removeListener(this);
         stream.stop();
         resolvedContract = null;
@@ -78,11 +98,18 @@ public class TelemetryController implements TelemetryStream.Listener {
         }
         resolvedContract = key;
 
-        String html = views.find(contract);
-        if (html == null) {
-            LimeLog.info("Telemetry: no view installed reads contract " + key + " (profile '" + profile + "')");
-        }
-        state.setTelemetryView(html);
+        resolver.execute(() -> {
+            String html = views.find(contract);
+            if (html == null) {
+                LimeLog.info("Telemetry: no view reads contract " + key + " (profile '" + profile + "')");
+            }
+            main.post(() -> {
+                // The game may have moved on, or detached, while the view was being fetched.
+                if (key.equals(resolvedContract)) {
+                    state.setTelemetryView(html);
+                }
+            });
+        });
     }
 
     @Override
