@@ -73,8 +73,12 @@ public class CompanionPresentation extends android.app.Presentation
     private ImageView backdropView;
     private View backdropScrimView;
     private View statsView;
+    /** The view and the strip under it, shown together while a view is on screen. */
+    private View telemetryPanel;
     /** Where the telemetry view goes. Empty unless a view is on screen. */
     private FrameLayout telemetryContainer;
+    /** The strip's line of stream stats. */
+    private TextView telemetryStatsView;
     /**
      * The telemetry view, or null when none is on screen. Created only when a game has a view and
      * destroyed as soon as it is not needed: a WebView is a renderer process and a Chromium
@@ -164,7 +168,9 @@ public class CompanionPresentation extends android.app.Presentation
         backdropView = findViewById(R.id.companionBackdrop);
         backdropScrimView = findViewById(R.id.companionBackdropScrim);
         statsView = findViewById(R.id.companionStats);
+        telemetryPanel = findViewById(R.id.companionTelemetry);
         telemetryContainer = findViewById(R.id.companionTelemetryContainer);
+        telemetryStatsView = findViewById(R.id.companionTelemetryStats);
         resolutionView = findViewById(R.id.companionResolution);
         fpsView = findViewById(R.id.companionFps);
         latencyView = findViewById(R.id.companionLatency);
@@ -184,6 +190,9 @@ public class CompanionPresentation extends android.app.Presentation
         menuScrollView.setMaxHeightPx((int) (getContext().getResources().getDisplayMetrics().heightPixels * 0.8f));
         // The panel's own button raises the menu, the same as the gamepad's does.
         menuButton.setOnClickListener(v -> CompanionDisplayManager.requestOpenMenu());
+        // Under a telemetry view the button lives in the panel's strip instead, off the view.
+        findViewById(R.id.companionTelemetryMenuButton)
+                .setOnClickListener(v -> CompanionDisplayManager.requestOpenMenu());
     }
 
     @Override
@@ -262,6 +271,7 @@ public class CompanionPresentation extends android.app.Presentation
                 String view = state.getTelemetryView();
                 if (view != null && !view.equals(crashedTelemetryHtml)) {
                     showTelemetryView(view);
+                    showTelemetryStrip(state.getStats());
                     return;
                 }
                 PerfStats streamStats = state.getStats();
@@ -378,6 +388,7 @@ public class CompanionPresentation extends android.app.Presentation
         setBackdrop(null);
         descriptionImages.setAnimating(false);
         statsView.setVisibility(View.GONE);
+        telemetryPanel.setVisibility(View.VISIBLE);
         if (telemetryView == null) {
             telemetryView = new WebView(getContext());
             configureTelemetryView();
@@ -393,6 +404,18 @@ public class CompanionPresentation extends android.app.Presentation
         telemetryView.loadDataWithBaseURL(null, html, "text/html", "utf-8", null);
     }
 
+    /** The strip's quiet line: frame rate and network latency, or nothing with the stats off. */
+    private void showTelemetryStrip(PerfStats stats) {
+        // The floating button would sit on the view; the strip carries its own.
+        menuButton.setVisibility(View.GONE);
+        if (stats == null) {
+            telemetryStatsView.setText("");
+            return;
+        }
+        telemetryStatsView.setText(getContext().getString(R.string.companion_telemetry_strip,
+                Math.round(stats.totalFps), stats.networkLatencyMs));
+    }
+
     private void hideTelemetryView() {
         // Destroyed rather than left paused: a view holds a dead game's numbers, and the next game
         // is entitled to a view that has never seen them.
@@ -400,6 +423,9 @@ public class CompanionPresentation extends android.app.Presentation
     }
 
     private void destroyTelemetryView() {
+        if (telemetryPanel != null) {
+            telemetryPanel.setVisibility(View.GONE);
+        }
         if (telemetryView == null) {
             return;
         }
