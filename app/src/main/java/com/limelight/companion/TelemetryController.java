@@ -13,10 +13,10 @@ import org.json.JSONObject;
  *
  * <h3>Why the view is resolved from a frame rather than at startup</h3>
  *
- * Which view to draw depends on the <em>profile</em> scry chose, and that choice is made against the
- * running game's memory on the host — nothing here knows it in advance, and the app name is no
- * substitute. So the view is resolved from the first snapshot, which is the moment the profile
- * becomes known. Until then the panel shows the performance stats, which is the correct thing to
+ * Which view to draw depends on the <em>contract</em> of the profile scry chose, and that choice is
+ * made against the running game's memory on the host — nothing here knows it in advance, and the app
+ * name is no substitute. So the view is resolved from the first snapshot, which is the moment the
+ * contract becomes known. Until then the panel shows the performance stats, which is the correct thing to
  * show for a game with no view at all.
  */
 public class TelemetryController implements TelemetryStream.Listener {
@@ -25,8 +25,10 @@ public class TelemetryController implements TelemetryStream.Listener {
     private final TelemetryViewStore views;
     private final TelemetryStream stream;
 
-    /** The profile a view was last resolved for, so an unchanged profile is not re-resolved. */
-    private String resolvedProfile;
+    /** The contract a view was last resolved for, so an unchanged one is not re-resolved. */
+    private String resolvedContract;
+    /** Whether the missing contract was already reported, so it is said once per session. */
+    private boolean loggedNoContract;
 
     public TelemetryController(Context context, NvHTTP http, CompanionState state) {
         this.state = state;
@@ -43,7 +45,7 @@ public class TelemetryController implements TelemetryStream.Listener {
     public void stop() {
         stream.removeListener(this);
         stream.stop();
-        resolvedProfile = null;
+        resolvedContract = null;
         // The stream and the view are cleared by CompanionState.leaveStreaming(), which is the one
         // place that knows the session is over.
     }
@@ -51,26 +53,34 @@ public class TelemetryController implements TelemetryStream.Listener {
     @Override
     public void onTelemetrySnapshot(JSONObject snapshot) {
         if (!snapshot.optBoolean("attached", false)) {
-            // Connected while nothing was being read. There is no profile yet, so there is nothing
+            // Connected while nothing was being read. There is no contract yet, so there is nothing
             // to resolve; the next snapshot arrives when a game attaches.
             clearView();
             return;
         }
 
-        String profile = snapshot.optString("profile", null);
-        if (profile == null || profile.isEmpty()) {
+        TelemetryViewStore.Contract contract = TelemetryViewStore.Contract.from(snapshot);
+        String profile = snapshot.optString("profile", "");
+        if (contract == null) {
+            // No contract with an id, which is also what an older host sends. There is nothing to
+            // pick a view by, and a view picked by the profile's label could draw values it was not
+            // written for.
+            if (!loggedNoContract) {
+                LimeLog.info("Telemetry: profile '" + profile + "' names no contract; showing the stats");
+                loggedNoContract = true;
+            }
             clearView();
             return;
         }
-        if (profile.equals(resolvedProfile)) {
+        String key = contract.toString();
+        if (key.equals(resolvedContract)) {
             return;
         }
-        resolvedProfile = profile;
+        resolvedContract = key;
 
-        Integer contract = snapshot.has("contract") ? snapshot.optInt("contract") : null;
-        String html = views.find(profile, contract);
+        String html = views.find(contract);
         if (html == null) {
-            LimeLog.info("Telemetry: no view installed for profile '" + profile + "'");
+            LimeLog.info("Telemetry: no view installed reads contract " + key + " (profile '" + profile + "')");
         }
         state.setTelemetryView(html);
     }
@@ -86,7 +96,7 @@ public class TelemetryController implements TelemetryStream.Listener {
     }
 
     private void clearView() {
-        resolvedProfile = null;
+        resolvedContract = null;
         state.setTelemetryView(null);
     }
 }

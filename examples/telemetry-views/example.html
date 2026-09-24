@@ -2,11 +2,13 @@
   A reference telemetry view.
 
   HOW TO USE IT
-    Copy this file onto the device as:
-      Android/data/<package>/files/telemetry-views/<profile>.html
-    where <profile> is the profile name the host reports — the label from the scry profile that
-    claimed the game, not the app name. Add "@<contract>" before ".html" to tie a view to one
-    contract version; that file wins over the plain one when the profile declares that contract.
+    Views are found by the contract the telemetry follows, not by profile or app name. They live in
+      Android/data/<package>/files/telemetry-views/
+    next to an index.json listing each view's contract id, the version range it reads (a caret
+    range: "^2.0" is 2.0 up to, not including, 3.0), its file and its sha256. The panel picks the
+    view whose range includes the version the host announces, and draws nothing for any other.
+    ratatoskr-telemetry-views builds both and `npm run push` copies them over. To try this page by
+    hand, give it an entry in index.json for the contract you are streaming.
 
   THE CONTRACT
     The app calls one function on this page:
@@ -14,7 +16,7 @@
       window.scry.onFrame(kind, body)
 
     kind === "snapshot"  body is the complete picture:
-                           { attached, slug, process, profile, contract?, values: {...} }
+                           { attached, slug, process, profile, contract?: {id, version}, values: {...} }
                          Sent when the stream opens, when a new game attaches, after any gap, and
                          then every few seconds regardless. Treat it as "this is the truth, adopt
                          it" — and note that most of the time it will say exactly what you already
@@ -34,7 +36,7 @@
                          it: just do not fail on it.
 
   A PAGE IS ONLY SHOWN WHILE A GAME IS ATTACHED
-    The panel loads a view from the first snapshot that names its profile, and removes it on
+    The panel loads a view from the first snapshot that names its contract, and removes it on
     `detached` or on a snapshot with `attached: false`. So a view needs no "no game" screen and no
     "game ended" screen; nobody would see either. A game that is attached but has nothing to show
     yet, such as a title screen, is still the view's to handle.
@@ -162,7 +164,7 @@
           reset();
           document.getElementById('title').textContent = body.slug || body.process || 'Game';
           document.getElementById('meta').textContent =
-            body.profile + (body.contract != null ? ' · contract ' + body.contract : '');
+            body.profile + (body.contract ? ' · ' + body.contract.id + ' ' + body.contract.version : '');
         }
 
         values = body.values || {};
