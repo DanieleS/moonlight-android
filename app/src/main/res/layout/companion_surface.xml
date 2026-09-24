@@ -310,16 +310,16 @@
     </LinearLayout>
 
     <!--
-        A game's telemetry view. Sits above the stats because when a game has a view, that view is
-        what the panel is for; the stats are what it falls back to. Its content is a file installed on
-        this device, rendered with no origin, no file access and no network - see
-        CompanionPresentation.
+        Holds a game's telemetry view. Sits above the stats because when a game has a view, that view
+        is what the panel is for; the stats are what it falls back to. Empty unless a view is on
+        screen: the WebView is created only when one is, since most surfaces never need it. Its
+        content is a file installed on this device, rendered with no origin, no file access and no
+        network - see CompanionPresentation.
     -->
-    <WebView
-        android:id="@+id/companionTelemetryView"
+    <FrameLayout
+        android:id="@+id/companionTelemetryContainer"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:visibility="gone" />
+        android:layout_height="match_parent" />
 
     <!-- Opens the in-game menu here on the panel. Only out while a game is streaming; the
          idle library surface has no menu to raise. Kept at the bottom so it clears the stats

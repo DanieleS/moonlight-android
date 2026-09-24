@@ -14,7 +14,6 @@ import android.util.DisplayMetrics;
 import android.view.Display;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebResourceRequest;
@@ -22,6 +21,7 @@ import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -73,6 +73,13 @@ public class CompanionPresentation extends android.app.Presentation
     private ImageView backdropView;
     private View backdropScrimView;
     private View statsView;
+    /** Where the telemetry view goes. Empty unless a view is on screen. */
+    private FrameLayout telemetryContainer;
+    /**
+     * The telemetry view, or null when none is on screen. Created only when a game has a view and
+     * destroyed as soon as it is not needed: a WebView is a renderer process and a Chromium
+     * instance, and the panel is re-hosted on every activity change, most of which have no view.
+     */
     private WebView telemetryView;
     /** The HTML currently loaded, so a redraw does not restart a running view from scratch. */
     private String loadedTelemetryHtml;
@@ -157,8 +164,7 @@ public class CompanionPresentation extends android.app.Presentation
         backdropView = findViewById(R.id.companionBackdrop);
         backdropScrimView = findViewById(R.id.companionBackdropScrim);
         statsView = findViewById(R.id.companionStats);
-        telemetryView = findViewById(R.id.companionTelemetryView);
-        configureTelemetryView();
+        telemetryContainer = findViewById(R.id.companionTelemetryContainer);
         resolutionView = findViewById(R.id.companionResolution);
         fpsView = findViewById(R.id.companionFps);
         latencyView = findViewById(R.id.companionLatency);
@@ -197,9 +203,9 @@ public class CompanionPresentation extends android.app.Presentation
             followedStream.removeListener(this);
             followedStream = null;
         }
-        if (telemetryView != null) {
-            telemetryView.removeCallbacks(telemetryResync);
-        }
+        // A dismissed panel is not coming back, so its WebView goes now rather than whenever the
+        // finalizer gets to it, taking the activity context with it.
+        destroyTelemetryView();
         super.onStop();
     }
 
@@ -254,7 +260,7 @@ public class CompanionPresentation extends android.app.Presentation
                 // A game that has a view: that view is what the panel is for, and the stats are what
                 // it falls back to when there is none.
                 String view = state.getTelemetryView();
-                if (view != null && telemetryView != null && !view.equals(crashedTelemetryHtml)) {
+                if (view != null && !view.equals(crashedTelemetryHtml)) {
                     showTelemetryView(view);
                     return;
                 }
@@ -283,9 +289,6 @@ public class CompanionPresentation extends android.app.Presentation
      * nothing comes back out, so a view has no channel to this app at all.
      */
     private void configureTelemetryView() {
-        if (telemetryView == null) {
-            return;
-        }
         WebSettings settings = telemetryView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setAllowFileAccess(false);
@@ -335,12 +338,23 @@ public class CompanionPresentation extends android.app.Presentation
             public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
                 LimeLog.warning("Telemetry: the view's renderer "
                         + (detail.didCrash() ? "crashed" : "was killed to free memory"));
-                replaceTelemetryView(view);
+                if (view == telemetryView) {
+                    // Not loaded again. Whatever took the renderer down would most likely do it
+                    // again, so for the rest of this panel's life that view gives way to the stats.
+                    crashedTelemetryHtml = loadedTelemetryHtml;
+                    destroyTelemetryView();
+                    render();
+                } else {
+                    view.destroy();
+                }
                 return true;
             }
 
             @Override
             public void onPageFinished(WebView view, String url) {
+                if (view != telemetryView) {
+                    return;
+                }
                 telemetryViewReady = true;
                 // The view missed every frame that arrived while it was loading, so it starts from
                 // the accumulated picture rather than from the next diff — which on its own would
@@ -350,38 +364,6 @@ public class CompanionPresentation extends android.app.Presentation
                 telemetryResync.run();
             }
         });
-    }
-
-    /**
-     * Swap a WebView whose renderer is gone for a fresh one. The old instance cannot be used again;
-     * the only thing left to do with it is destroy it.
-     *
-     * <p>The view that was loaded is not loaded again. Whatever took its renderer down would most
-     * likely do it again, so for the rest of this panel's life that view gives way to the stats.
-     */
-    private void replaceTelemetryView(WebView dead) {
-        dead.removeCallbacks(telemetryResync);
-        crashedTelemetryHtml = loadedTelemetryHtml;
-        loadedTelemetryHtml = null;
-        telemetryViewReady = false;
-
-        ViewGroup parent = (ViewGroup) dead.getParent();
-        if (parent != null) {
-            int index = parent.indexOfChild(dead);
-            ViewGroup.LayoutParams params = dead.getLayoutParams();
-            parent.removeView(dead);
-
-            WebView fresh = new WebView(getContext());
-            fresh.setId(R.id.companionTelemetryView);
-            fresh.setVisibility(View.GONE);
-            parent.addView(fresh, index, params);
-            telemetryView = fresh;
-            configureTelemetryView();
-        } else {
-            telemetryView = null;
-        }
-        dead.destroy();
-        render();
     }
 
     /**
@@ -396,7 +378,12 @@ public class CompanionPresentation extends android.app.Presentation
         setBackdrop(null);
         descriptionImages.setAnimating(false);
         statsView.setVisibility(View.GONE);
-        telemetryView.setVisibility(View.VISIBLE);
+        if (telemetryView == null) {
+            telemetryView = new WebView(getContext());
+            configureTelemetryView();
+            telemetryContainer.addView(telemetryView, new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        }
 
         if (html.equals(loadedTelemetryHtml)) {
             return;
@@ -407,16 +394,22 @@ public class CompanionPresentation extends android.app.Presentation
     }
 
     private void hideTelemetryView() {
-        if (telemetryView == null || telemetryView.getVisibility() == View.GONE) {
+        // Destroyed rather than left paused: a view holds a dead game's numbers, and the next game
+        // is entitled to a view that has never seen them.
+        destroyTelemetryView();
+    }
+
+    private void destroyTelemetryView() {
+        if (telemetryView == null) {
             return;
         }
-        telemetryView.removeCallbacks(telemetryResync);
-        telemetryView.setVisibility(View.GONE);
-        // Dropped rather than left paused: a view holds a dead game's numbers, and the next game is
-        // entitled to a view that has never seen them.
-        telemetryView.loadUrl("about:blank");
+        WebView dead = telemetryView;
+        telemetryView = null;
         loadedTelemetryHtml = null;
         telemetryViewReady = false;
+        dead.removeCallbacks(telemetryResync);
+        telemetryContainer.removeView(dead);
+        dead.destroy();
     }
 
     // --- TelemetryStream.Listener ---
