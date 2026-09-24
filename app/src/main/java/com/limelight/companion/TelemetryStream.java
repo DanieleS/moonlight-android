@@ -17,6 +17,7 @@ import java.io.InputStreamReader;
 import java.util.Iterator;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import okhttp3.Call;
 import okhttp3.ResponseBody;
 
 /**
@@ -61,7 +62,11 @@ public class TelemetryStream {
 
     private Thread thread;
     private volatile boolean stopped;
-    private volatile ResponseBody body;
+    /**
+     * The request in flight, so {@link #stop()} can cancel it. Covers the whole life of a
+     * connection, handshake included, not only the reading.
+     */
+    private volatile Call call;
 
     /** Guarded by {@code this}: touched by the reader thread and read from the main thread. */
     private JSONObject picture;
@@ -117,28 +122,16 @@ public class TelemetryStream {
 
     public void stop() {
         stopped = true;
-        // Closing the body is what unblocks the reader promptly: it is parked in a read, and
-        // interrupting the thread alone would not wake it. The read timeout would, but only after
-        // seven seconds.
+        // Cancelling the call is what unblocks the reader: it may be parked in a read, or still
+        // connecting or in the TLS handshake, and interrupting the thread would wake none of them.
         //
-        // Just not from here. stop() runs on the main thread — Game.onDestroy calls it — and letting
-        // go of a TLS connection writes a close_notify first, which is network I/O; StrictMode answers
-        // that with NetworkOnMainThreadException, and the activity fails to destroy. The close still
-        // has to happen, so it happens on a thread that is allowed to do it.
-        ResponseBody open = body;
-        if (open != null) {
-            Thread closer = new Thread(() -> {
-                try {
-                    open.close();
-                } catch (RuntimeException e) {
-                    // A connection that is already broken can throw on the way out. Nothing here is
-                    // worth keeping alive for, and an uncaught throw on this thread would take the
-                    // process down as surely as the one we came here to avoid.
-                    LimeLog.info("Telemetry: closing the stream threw: " + e.getMessage());
-                }
-            }, "TelemetryStream-close");
-            closer.setDaemon(true);
-            closer.start();
+        // Cancelled rather than closed. stop() runs on the main thread (Game.onDestroy calls it),
+        // and closing a TLS connection writes a close_notify first, which is network I/O that
+        // StrictMode answers with NetworkOnMainThreadException. Cancelling drops the socket
+        // without writing anything, and OkHttp documents it as safe from any thread.
+        Call inFlight = call;
+        if (inFlight != null) {
+            inFlight.cancel();
         }
         thread = null;
     }
@@ -187,8 +180,15 @@ public class TelemetryStream {
      * firing on a live host, so a timeout here means the host is gone.
      */
     private void readStream() throws IOException, HostHttpResponseException {
-        ResponseBody open = http.openTelemetryStream();
-        body = open;
+        Call next = http.newTelemetryCall();
+        call = next;
+        // stop() sets the flag before it reads the call, so between the two checks one of them
+        // sees the other: either stop() finds this call to cancel, or this finds it has stopped.
+        if (stopped) {
+            call = null;
+            return;
+        }
+        ResponseBody open = http.openTelemetryStream(next);
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(open.byteStream()))) {
             String event = null;
             StringBuilder data = new StringBuilder();
@@ -220,7 +220,7 @@ public class TelemetryStream {
                 // request to resume from a cursor.
             }
         } finally {
-            body = null;
+            call = null;
             open.close();
         }
     }
