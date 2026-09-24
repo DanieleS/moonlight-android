@@ -121,9 +121,12 @@ public final class CocoonSync {
 
     private static void reconcile(Context context, DocumentFile dir, ComputerDetails computer,
                                   List<NvApp> apps) {
-        // Ours to manage, keyed by the app each one points at. Anything else in the folder —
-        // another host's entries, files put there by hand — is not ours to touch, but its name is
-        // still taken, so we leave those names alone as well.
+        // Ours to manage, keyed by file name, because the name is the game's identity as far as
+        // the frontend is concerned. Keying them by the app's UUID instead broke on a host that
+        // gave a game a new UUID: the old file was no longer recognised as that game's, the new
+        // one could not take its name, and the provider saved it as "Title (1)" beside it.
+        // Anything else in the folder, another host's entries or files put there by hand, is not
+        // ours to touch, but its name is still taken, so we leave those names alone as well.
         Map<String, DocumentFile> managed = new HashMap<>();
         Map<String, String> managedContent = new HashMap<>();
         Set<String> foreignNames = new HashSet<>();
@@ -142,14 +145,8 @@ public final class CocoonSync {
                 continue;
             }
 
-            String identity = identityOf(keys.get(ShortcutHelper.KEY_APP_UUID), keys.get(ShortcutHelper.KEY_APP_ID));
-            if (identity == null) {
-                foreignNames.add(name);
-                continue;
-            }
-
-            managed.put(identity, file);
-            managedContent.put(identity, content);
+            managed.put(name, file);
+            managedContent.put(name, content);
         }
 
         List<String> written = new ArrayList<>();
@@ -161,20 +158,29 @@ public final class CocoonSync {
             if (identity == null || fileName == null) {
                 continue;
             }
+            if (kept.contains(fileName)) {
+                // Two games whose titles reduce to the same name. The frontend could not tell
+                // their entries apart anyway, so the first one keeps it.
+                LimeLog.warning("CocoonSync: two games share the name " + fileName + "; keeping the first");
+                continue;
+            }
 
             String content = ShortcutHelper.buildLauncherFileContent(computer, app, GENERATED_BY);
-            DocumentFile existing = managed.get(identity);
+            DocumentFile existing = managed.get(fileName);
 
-            if (existing != null && fileName.equals(existing.getName())) {
-                kept.add(identity);
-                if (!content.equals(managedContent.get(identity))) {
+            if (existing != null) {
+                // Same title, so the same game to the frontend, even when the host now knows it
+                // by a different UUID or ID. Rewriting it in place keeps the artwork and metadata
+                // the frontend gathered for it.
+                kept.add(fileName);
+                if (!content.equals(managedContent.get(fileName))) {
                     write(context, existing, content);
                 }
                 continue;
             }
 
-            // Either new, or the title changed under us — which the frontend reads as a different
-            // game whatever we do, so the old file has nothing left to offer.
+            // New, or the title changed under us, which the frontend reads as a different game
+            // whatever we do: the old file is dropped below with the other names nobody claimed.
             if (foreignNames.contains(fileName)) {
                 LimeLog.warning("CocoonSync: not overwriting a file we did not write: " + fileName);
                 continue;
@@ -185,19 +191,34 @@ public final class CocoonSync {
                 LimeLog.warning("CocoonSync: could not create " + fileName);
                 continue;
             }
+            if (!fileName.equals(created.getName())) {
+                // The provider renamed it, so the name was taken after all (by a file that
+                // appeared since the listing). A "Title (1)" would be a second entry for the same
+                // game in the frontend, which is worse than none.
+                LimeLog.warning("CocoonSync: " + fileName + " came back as " + created.getName() + "; dropping it");
+                created.delete();
+                continue;
+            }
 
             if (write(context, created, content)) {
-                kept.add(identity);
+                kept.add(fileName);
                 written.add(fileName);
             } else {
                 created.delete();
             }
         }
 
+        // Every name nobody claimed: games the host no longer has, titles that changed, and the
+        // "Title (1)" duplicates earlier syncs left behind.
         int removed = 0;
         for (Map.Entry<String, DocumentFile> entry : managed.entrySet()) {
-            if (!kept.contains(entry.getKey()) && entry.getValue().delete()) {
+            if (kept.contains(entry.getKey())) {
+                continue;
+            }
+            if (entry.getValue().delete()) {
                 removed++;
+            } else {
+                LimeLog.warning("CocoonSync: could not remove " + entry.getKey());
             }
         }
 
@@ -207,8 +228,8 @@ public final class CocoonSync {
     }
 
     /**
-     * What identifies an app across syncs. The UUID is the app's own; the ID is the host's handle
-     * for it, and is all a Sunshine of a certain age offers.
+     * Whether the host gave an app anything to be started by. The UUID is the app's own; the ID
+     * is the host's handle for it, and is all a Sunshine of a certain age offers.
      */
     private static String identityOf(String appUUID, String appId) {
         if (!TextUtils.isEmpty(appUUID)) {
