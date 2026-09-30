@@ -318,7 +318,7 @@ public class NvConnection {
                         context.connListener.displayMessage("Failed to resume existing session");
                         return false;
                     }
-                } else if (Objects.equals(NvApp.REMOTE_INPUT_UUID, app.getAppUUID())) {
+                } else if (app.isRemoteInput()) {
                     // When launching InputOnly, we shouldn't try terminating the current running app
                     return launchNotRunningApp(h, context);
                 } else {
