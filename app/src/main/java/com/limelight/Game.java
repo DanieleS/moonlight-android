@@ -896,7 +896,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             trackpadContextMap[i] = new TrackpadContext(conn, i, prefConfig.trackpadSwapAxis, prefConfig.trackpadSensitivityX, prefConfig.trackpadSensitivityY);
         }
 
-        if (Objects.equals(appUUID, NvApp.REMOTE_INPUT_UUID)) {
+        if (NvApp.isRemoteInputUuid(appUUID)) {
             // Force trackpad mode since we won't see anything on the screen
             isInputOnly = true;
             allowChangeMouseMode = false;

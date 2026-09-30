@@ -843,4 +843,7 @@
     <string name="companion_app_launch_failed">Couldn\'t open the companion app</string>
     <string name="game_menu_companion_app">Companion App</string>
     <string name="action_virtual_display">Start virtual display</string>
+    <string name="action_remote_session">Remote session</string>
+    <string name="remote_session_monitor">Remote Monitor</string>
+    <string name="remote_session_input">Remote Input</string>
 </resources>

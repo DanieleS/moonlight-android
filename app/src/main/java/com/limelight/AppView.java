@@ -109,6 +109,11 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
     // dedicated app-bar action instead. Null until the host advertises it.
     private NvApp virtualDisplayApp;
 
+    // The host's Remote Monitor and Remote Input entries, likewise kept out of the library and
+    // offered from a single app-bar menu. Null while the host does not advertise them.
+    private NvApp remoteMonitorApp;
+    private NvApp remoteInputApp;
+
     // Playnite-enriched metadata keyed by upper-cased app UUID, shown on the companion panel.
     // Empty on stock hosts; fetched once per visit.
     private Map<String, AppMetadata> appMetadata = Collections.emptyMap();
@@ -425,6 +430,10 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         findViewById(R.id.virtualDisplayButton)
             .setOnClickListener(v -> launchVirtualDisplay());
 
+        // The remote-session entries, from a menu on the bar.
+        findViewById(R.id.remoteSessionButton)
+            .setOnClickListener(v -> showRemoteSessionMenu());
+
         // The library is a full-screen console surface: no system bars, and no app bar over
         // the carousel. The bar returns, and pushes the grid down, only in the grid.
         enterImmersive();
@@ -432,6 +441,7 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         refreshViewModeControls();
         refreshCompanionButton();
         refreshVirtualDisplayButton();
+        refreshRemoteSessionButton();
 
         showHiddenApps = getIntent().getBooleanExtra(SHOW_HIDDEN_APPS_EXTRA, false);
         uuidString = getIntent().getStringExtra(UUID_EXTRA);
@@ -607,6 +617,46 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         } else {
             start.run();
         }
+    }
+
+    // Remember the host's remote-session entries (or clear them) and keep their bar button in step.
+    private void setRemoteSessionApps(NvApp monitor, NvApp input) {
+        remoteMonitorApp = monitor;
+        remoteInputApp = input;
+        refreshRemoteSessionButton();
+    }
+
+    private void refreshRemoteSessionButton() {
+        ImageButton remoteSessionButton = findViewById(R.id.remoteSessionButton);
+        if (remoteSessionButton == null) {
+            return;
+        }
+        boolean advertised = remoteMonitorApp != null || remoteInputApp != null;
+        remoteSessionButton.setVisibility(advertised ? View.VISIBLE : View.GONE);
+    }
+
+    // Remote Monitor and Remote Input join alongside whatever is running rather than replacing
+    // it, so they start without the quit confirmation the Virtual Display asks for.
+    private void showRemoteSessionMenu() {
+        if (computer == null || managerBinder == null) {
+            return;
+        }
+
+        MenuSheet sheet = new MenuSheet(this).setTitle(getString(R.string.action_remote_session));
+        final NvApp monitor = remoteMonitorApp;
+        final NvApp input = remoteInputApp;
+        if (monitor != null) {
+            sheet.add(getString(R.string.remote_session_monitor),
+                    () -> ServerHelper.doStart(AppView.this, monitor, computer, managerBinder, false));
+        }
+        if (input != null) {
+            sheet.add(getString(R.string.remote_session_input),
+                    () -> ServerHelper.doStart(AppView.this, input, computer, managerBinder, false));
+        }
+        if (sheet.isEmpty()) {
+            return;
+        }
+        sheet.showCentered(this);
     }
 
     @Override
@@ -859,18 +909,26 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         AppView.this.runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                // Pull the host's Virtual Display shortcut out of the library; it is offered as
-                // a dedicated app-bar action instead of appearing as a cover.
+                // Pull the host's Virtual Display shortcut and its Remote Monitor / Remote Input
+                // entries out of the library; they are offered as app-bar actions instead of
+                // appearing as covers.
                 final List<NvApp> appList = new ArrayList<>();
                 NvApp foundVirtualDisplay = null;
+                NvApp foundRemoteMonitor = null;
+                NvApp foundRemoteInput = null;
                 for (NvApp app : rawAppList) {
                     if (app.isVirtualDisplay()) {
                         foundVirtualDisplay = app;
+                    } else if (app.isRemoteMonitor()) {
+                        foundRemoteMonitor = app;
+                    } else if (app.isRemoteInput()) {
+                        foundRemoteInput = app;
                     } else {
                         appList.add(app);
                     }
                 }
                 setVirtualDisplayApp(foundVirtualDisplay);
+                setRemoteSessionApps(foundRemoteMonitor, foundRemoteInput);
 
                 boolean updated = false;
 
