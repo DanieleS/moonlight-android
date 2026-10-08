@@ -324,10 +324,6 @@
                                 style="@style/StatsEyebrow"
                                 android:text="@string/stats_achievements" />
 
-                            <TextView
-                                style="@style/StatsEyebrowAside"
-                                android:text="@string/stats_from_successstory" />
-
                         </LinearLayout>
 
                         <LinearLayout
@@ -382,10 +378,6 @@
                         <TextView
                             style="@style/StatsEyebrow"
                             android:text="@string/stats_library" />
-
-                        <TextView
-                            style="@style/StatsEyebrowAside"
-                            android:text="@string/stats_from_playnite" />
 
                     </LinearLayout>
 

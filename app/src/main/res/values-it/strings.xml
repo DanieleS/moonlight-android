@@ -318,9 +318,9 @@
     <string name="stats_failed_hint">Il PC non ha risposto. Premi A per riprovare.</string>
     <string name="stats_previous">Periodo precedente</string>
     <string name="stats_next">Periodo successivo</string>
-    <string name="stats_untracked">GameActivity non ha ancora sessioni: per questo periodo non ce ne sono. Playnite tiene solo i totali, che trovi qui sotto.</string>
-    <string name="stats_untracked_since">GameActivity ha sessioni dal %1$s: per questo periodo non ce ne sono. Playnite tiene solo i totali, che trovi qui sotto.</string>
-    <string name="stats_no_activity">Installa GameActivity in Playnite per vedere quando giochi: Playnite tiene solo i totali, che trovi qui sotto.</string>
+    <string name="stats_untracked">Ancora nessuna sessione registrata: per questo periodo non ce ne sono. I totali li trovi qui sotto.</string>
+    <string name="stats_untracked_since">Le sessioni sono registrate dal %1$s: per questo periodo non ce ne sono. I totali li trovi qui sotto.</string>
+    <string name="stats_no_activity">Installa GameActivity in Playnite per vedere quando giochi. I totali li trovi qui sotto.</string>
     <string name="stats_played">Giocate</string>
     <string name="stats_than_week_running">della settimana scorsa a questo punto</string>
     <string name="stats_than_week_done">della settimana prima</string>
@@ -337,14 +337,12 @@
     <string name="stats_average">media %1$s</string>
     <string name="stats_top">Più giocati</string>
     <string name="stats_achievements">Obiettivi</string>
-    <string name="stats_from_successstory">da SuccessStory</string>
     <plurals name="stats_unlocked">
         <item quantity="one">sbloccato</item>
         <item quantity="other">sbloccati</item>
     </plurals>
     <string name="stats_no_achievements">Niente in questo periodo.</string>
     <string name="stats_library">Libreria</string>
-    <string name="stats_from_playnite">da Playnite</string>
     <string name="stats_hours_total">%1$s h</string>
     <string name="stats_played_total">giocate in tutto</string>
     <string name="stats_games">giochi, %1$s installati</string>
@@ -426,7 +424,6 @@
     <string name="achievements_none_yet">Ancora nessuno: la prossima partita è quella buona.</string>
     <string name="achievements_hidden">Obiettivo nascosto</string>
     <string name="achievements_reveal">Selezionalo per scoprirlo</string>
-    <string name="achievements_refreshed">Da SuccessStory, aggiornato %1$s.</string>
     <string name="achievements_rarity_ultra_rare">Rarissimo</string>
     <string name="achievements_rarity_rare">Raro</string>
     <string name="achievements_rarity_uncommon">Non comune</string>

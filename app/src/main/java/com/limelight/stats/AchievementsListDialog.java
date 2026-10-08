@@ -95,14 +95,6 @@ public final class AchievementsListDialog {
                 data.getPercent() == 100 ? R.string.achievements_percent_all : R.string.achievements_percent,
                 data.getPercent()));
 
-        TextView foot = panel.findViewById(R.id.achievementsFoot);
-        if (data.getLastRefresh() != null) {
-            foot.setText(activity.getString(R.string.achievements_refreshed,
-                    text.unlockedLabel(data.getLastRefresh(), true)));
-        } else {
-            foot.setVisibility(View.GONE);
-        }
-
         filterButtons = new TextView[]{
                 panel.findViewById(R.id.achievementsFilterAll),
                 panel.findViewById(R.id.achievementsFilterUnlocked),
