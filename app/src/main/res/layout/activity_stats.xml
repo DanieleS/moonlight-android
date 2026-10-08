@@ -1,0 +1,594 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    How much is played on this PC: a week, month or year at a time, then the library at large.
+    CouchPilot's statistics page, as one centred column so a d-pad walks it top to bottom: the
+    range, the period and its chart, the most played, the latest unlocks, then the library.
+    Every row that leads somewhere takes focus; the bumpers step the period from anywhere.
+-->
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/surface"
+    tools:context=".stats.StatsActivity">
+
+    <LinearLayout
+        android:id="@+id/statsTopBar"
+        style="@style/TopBar"
+        android:layout_alignParentTop="true">
+
+        <ImageButton
+            android:id="@+id/statsBackButton"
+            style="@style/TopBarAction"
+            android:contentDescription="@string/stats_back"
+            android:src="@drawable/ic_arrow_back" />
+
+        <TextView
+            android:id="@+id/statsTitle"
+            style="@style/TopBarTitle"
+            android:text="@string/stats_title" />
+
+    </LinearLayout>
+
+    <ScrollView
+        android:id="@+id/statsScroll"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/statsTopBar"
+        android:clipToPadding="false"
+        android:fillViewport="true"
+        android:paddingBottom="72dp"
+        android:scrollbars="none">
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <LinearLayout
+                android:id="@+id/statsContent"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:orientation="vertical"
+                android:paddingStart="@dimen/stats_gutter"
+                android:paddingEnd="@dimen/stats_gutter"
+                android:paddingTop="4dp">
+
+                <!-- Week, month, year. X and Y move through them too. -->
+                <LinearLayout
+                    android:id="@+id/statsRanges"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/stats_segment_bg"
+                    android:orientation="horizontal"
+                    android:padding="3dp">
+
+                    <TextView
+                        android:id="@+id/statsRangeWeek"
+                        style="@style/StatsSegment"
+                        android:text="@string/stats_range_week" />
+
+                    <TextView
+                        android:id="@+id/statsRangeMonth"
+                        style="@style/StatsSegment"
+                        android:layout_marginStart="3dp"
+                        android:text="@string/stats_range_month" />
+
+                    <TextView
+                        android:id="@+id/statsRangeYear"
+                        style="@style/StatsSegment"
+                        android:layout_marginStart="3dp"
+                        android:text="@string/stats_range_year" />
+
+                </LinearLayout>
+
+                <!-- Shown instead of everything below while the first answer is awaited, or
+                     when the PC could not be reached. -->
+                <LinearLayout
+                    android:id="@+id/statsStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/menu_row_bg"
+                    android:focusable="true"
+                    android:gravity="center"
+                    android:minHeight="220dp"
+                    android:orientation="vertical"
+                    android:padding="24dp">
+
+                    <ProgressBar
+                        android:id="@+id/statsStatusProgress"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:indeterminateTint="@color/signal" />
+
+                    <TextView
+                        android:id="@+id/statsStatusTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:gravity="center"
+                        android:text="@string/stats_failed_title"
+                        android:textColor="@color/content_primary"
+                        android:textSize="16sp"
+                        android:visibility="gone" />
+
+                    <TextView
+                        android:id="@+id/statsStatusHint"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:gravity="center"
+                        android:text="@string/stats_failed_hint"
+                        android:textColor="@color/content_muted"
+                        android:textSize="13sp"
+                        android:visibility="gone" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/statsBody"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:id="@+id/statsPeriodCard"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:background="@drawable/stats_card_bg"
+                        android:orientation="vertical"
+                        android:padding="12dp">
+
+                        <!-- The period, stepped like a spinner: left and right (or the
+                             bumpers, anywhere) move it. -->
+                        <LinearLayout
+                            android:id="@+id/statsPeriodNav"
+                            android:layout_width="match_parent"
+                            android:layout_height="44dp"
+                            android:background="@drawable/menu_row_bg"
+                            android:focusable="true"
+                            android:clickable="true"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:paddingStart="4dp"
+                            android:paddingEnd="4dp">
+
+                            <ImageView
+                                android:id="@+id/statsPrevious"
+                                android:layout_width="36dp"
+                                android:layout_height="36dp"
+                                android:contentDescription="@string/stats_previous"
+                                android:padding="6dp"
+                                android:src="@drawable/ic_chevron_left"
+                                android:tint="@color/content_secondary" />
+
+                            <TextView
+                                android:id="@+id/statsPeriodTitle"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:gravity="center"
+                                android:singleLine="true"
+                                android:textColor="@color/content_primary"
+                                android:textSize="15sp"
+                                android:fontFamily="sans-serif-medium" />
+
+                            <ImageView
+                                android:id="@+id/statsNext"
+                                android:layout_width="36dp"
+                                android:layout_height="36dp"
+                                android:contentDescription="@string/stats_next"
+                                android:padding="6dp"
+                                android:src="@drawable/ic_chevron_right"
+                                android:tint="@color/content_secondary" />
+
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/statsUntracked"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:layout_marginBottom="8dp"
+                            android:paddingStart="4dp"
+                            android:paddingEnd="4dp"
+                            android:lineSpacingMultiplier="1.2"
+                            android:textColor="@color/content_secondary"
+                            android:textSize="14sp"
+                            android:visibility="gone" />
+
+                        <LinearLayout
+                            android:id="@+id/statsTracked"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="8dp"
+                                android:orientation="horizontal"
+                                android:paddingStart="4dp"
+                                android:paddingEnd="4dp">
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        style="@style/StatsEyebrow"
+                                        android:text="@string/stats_played" />
+
+                                    <TextView
+                                        android:id="@+id/statsTotal"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:fontFamily="sans-serif-light"
+                                        android:singleLine="true"
+                                        android:textColor="@color/content_primary"
+                                        android:textSize="34sp" />
+
+                                    <TextView
+                                        android:id="@+id/statsDelta"
+                                        style="@style/StatsSmall" />
+
+                                </LinearLayout>
+
+                                <LinearLayout
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:gravity="end"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:id="@+id/statsSessions"
+                                        style="@style/StatsSmall" />
+
+                                    <TextView
+                                        android:id="@+id/statsAverage"
+                                        style="@style/StatsSmall" />
+
+                                </LinearLayout>
+
+                            </LinearLayout>
+
+                            <!-- What the bar in focus stands for: today's, or the one
+                                 picked with left and right while the chart has focus. -->
+                            <TextView
+                                android:id="@+id/statsBarCaption"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="10dp"
+                                android:paddingStart="4dp"
+                                android:paddingEnd="4dp"
+                                android:singleLine="true"
+                                android:textColor="@color/content_secondary"
+                                android:textSize="13sp" />
+
+                            <com.limelight.stats.StatsBarsView
+                                android:id="@+id/statsChart"
+                                android:layout_width="match_parent"
+                                android:layout_height="170dp"
+                                android:layout_marginTop="4dp"
+                                android:background="@drawable/menu_row_bg"
+                                android:contentDescription="@string/stats_bars_label"
+                                android:focusable="true"
+                                android:clickable="true"
+                                android:paddingStart="8dp"
+                                android:paddingEnd="8dp"
+                                android:paddingTop="6dp"
+                                android:paddingBottom="6dp" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/statsTopSection"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <LinearLayout style="@style/StatsSectionHead">
+
+                            <TextView
+                                style="@style/StatsEyebrow"
+                                android:text="@string/stats_top" />
+
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:id="@+id/statsTopList"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical" />
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/statsAchievementsSection"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+
+                        <LinearLayout style="@style/StatsSectionHead">
+
+                            <TextView
+                                style="@style/StatsEyebrow"
+                                android:text="@string/stats_achievements" />
+
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/stats_card_bg"
+                            android:orientation="vertical"
+                            android:padding="8dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="bottom"
+                                android:orientation="horizontal"
+                                android:paddingStart="8dp"
+                                android:paddingEnd="8dp"
+                                android:paddingTop="4dp"
+                                android:paddingBottom="4dp">
+
+                                <TextView
+                                    android:id="@+id/statsAchievementsCount"
+                                    style="@style/StatsFigure" />
+
+                                <TextView
+                                    android:id="@+id/statsAchievementsCountLabel"
+                                    style="@style/StatsSmall"
+                                    android:layout_marginStart="6dp"
+                                    android:layout_marginBottom="4dp" />
+
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:id="@+id/statsAchievementsList"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical" />
+
+                            <TextView
+                                android:id="@+id/statsAchievementsEmpty"
+                                style="@style/StatsSmall"
+                                android:paddingStart="8dp"
+                                android:paddingBottom="6dp"
+                                android:text="@string/stats_no_achievements"
+                                android:visibility="gone" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                    <LinearLayout style="@style/StatsSectionHead">
+
+                        <TextView
+                            style="@style/StatsEyebrow"
+                            android:text="@string/stats_library" />
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/statsTiles"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:baselineAligned="false"
+                        android:orientation="horizontal">
+
+                        <LinearLayout style="@style/StatsTile">
+
+                            <TextView
+                                android:id="@+id/statsLibraryHours"
+                                style="@style/StatsFigure" />
+
+                            <TextView
+                                style="@style/StatsFigureLabel"
+                                android:text="@string/stats_played_total" />
+
+                        </LinearLayout>
+
+                        <LinearLayout
+                            style="@style/StatsTile"
+                            android:layout_marginStart="8dp">
+
+                            <TextView
+                                android:id="@+id/statsLibraryGames"
+                                style="@style/StatsFigure" />
+
+                            <TextView
+                                android:id="@+id/statsLibraryGamesLabel"
+                                style="@style/StatsFigureLabel" />
+
+                        </LinearLayout>
+
+                        <LinearLayout
+                            style="@style/StatsTile"
+                            android:layout_marginStart="8dp">
+
+                            <TextView
+                                android:id="@+id/statsLibraryNeverPlayed"
+                                style="@style/StatsFigure" />
+
+                            <TextView
+                                style="@style/StatsFigureLabel"
+                                android:text="@string/stats_never_played" />
+
+                        </LinearLayout>
+
+                        <LinearLayout
+                            style="@style/StatsTile"
+                            android:layout_marginStart="8dp">
+
+                            <TextView
+                                android:id="@+id/statsLibraryThisYear"
+                                style="@style/StatsFigure" />
+
+                            <TextView
+                                style="@style/StatsFigureLabel"
+                                android:text="@string/stats_played_this_year" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/statsResumeSection"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+
+                        <LinearLayout style="@style/StatsSectionHead">
+
+                            <TextView
+                                style="@style/StatsEyebrow"
+                                android:text="@string/stats_resume" />
+
+                            <TextView
+                                style="@style/StatsEyebrowAside"
+                                android:text="@string/stats_resume_hint" />
+
+                        </LinearLayout>
+
+                        <HorizontalScrollView
+                            android:id="@+id/statsResumeScroll"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:clipToPadding="false"
+                            android:scrollbars="none">
+
+                            <LinearLayout
+                                android:id="@+id/statsResumeList"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal" />
+
+                        </HorizontalScrollView>
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </FrameLayout>
+
+    </ScrollView>
+
+    <!--
+        The gamepad shortcuts, in the library's hint pill: the bumpers step the period, X and Y
+        the range. Not focusable, so it never takes the d-pad.
+    -->
+    <LinearLayout
+        android:id="@+id/statsHint"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentEnd="true"
+        android:layout_margin="20dp"
+        android:background="@drawable/hint_pill_bg"
+        android:focusable="false"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="8dp"
+        android:paddingEnd="14dp"
+        android:paddingTop="7dp"
+        android:paddingBottom="7dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="22dp"
+            android:minWidth="22dp"
+            android:background="@drawable/hint_badge_bg"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp"
+            android:text="@string/hint_button_lb"
+            android:textColor="@color/content_secondary"
+            android:textSize="11sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="22dp"
+            android:layout_marginStart="4dp"
+            android:minWidth="22dp"
+            android:background="@drawable/hint_badge_bg"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp"
+            android:text="@string/hint_button_rb"
+            android:textColor="@color/content_secondary"
+            android:textSize="11sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="9dp"
+            android:includeFontPadding="false"
+            android:letterSpacing="0.12"
+            android:text="@string/stats_hint_period"
+            android:textAllCaps="true"
+            android:textColor="@color/content_secondary"
+            android:textSize="11sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="22dp"
+            android:layout_marginStart="16dp"
+            android:minWidth="22dp"
+            android:background="@drawable/hint_badge_bg"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp"
+            android:text="@string/hint_button_x"
+            android:textColor="@color/content_secondary"
+            android:textSize="11sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="22dp"
+            android:layout_marginStart="4dp"
+            android:minWidth="22dp"
+            android:background="@drawable/hint_badge_bg"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp"
+            android:text="@string/hint_button_y"
+            android:textColor="@color/content_secondary"
+            android:textSize="11sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="9dp"
+            android:includeFontPadding="false"
+            android:letterSpacing="0.12"
+            android:text="@string/stats_hint_range"
+            android:textAllCaps="true"
+            android:textColor="@color/content_secondary"
+            android:textSize="11sp" />
+
+    </LinearLayout>
+
+</RelativeLayout>

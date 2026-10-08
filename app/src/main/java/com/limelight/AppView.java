@@ -15,6 +15,7 @@ import com.limelight.companion.CompanionDisplayManager;
 import com.limelight.companion.CompanionState;
 import com.limelight.binding.PlatformBinding;
 import com.limelight.nvstream.http.AppMetadata;
+import com.limelight.nvstream.http.AppStats;
 import com.limelight.computers.ComputerManagerListener;
 import com.limelight.computers.ComputerManagerService;
 import com.limelight.grid.AppGridAdapter;
@@ -27,6 +28,12 @@ import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.preferences.StreamSettings;
 import com.limelight.ui.MenuSheet;
 import com.limelight.profiles.ProfilesManager;
+import com.limelight.stats.AchievementToast;
+import com.limelight.stats.AchievementWatcher;
+import com.limelight.stats.GameStatsSheet;
+import com.limelight.stats.HostLink;
+import com.limelight.stats.HostSession;
+import com.limelight.stats.StatsActivity;
 import com.limelight.ui.AdapterFragment;
 import com.limelight.ui.AdapterFragmentCallbacks;
 import com.limelight.utils.CacheHelper;
@@ -57,6 +64,7 @@ import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.ContextMenu.ContextMenuInfo;
 import android.graphics.RenderEffect;
 import android.graphics.Shader;
@@ -118,6 +126,12 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
     // Empty on stock hosts; fetched once per visit.
     private Map<String, AppMetadata> appMetadata = Collections.emptyMap();
     private boolean metadataFetchStarted;
+
+    // Whether the host serves play statistics and achievements (Vibepollo's /appstats), asked
+    // once per visit alongside the metadata. Until it says so, nothing about them is offered.
+    private boolean statsAvailable;
+    // One connection for the statistics sheets raised from here, made on first use.
+    private HostSession statsSession;
     // The order the library is listed in. Read before the adapter exists, so it is held here.
     private AppSortOrder sortOrder = AppSortOrder.HOST;
     // The app list as last handed to the frontend sync, so an unchanged one is not handed over again.
@@ -129,6 +143,9 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
     private final java.util.HashMap<Integer, Bitmap> backgroundCache = new java.util.HashMap<>();
 
     private PreferenceConfiguration prefConfig;
+
+    // Long enough for SuccessStory to have read the game's new state once it closed.
+    private final static long AFTER_STREAM_CHECK_DELAY_MS = 4000;
 
     private final static int START_OR_RESUME_ID = 1;
     private final static int QUIT_ID = 2;
@@ -434,6 +451,10 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         findViewById(R.id.remoteSessionButton)
             .setOnClickListener(v -> showRemoteSessionMenu());
 
+        // How much is played on this PC, where the host keeps count.
+        findViewById(R.id.statsButton)
+            .setOnClickListener(v -> openStats());
+
         // The library is a full-screen console surface: no system bars, and no app bar over
         // the carousel. The bar returns, and pushes the grid down, only in the grid.
         enterImmersive();
@@ -442,6 +463,7 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         refreshCompanionButton();
         refreshVirtualDisplayButton();
         refreshRemoteSessionButton();
+        refreshStatsButton();
 
         showHiddenApps = getIntent().getBooleanExtra(SHOW_HIDDEN_APPS_EXTRA, false);
         uuidString = getIntent().getStringExtra(UUID_EXTRA);
@@ -542,6 +564,9 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
 
         inForeground = true;
         startComputerUpdates();
+
+        // Back from a stream: SuccessStory may only now have written what was unlocked in it.
+        checkAchievementsAfterStream();
 
         MaterialButton profilesButton = findViewById(R.id.profilesButton);
         // User report Samsung and Xiaomi devices have this problem
@@ -732,6 +757,12 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
                     () -> CompanionAppLauncher.showPicker(this, appUuid, appName, null));
         }
 
+        // The game's play statistics and achievements, where the host keeps them.
+        final String statsUuid = app.app.getAppUUID();
+        if (statsAvailable && statsUuid != null && !statsUuid.isEmpty()) {
+            sheet.add(getString(R.string.applist_menu_stats), () -> showGameStats(app.app));
+        }
+
         sheet.add(getString(R.string.applist_menu_details),
                 () -> Dialog.displayDialog(this, getString(R.string.title_details), app.app.toString(), false));
 
@@ -749,6 +780,69 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         sheet.add(getString(R.string.applist_menu_export_launcher), () -> exportLauncher(app));
 
         sheet.showCentered(this);
+    }
+
+    // The statistics connection, made on first use: the PC's address only settles once the
+    // computer manager has polled it, after this screen is created.
+    private HostSession getStatsSession() {
+        if (statsSession == null && computer != null && managerBinder != null) {
+            HostLink link = HostLink.of(computer, managerBinder.getUniqueId());
+            if (link != null) {
+                statsSession = new HostSession(this, link);
+            }
+        }
+        return statsSession;
+    }
+
+    private void setStatsAvailable(boolean available) {
+        statsAvailable = available;
+        refreshStatsButton();
+    }
+
+    private void refreshStatsButton() {
+        ImageButton statsButton = findViewById(R.id.statsButton);
+        if (statsButton == null) {
+            return;
+        }
+        statsButton.setVisibility(statsAvailable ? View.VISIBLE : View.GONE);
+    }
+
+    private void openStats() {
+        if (computer == null || managerBinder == null) {
+            return;
+        }
+        HostLink link = HostLink.of(computer, managerBinder.getUniqueId());
+        if (link != null) {
+            StatsActivity.start(this, link);
+        }
+    }
+
+    // SuccessStory usually refreshes a game's achievements when it closes, after the stream's
+    // last look; so the library looks once more, a few seconds after it comes back, and toasts
+    // whatever the stream did not already announce.
+    private void checkAchievementsAfterStream() {
+        HostSession session = getStatsSession();
+        if (session == null) {
+            return;
+        }
+        final long since = AchievementWatcher.takePendingCheck(uuidString);
+        if (since < 0) {
+            return;
+        }
+        findViewById(android.R.id.content).postDelayed(() ->
+                AchievementWatcher.checkOnce(session, since, fresh -> {
+                    View content = findViewById(android.R.id.content);
+                    if (!isFinishing() && content instanceof ViewGroup) {
+                        AchievementToast.show((ViewGroup) content, fresh, session);
+                    }
+                }), AFTER_STREAM_CHECK_DELAY_MS);
+    }
+
+    private void showGameStats(NvApp app) {
+        HostSession session = getStatsSession();
+        if (session != null) {
+            GameStatsSheet.show(this, session, app.getAppUUID(), app.getAppName());
+        }
     }
 
     // The library's own order, offered as a sheet from the app bar. The orders that rank by
@@ -1366,7 +1460,19 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
                         computer.serverCert,
                         PlatformBinding.getCryptoProvider(AppView.this));
                 final Map<String, AppMetadata> fetched = http.getAppMetadata();
+                // Ask once whether the host keeps play statistics too, so the menus only offer
+                // them where they exist. Any failure reads as "no": the entries stay hidden.
+                boolean stats;
+                try {
+                    stats = http.getAppStats(AppStats.RANGE_WEEK, 0) != null;
+                } catch (Exception e) {
+                    stats = false;
+                }
+                final boolean hasStats = stats;
                 runOnUiThread(() -> {
+                    setStatsAvailable(hasStats);
+                    // A library recreated after a stream only gets here once it can reach the PC.
+                    checkAchievementsAfterStream();
                     appMetadata = fetched;
                     // The orders that rank by metadata were sorting on nothing until now.
                     appGridAdapter.setAppMetadata(fetched);

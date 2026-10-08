@@ -33,6 +33,10 @@ import com.limelight.companion.CompanionAppLauncher;
 import com.limelight.companion.CompanionDisplayManager;
 import com.limelight.companion.CompanionState;
 import com.limelight.companion.TelemetryController;
+import com.limelight.nvstream.http.Achievement;
+import com.limelight.stats.AchievementToast;
+import com.limelight.stats.AchievementWatcher;
+import com.limelight.stats.HostSession;
 import com.limelight.nvstream.NvConnection;
 import com.limelight.nvstream.NvConnectionListener;
 import com.limelight.nvstream.StreamConfiguration;
@@ -340,6 +344,10 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private NvHTTP httpConn;
     /** Follows the host's game telemetry for as long as this stream lasts. Null when not streaming. */
     private TelemetryController telemetryController;
+
+    // Follows SuccessStory's unlocks for the "achievement unlocked" toast while the stream runs.
+    private AchievementWatcher achievementWatcher;
+    private HostSession achievementSession;
 
     public interface GameMenuCallbacks {
         void showMenu(GameInputDevice devic);
@@ -1805,6 +1813,10 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         if (telemetryController != null) {
             telemetryController.stop();
             telemetryController = null;
+        }
+        if (achievementWatcher != null) {
+            achievementWatcher.stop();
+            achievementWatcher = null;
         }
         CompanionState.getInstance().leaveStreaming();
 
@@ -3925,6 +3937,8 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
                 startTelemetry();
 
+                startAchievementWatcher();
+
                 // Open this game's companion app on the second screen, if one was assigned.
                 maybeAutoLaunchCompanionApp();
             }
@@ -3974,6 +3988,36 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         }
         telemetryController = new TelemetryController(this, httpConn, CompanionState.getInstance());
         telemetryController.start();
+    }
+
+    /**
+     * Start following the host's achievements for the unlock toast.
+     *
+     * Like telemetry, started without asking first: a host without SuccessStory data, or without
+     * the endpoint, answers the first request with a 404 and the watcher stops there. Unlocks are
+     * asked for from a little before the stream began, so one earned in its first seconds is not
+     * lost to the two clocks disagreeing.
+     */
+    private void startAchievementWatcher() {
+        if (httpConn == null || achievementWatcher != null) {
+            return;
+        }
+        achievementSession = new HostSession(this, httpConn);
+        long since = System.currentTimeMillis() / 1000 - 5;
+        achievementWatcher = new AchievementWatcher(achievementSession, since, this::showFreshAchievements);
+        achievementWatcher.start(getIntent().getStringExtra(EXTRA_PC_UUID));
+    }
+
+    // Over the game, and on the companion panel when one is up.
+    private void showFreshAchievements(List<Achievement> fresh) {
+        if (isFinishing()) {
+            return;
+        }
+        View content = findViewById(android.R.id.content);
+        if (content instanceof ViewGroup) {
+            AchievementToast.show((ViewGroup) content, fresh, achievementSession);
+        }
+        CompanionDisplayManager.showAchievementToast(fresh, achievementSession);
     }
 
     // Auto-launch on connect: only where the feature is supported and this game has an app

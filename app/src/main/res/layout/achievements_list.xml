@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Every achievement of a game: the unlocked ones first, newest first, then what is left to do,
+    as CouchPilot's achievements sheet lists them. The filter at the top and each row take focus;
+    a hidden one stays masked until it is selected.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/menu_sheet_bg"
+    android:orientation="vertical"
+    android:paddingStart="@dimen/menu_sheet_padding"
+    android:paddingEnd="@dimen/menu_sheet_padding"
+    android:paddingTop="14dp"
+    android:paddingBottom="@dimen/menu_sheet_padding">
+
+    <TextView
+        android:id="@+id/achievementsTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:ellipsize="end"
+        android:letterSpacing="0.16"
+        android:singleLine="true"
+        android:textAllCaps="true"
+        android:textColor="@color/content_muted"
+        android:textSize="12sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp">
+
+        <TextView
+            android:id="@+id/achievementsCount"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/content_secondary"
+            android:textSize="14sp" />
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="6dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/stats_meter_track">
+
+            <View
+                android:id="@+id/achievementsMeter"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/stats_meter_fill_signal" />
+
+        </FrameLayout>
+
+        <TextView
+            android:id="@+id/achievementsPercent"
+            style="@style/StatsSmall"
+            android:layout_marginTop="4dp" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/achievementsFilters"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/stats_segment_bg"
+        android:orientation="horizontal"
+        android:padding="3dp">
+
+        <TextView
+            android:id="@+id/achievementsFilterAll"
+            style="@style/StatsSegment"
+            android:text="@string/achievements_filter_all" />
+
+        <TextView
+            android:id="@+id/achievementsFilterUnlocked"
+            style="@style/StatsSegment"
+            android:layout_marginStart="3dp" />
+
+        <TextView
+            android:id="@+id/achievementsFilterLocked"
+            style="@style/StatsSegment"
+            android:layout_marginStart="3dp" />
+
+    </LinearLayout>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/achievementsList"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="8dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:scrollbars="none" />
+
+    <TextView
+        android:id="@+id/achievementsEmpty"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:padding="16dp"
+        android:textColor="@color/content_muted"
+        android:textSize="14sp"
+        android:visibility="gone" />
+
+</LinearLayout>

@@ -85,4 +85,11 @@
     <dimen name="settings_gutter">16dp</dimen>
     <dimen name="settings_category_top">20dp</dimen>
 
+    <!-- Statistics: the cards, the widest the screen grows to on a big display, and the sheets. -->
+    <dimen name="stats_card_corner">14dp</dimen>
+    <dimen name="stats_max_width">1100dp</dimen>
+    <dimen name="stats_sheet_max_width">560dp</dimen>
+    <dimen name="stats_list_max_width">640dp</dimen>
+    <dimen name="stats_gutter">24dp</dimen>
+
 </resources>

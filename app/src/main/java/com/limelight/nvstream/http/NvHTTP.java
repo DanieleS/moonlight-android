@@ -31,6 +31,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import javax.net.ssl.HostnameVerifier;
@@ -845,6 +846,79 @@ public class NvHTTP {
         }
 
         return metadata;
+    }
+
+    /**
+     * Fetch a Vibepollo-only JSON endpoint, or null when the host answers 404: a stock host, a
+     * non-Windows build, no Playnite data yet, or a game that is not in this client's catalogue.
+     * Anything else (network, TLS, a 5xx, malformed JSON) is thrown, so a screen can tell "this
+     * host doesn't do that" apart from "couldn't reach it just now".
+     */
+    private JSONObject getOptionalJson(String path, String query) throws IOException {
+        String raw;
+        try {
+            raw = openHttpConnectionToString(httpClientLongConnectTimeout, getHttpsUrl(true), path, query);
+        } catch (FileNotFoundException e) {
+            return null;
+        }
+        try {
+            return new JSONObject(raw);
+        } catch (JSONException e) {
+            throw new IOException("Malformed " + path + ": " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Play statistics for a week, month or year from the host's {@code /appstats} (a Vibepollo
+     * fork addition): the period's total and buckets, the top games, the library's totals and
+     * what SuccessStory unlocked. {@code offset} is 0 for the period under way, -1 for the one
+     * before, down to {@link AppStats#MIN_OFFSET}. Null when the host doesn't serve statistics.
+     */
+    public AppStats getAppStats(String range, int offset) throws IOException {
+        JSONObject json = getOptionalJson("appstats", "range=" + range + "&offset=" + offset);
+        return json == null ? null : AppStats.fromJson(json);
+    }
+
+    /** One game's play statistics from {@code /appstats?appuuid=}, or null when the host has none. */
+    public GameStats getGameStats(String appUuid) throws IOException {
+        JSONObject json = getOptionalJson("appstats", "appuuid=" + appUuid);
+        return json == null ? null : GameStats.fromJson(json);
+    }
+
+    /**
+     * Every achievement SuccessStory has for one game, from {@code /appachievements}, or null
+     * when it has none (or the host doesn't serve them).
+     */
+    public GameAchievements getAppAchievements(String appUuid) throws IOException {
+        JSONObject json = getOptionalJson("appachievements", "appuuid=" + appUuid);
+        return json == null ? null : GameAchievements.fromJson(json);
+    }
+
+    /**
+     * Achievements unlocked across every game after {@code sinceSeconds} (unix time; 0 for all),
+     * newest first, from {@code /appachievements/recent}. Only unlocks SuccessStory has a date
+     * for. Null when the host doesn't serve them.
+     */
+    public List<Achievement> getRecentAchievements(long sinceSeconds, int limit) throws IOException {
+        JSONObject json = getOptionalJson("appachievements/recent",
+                "since=" + Math.max(0, sinceSeconds) + "&limit=" + limit);
+        return json == null ? null : Json.achievements(json.optJSONArray("achievements"));
+    }
+
+    /**
+     * The bytes of an achievement icon SuccessStory keeps on the host's disk, given the
+     * host-relative {@code /appachievementicon?...} path an {@link Achievement} carries. Only that
+     * one path is accepted: the string comes from the host, and is not a licence to request
+     * anything else over the paired connection.
+     */
+    public InputStream getAchievementIcon(String hostPath) throws IOException {
+        String prefix = "/appachievementicon?";
+        if (hostPath == null || !hostPath.startsWith(prefix) || hostPath.indexOf('#') >= 0) {
+            throw new FileNotFoundException(String.valueOf(hostPath));
+        }
+        ResponseBody resp = openHttpConnection(httpClientLongConnectTimeout, getHttpsUrl(true),
+                "appachievementicon", hostPath.substring(prefix.length()), null);
+        return resp.byteStream();
     }
 
     /**

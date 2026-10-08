@@ -525,6 +525,15 @@
             android:summary="@string/summary_checkbox_host_audio"
             android:title="@string/title_checkbox_host_audio"
             app:iconSpaceReserved="false" />
+        <!-- The capture tool on the PC whose shortcuts the in-game menu presses. -->
+        <ListPreference
+            android:defaultValue="gamebar"
+            android:entries="@array/capture_tool_names"
+            android:entryValues="@array/capture_tool_values"
+            android:key="list_capture_tool"
+            android:summary="@string/summary_capture_tool"
+            android:title="@string/title_capture_tool"
+            app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
     <PreferenceCategory
