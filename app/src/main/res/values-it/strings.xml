@@ -305,4 +305,92 @@
     <string name="analogscroll_left">Stick analogico sinistro</string>
     <string name="title_enable_commit_text">Abilita input commit-text (swipe/voce)</string>
     <string name="summary_enable_commit_text">Invia al PC testi multi-carattere provenienti dalle tastiere software (scrittura a gesto, suggerimenti, dettatura vocale). Può causare problemi ai giochi che richiedono la pressione singola dei tasti.</string>
+
+    <string name="stats_this_week">Questa settimana</string>
+    <string name="stats_last_week">La settimana scorsa</string>
+    <string name="stats_untracked">Le partite sono registrate da quando il plugin Playnite di Vibepollo è stato aggiornato: per questo periodo non ci sono sessioni. Playnite tiene solo i totali, che trovi qui sotto.</string>
+    <string name="stats_untracked_since">Le partite sono registrate dal %1$s: per questo periodo non ci sono sessioni. Playnite tiene solo i totali, che trovi qui sotto.</string>
+    <string name="stats_than_week_running">della settimana scorsa a questo punto</string>
+    <string name="stats_than_week_done">della settimana prima</string>
+    <string name="stats_than_month_running">del mese scorso a questo punto</string>
+    <string name="stats_than_month_done">del mese prima</string>
+    <string name="stats_than_year_running">dell\'anno scorso a questo punto</string>
+    <string name="stats_than_year_done">dell\'anno prima</string>
+    <string name="stats_same">Come quelle %1$s</string>
+    <string name="stats_diff">%1$s rispetto a quelle %2$s</string>
+    <string name="stats_hours_total">%1$s h</string>
+    <string name="stats_bar_caption">%1$s · %2$s</string>
+    <string-array name="stats_weekdays">
+        <item>L</item>
+        <item>M</item>
+        <item>M</item>
+        <item>G</item>
+        <item>V</item>
+        <item>S</item>
+        <item>D</item>
+    </string-array>
+    <string-array name="stats_months">
+        <item>G</item>
+        <item>F</item>
+        <item>M</item>
+        <item>A</item>
+        <item>M</item>
+        <item>G</item>
+        <item>L</item>
+        <item>A</item>
+        <item>S</item>
+        <item>O</item>
+        <item>N</item>
+        <item>D</item>
+    </string-array>
+    <string name="stats_duration_minutes">%1$d min</string>
+    <string name="stats_duration_hours">%1$d h</string>
+    <string name="stats_duration_hours_minutes">%1$d h %2$02d</string>
+    <string name="stats_unlocked_label">Sbloccato</string>
+    <string name="stats_today_at">Oggi alle %1$s</string>
+    <string name="stats_yesterday_at">Ieri alle %1$s</string>
+    <string name="applist_menu_stats">Statistiche e obiettivi</string>
+    <string name="game_stats_loading">Caricamento…</string>
+    <string name="game_stats_nothing">Ancora nessuna statistica né obiettivo per questo gioco.</string>
+    <string name="game_stats_failed">Non riesco a raggiungere il PC.</string>
+    <string name="game_stats_total">in tutto</string>
+    <plurals name="game_stats_sessions">
+        <item quantity="one">sessione</item>
+        <item quantity="other">sessioni</item>
+    </plurals>
+    <string name="game_stats_launches">avvii</string>
+    <string name="game_stats_per_session">a sessione</string>
+    <string name="game_stats_per_launch">ad avvio</string>
+    <string name="game_stats_last_12_weeks">Ultime 12 settimane</string>
+    <string name="game_stats_this_week">%1$s questa</string>
+    <string name="game_stats_last_played">Ultima volta %1$s</string>
+    <string name="game_stats_last_played_for">Ultima volta %1$s, per %2$s</string>
+    <string name="game_stats_today">oggi</string>
+    <string name="game_stats_yesterday">ieri</string>
+    <plurals name="game_stats_days_ago">
+        <item quantity="one">%d giorno fa</item>
+        <item quantity="other">%d giorni fa</item>
+    </plurals>
+    <string name="game_stats_achievements_count">Obiettivi · %1$d/%2$d</string>
+    <string name="game_stats_see_all">Vedi tutti</string>
+    <string name="game_stats_latest">ultimo: %1$s</string>
+    <string name="game_stats_none_yet">ancora nessuno</string>
+    <string name="achievements_title">Obiettivi di %1$s</string>
+    <string name="achievements_count">%1$d di %2$d obiettivi</string>
+    <string name="achievements_count_score">%1$d di %2$d obiettivi · %3$d / %4$d G</string>
+    <string name="achievements_percent">%1$d%%</string>
+    <string name="achievements_percent_all">%1$d%% · tutti!</string>
+    <string name="achievements_filter_all">Tutti</string>
+    <string name="achievements_filter_unlocked">Sbloccati %1$d</string>
+    <string name="achievements_filter_locked">Da fare %1$d</string>
+    <string name="achievements_all_done">Niente da fare: li hai tutti.</string>
+    <string name="achievements_none_yet">Ancora nessuno: la prossima partita è quella buona.</string>
+    <string name="achievements_hidden">Obiettivo nascosto</string>
+    <string name="achievements_reveal">Selezionalo per scoprirlo</string>
+    <string name="achievements_refreshed">Da SuccessStory, aggiornato %1$s.</string>
+    <string name="achievements_rarity_ultra_rare">Rarissimo</string>
+    <string name="achievements_rarity_rare">Raro</string>
+    <string name="achievements_rarity_uncommon">Non comune</string>
+    <string name="achievements_of_players">%1$s%% dei giocatori</string>
+    <string name="achievements_gamerscore">%1$d G</string>
 </resources>

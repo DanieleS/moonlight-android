@@ -1,0 +1,267 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    One game's statistics and achievements, as CouchPilot's game sheet shows them: the hours, the
+    sessions and their average, the last twelve weeks, when it was last played, then how far along
+    its achievements are with the latest few. The achievements card opens the full list.
+    Drawn on the menu sheet's surface, so it reads as part of the same family.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/menu_sheet_bg"
+    android:orientation="vertical"
+    android:paddingStart="@dimen/menu_sheet_padding"
+    android:paddingEnd="@dimen/menu_sheet_padding"
+    android:paddingTop="14dp"
+    android:paddingBottom="@dimen/menu_sheet_padding">
+
+    <TextView
+        android:id="@+id/gameStatsTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="10dp"
+        android:ellipsize="end"
+        android:letterSpacing="0.16"
+        android:singleLine="true"
+        android:textAllCaps="true"
+        android:textColor="@color/content_muted"
+        android:textSize="12sp" />
+
+    <com.limelight.ui.MaxHeightScrollView
+        android:id="@+id/gameStatsScroll"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp">
+
+            <TextView
+                android:id="@+id/gameStatsStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:minHeight="96dp"
+                android:padding="16dp"
+                android:text="@string/game_stats_loading"
+                android:textColor="@color/content_muted"
+                android:textSize="14sp" />
+
+            <LinearLayout
+                android:id="@+id/gameStatsPlay"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:baselineAligned="false"
+                    android:orientation="horizontal"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/gameStatsTotal"
+                            style="@style/StatsFigure" />
+
+                        <TextView
+                            style="@style/StatsFigureLabel"
+                            android:text="@string/game_stats_total" />
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/gameStatsCount"
+                            style="@style/StatsFigure" />
+
+                        <TextView
+                            android:id="@+id/gameStatsCountLabel"
+                            style="@style/StatsFigureLabel" />
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/gameStatsAverageBlock"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/gameStatsAverage"
+                            style="@style/StatsFigure" />
+
+                        <TextView
+                            android:id="@+id/gameStatsAverageLabel"
+                            style="@style/StatsFigureLabel" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/gameStatsWeeks"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:orientation="vertical"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            style="@style/StatsEyebrow"
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:text="@string/game_stats_last_12_weeks" />
+
+                        <TextView
+                            android:id="@+id/gameStatsThisWeek"
+                            style="@style/StatsSmall" />
+
+                    </LinearLayout>
+
+                    <com.limelight.stats.StatsBarsView
+                        android:id="@+id/gameStatsSpark"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:layout_marginTop="6dp"
+                        android:contentDescription="@string/game_stats_last_12_weeks"
+                        android:focusable="false" />
+
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/gameStatsLast"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:textColor="@color/content_secondary"
+                    android:textSize="13sp" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/gameStatsAchievements"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="6dp"
+                    android:orientation="horizontal"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp">
+
+                    <TextView
+                        android:id="@+id/gameStatsAchievementsCount"
+                        style="@style/StatsEyebrow"
+                        android:layout_width="0dp"
+                        android:layout_weight="1" />
+
+                    <TextView
+                        style="@style/StatsSmall"
+                        android:text="@string/game_stats_see_all"
+                        android:textColor="@color/signal" />
+
+                </LinearLayout>
+
+                <!-- The whole card opens the list: one stop for the pad, one target for a finger. -->
+                <LinearLayout
+                    android:id="@+id/gameStatsAchievementsCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/menu_row_bg"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:orientation="vertical"
+                    android:padding="10dp">
+
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="6dp"
+                        android:background="@drawable/stats_meter_track">
+
+                        <View
+                            android:id="@+id/gameStatsAchievementsMeter"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:background="@drawable/stats_meter_fill_signal" />
+
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <LinearLayout
+                            android:id="@+id/gameStatsAchievementsIcons"
+                            android:layout_width="wrap_content"
+                            android:layout_height="40dp"
+                            android:orientation="horizontal" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
+                            android:layout_weight="1"
+                            android:gravity="end"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/gameStatsAchievementsPercent"
+                                style="@style/StatsFigure"
+                                android:textSize="20sp" />
+
+                            <TextView
+                                android:id="@+id/gameStatsAchievementsLatest"
+                                style="@style/StatsSmall"
+                                android:ellipsize="end"
+                                android:singleLine="true" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </com.limelight.ui.MaxHeightScrollView>
+
+</LinearLayout>

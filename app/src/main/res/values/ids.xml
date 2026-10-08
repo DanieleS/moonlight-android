@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- View tags that tie an image request to the view it is for, so a recycled view does not
+         end up showing the icon or cover meant for its previous occupant. -->
+    <item name="achievementIconUrl" type="id" />
+    <item name="coverAppUuid" type="id" />
+</resources>

@@ -846,4 +846,97 @@
     <string name="action_remote_session">Remote session</string>
     <string name="remote_session_monitor">Remote Monitor</string>
     <string name="remote_session_input">Remote Input</string>
+
+    <!-- Statistics, from Vibepollo's /appstats: CouchPilot's play statistics, with the
+         achievements SuccessStory keeps. -->
+    <string name="stats_this_week">This week</string>
+    <string name="stats_last_week">Last week</string>
+    <string name="stats_untracked">Sessions are logged since Vibepollo\'s Playnite plugin was updated, so there are none for this period. Playnite keeps only the totals, which you\'ll find below.</string>
+    <string name="stats_untracked_since">Sessions are logged since %1$s, so there are none for this period. Playnite keeps only the totals, which you\'ll find below.</string>
+    <!-- Compared with the period before: "+2h 10m vs last week at this point". -->
+    <string name="stats_than_week_running">last week at this point</string>
+    <string name="stats_than_week_done">the week before</string>
+    <string name="stats_than_month_running">last month at this point</string>
+    <string name="stats_than_month_done">the month before</string>
+    <string name="stats_than_year_running">last year at this point</string>
+    <string name="stats_than_year_done">the year before</string>
+    <string name="stats_same">Same as %1$s</string>
+    <string name="stats_diff">%1$s vs %2$s</string>
+    <string name="stats_hours_total">%1$s h</string>
+    <string name="stats_bar_caption">%1$s · %2$s</string>
+    <!-- Bars run Monday to Sunday, as the PC sends them; a year's are its months. -->
+    <string-array name="stats_weekdays">
+        <item>M</item>
+        <item>T</item>
+        <item>W</item>
+        <item>T</item>
+        <item>F</item>
+        <item>S</item>
+        <item>S</item>
+    </string-array>
+    <string-array name="stats_months">
+        <item>J</item>
+        <item>F</item>
+        <item>M</item>
+        <item>A</item>
+        <item>M</item>
+        <item>J</item>
+        <item>J</item>
+        <item>A</item>
+        <item>S</item>
+        <item>O</item>
+        <item>N</item>
+        <item>D</item>
+    </string-array>
+    <string name="stats_duration_minutes">%1$d min</string>
+    <string name="stats_duration_hours">%1$dh</string>
+    <string name="stats_duration_hours_minutes">%1$dh %2$02dm</string>
+    <string name="stats_unlocked_label">Unlocked</string>
+    <string name="stats_today_at">Today at %1$s</string>
+    <string name="stats_yesterday_at">Yesterday at %1$s</string>
+    <!-- A game's statistics and achievements, from the library's game menu. -->
+    <string name="applist_menu_stats">Stats &amp; achievements</string>
+    <string name="game_stats_loading">Loading…</string>
+    <string name="game_stats_nothing">No statistics or achievements for this game yet.</string>
+    <string name="game_stats_failed">Couldn\'t reach the PC.</string>
+    <string name="game_stats_total">in total</string>
+    <plurals name="game_stats_sessions">
+        <item quantity="one">session</item>
+        <item quantity="other">sessions</item>
+    </plurals>
+    <string name="game_stats_launches">launches</string>
+    <string name="game_stats_per_session">per session</string>
+    <string name="game_stats_per_launch">per launch</string>
+    <string name="game_stats_last_12_weeks">Last 12 weeks</string>
+    <string name="game_stats_this_week">%1$s this week</string>
+    <string name="game_stats_last_played">Last played %1$s</string>
+    <string name="game_stats_last_played_for">Last played %1$s, for %2$s</string>
+    <string name="game_stats_today">today</string>
+    <string name="game_stats_yesterday">yesterday</string>
+    <plurals name="game_stats_days_ago">
+        <item quantity="one">%d day ago</item>
+        <item quantity="other">%d days ago</item>
+    </plurals>
+    <string name="game_stats_achievements_count">Achievements · %1$d/%2$d</string>
+    <string name="game_stats_see_all">See all</string>
+    <string name="game_stats_latest">latest: %1$s</string>
+    <string name="game_stats_none_yet">none yet</string>
+    <string name="achievements_title">%1$s achievements</string>
+    <string name="achievements_count">%1$d of %2$d achievements</string>
+    <string name="achievements_count_score">%1$d of %2$d achievements · %3$d / %4$d G</string>
+    <string name="achievements_percent">%1$d%%</string>
+    <string name="achievements_percent_all">%1$d%% · all of them!</string>
+    <string name="achievements_filter_all">All</string>
+    <string name="achievements_filter_unlocked">Unlocked %1$d</string>
+    <string name="achievements_filter_locked">To do %1$d</string>
+    <string name="achievements_all_done">Nothing left: you have them all.</string>
+    <string name="achievements_none_yet">None yet: the next session is the one.</string>
+    <string name="achievements_hidden">Hidden achievement</string>
+    <string name="achievements_reveal">Select to reveal it</string>
+    <string name="achievements_refreshed">From SuccessStory, updated %1$s.</string>
+    <string name="achievements_rarity_ultra_rare">Ultra rare</string>
+    <string name="achievements_rarity_rare">Rare</string>
+    <string name="achievements_rarity_uncommon">Uncommon</string>
+    <string name="achievements_of_players">%1$s%% of players</string>
+    <string name="achievements_gamerscore">%1$d G</string>
 </resources>
