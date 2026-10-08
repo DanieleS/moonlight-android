@@ -55,6 +55,15 @@
             android:src="@drawable/ic_remote_session"
             android:visibility="gone" />
 
+        <!-- Play statistics and achievements, CouchPilot's, served by Vibepollo. Only shown
+             when the host answers /appstats. -->
+        <ImageButton
+            android:id="@+id/statsButton"
+            style="@style/TopBarAction"
+            android:contentDescription="@string/action_stats"
+            android:src="@drawable/ic_stats"
+            android:visibility="gone" />
+
         <!-- The order the games are listed in. Lives here rather than in a game's own menu,
              and so is reachable in the carousel too by revealing the bar. -->
         <ImageButton

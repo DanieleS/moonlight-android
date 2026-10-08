@@ -31,6 +31,7 @@ import com.limelight.profiles.ProfilesManager;
 import com.limelight.stats.GameStatsSheet;
 import com.limelight.stats.HostLink;
 import com.limelight.stats.HostSession;
+import com.limelight.stats.StatsActivity;
 import com.limelight.ui.AdapterFragment;
 import com.limelight.ui.AdapterFragmentCallbacks;
 import com.limelight.utils.CacheHelper;
@@ -444,6 +445,10 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         findViewById(R.id.remoteSessionButton)
             .setOnClickListener(v -> showRemoteSessionMenu());
 
+        // How much is played on this PC, where the host keeps count.
+        findViewById(R.id.statsButton)
+            .setOnClickListener(v -> openStats());
+
         // The library is a full-screen console surface: no system bars, and no app bar over
         // the carousel. The bar returns, and pushes the grid down, only in the grid.
         enterImmersive();
@@ -452,6 +457,7 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         refreshCompanionButton();
         refreshVirtualDisplayButton();
         refreshRemoteSessionButton();
+        refreshStatsButton();
 
         showHiddenApps = getIntent().getBooleanExtra(SHOW_HIDDEN_APPS_EXTRA, false);
         uuidString = getIntent().getStringExtra(UUID_EXTRA);
@@ -781,6 +787,25 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
 
     private void setStatsAvailable(boolean available) {
         statsAvailable = available;
+        refreshStatsButton();
+    }
+
+    private void refreshStatsButton() {
+        ImageButton statsButton = findViewById(R.id.statsButton);
+        if (statsButton == null) {
+            return;
+        }
+        statsButton.setVisibility(statsAvailable ? View.VISIBLE : View.GONE);
+    }
+
+    private void openStats() {
+        if (computer == null || managerBinder == null) {
+            return;
+        }
+        HostLink link = HostLink.of(computer, managerBinder.getUniqueId());
+        if (link != null) {
+            StatsActivity.start(this, link);
+        }
     }
 
     private void showGameStats(NvApp app) {

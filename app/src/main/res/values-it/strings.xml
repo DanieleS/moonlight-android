@@ -306,10 +306,21 @@
     <string name="title_enable_commit_text">Abilita input commit-text (swipe/voce)</string>
     <string name="summary_enable_commit_text">Invia al PC testi multi-carattere provenienti dalle tastiere software (scrittura a gesto, suggerimenti, dettatura vocale). Può causare problemi ai giochi che richiedono la pressione singola dei tasti.</string>
 
+    <string name="action_stats">Statistiche</string>
+    <string name="stats_title">Statistiche</string>
+    <string name="stats_back">Indietro</string>
+    <string name="stats_range_week">Settimana</string>
+    <string name="stats_range_month">Mese</string>
+    <string name="stats_range_year">Anno</string>
     <string name="stats_this_week">Questa settimana</string>
     <string name="stats_last_week">La settimana scorsa</string>
+    <string name="stats_failed_title">Non riesco a leggere le statistiche</string>
+    <string name="stats_failed_hint">Il PC non ha risposto. Premi A per riprovare.</string>
+    <string name="stats_previous">Periodo precedente</string>
+    <string name="stats_next">Periodo successivo</string>
     <string name="stats_untracked">Le partite sono registrate da quando il plugin Playnite di Vibepollo è stato aggiornato: per questo periodo non ci sono sessioni. Playnite tiene solo i totali, che trovi qui sotto.</string>
     <string name="stats_untracked_since">Le partite sono registrate dal %1$s: per questo periodo non ci sono sessioni. Playnite tiene solo i totali, che trovi qui sotto.</string>
+    <string name="stats_played">Giocate</string>
     <string name="stats_than_week_running">della settimana scorsa a questo punto</string>
     <string name="stats_than_week_done">della settimana prima</string>
     <string name="stats_than_month_running">del mese scorso a questo punto</string>
@@ -318,8 +329,33 @@
     <string name="stats_than_year_done">dell\'anno prima</string>
     <string name="stats_same">Come quelle %1$s</string>
     <string name="stats_diff">%1$s rispetto a quelle %2$s</string>
+    <plurals name="stats_sessions">
+        <item quantity="one">%d sessione</item>
+        <item quantity="other">%d sessioni</item>
+    </plurals>
+    <string name="stats_average">media %1$s</string>
+    <string name="stats_top">Più giocati</string>
+    <string name="stats_achievements">Obiettivi</string>
+    <string name="stats_from_successstory">da SuccessStory</string>
+    <plurals name="stats_unlocked">
+        <item quantity="one">sbloccato</item>
+        <item quantity="other">sbloccati</item>
+    </plurals>
+    <string name="stats_no_achievements">Niente in questo periodo.</string>
+    <string name="stats_library">Libreria</string>
+    <string name="stats_from_playnite">da Playnite</string>
     <string name="stats_hours_total">%1$s h</string>
+    <string name="stats_played_total">giocate in tutto</string>
+    <string name="stats_games">giochi, %1$s installati</string>
+    <string name="stats_never_played">installati e mai avviati</string>
+    <string name="stats_played_this_year">giocati quest\'anno</string>
+    <string name="stats_resume">Da riprendere</string>
+    <string name="stats_resume_hint">installati, fermi da 3 mesi</string>
+    <string name="stats_resume_detail">%1$s · %2$s</string>
+    <string name="stats_achievement_detail">%1$s · %2$s</string>
     <string name="stats_bar_caption">%1$s · %2$s</string>
+    <string name="stats_hint_period">Periodo</string>
+    <string name="stats_hint_range">Intervallo</string>
     <string-array name="stats_weekdays">
         <item>L</item>
         <item>M</item>
@@ -349,6 +385,8 @@
     <string name="stats_unlocked_label">Sbloccato</string>
     <string name="stats_today_at">Oggi alle %1$s</string>
     <string name="stats_yesterday_at">Ieri alle %1$s</string>
+    <string name="stats_bars_label">Tempo di gioco</string>
+    <string name="stats_bars_hint">Scegli una barra per il dettaglio</string>
     <string name="applist_menu_stats">Statistiche e obiettivi</string>
     <string name="game_stats_loading">Caricamento…</string>
     <string name="game_stats_nothing">Ancora nessuna statistica né obiettivo per questo gioco.</string>
