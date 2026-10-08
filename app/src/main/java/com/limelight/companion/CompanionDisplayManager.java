@@ -12,7 +12,9 @@ import android.view.Display;
 import android.view.WindowManager;
 
 import com.limelight.LimeLog;
+import com.limelight.nvstream.http.Achievement;
 import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.stats.HostSession;
 
 import java.util.List;
 
@@ -203,6 +205,16 @@ public class CompanionDisplayManager implements Application.ActivityLifecycleCal
     public static void hideMenu() {
         if (instance != null && instance.presentation != null) {
             instance.presentation.hideMenu();
+        }
+    }
+
+    /**
+     * Raise the "achievement unlocked" toast on the panel too, when one is up: with the companion
+     * showing, it is where the eye goes for anything that isn't the game itself.
+     */
+    public static void showAchievementToast(List<Achievement> fresh, HostSession session) {
+        if (instance != null && instance.presentation != null) {
+            instance.presentation.showAchievementToast(fresh, session);
         }
     }
 

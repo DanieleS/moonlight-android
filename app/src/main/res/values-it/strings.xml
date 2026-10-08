@@ -431,4 +431,10 @@
     <string name="achievements_rarity_uncommon">Non comune</string>
     <string name="achievements_of_players">%1$s%% dei giocatori</string>
     <string name="achievements_gamerscore">%1$d G</string>
+    <string name="achievement_toast_title">Obiettivo sbloccato</string>
+    <plurals name="achievement_toast_more">
+        <item quantity="one">+%d altro</item>
+        <item quantity="other">+%d altri</item>
+    </plurals>
+    <string name="achievement_toast_title_more">%1$s · %2$s</string>
 </resources>

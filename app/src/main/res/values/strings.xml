@@ -979,4 +979,11 @@
     <string name="achievements_rarity_uncommon">Uncommon</string>
     <string name="achievements_of_players">%1$s%% of players</string>
     <string name="achievements_gamerscore">%1$d G</string>
+    <!-- The toast for an achievement SuccessStory reports while, or just after, a game is streamed. -->
+    <string name="achievement_toast_title">Achievement unlocked</string>
+    <plurals name="achievement_toast_more">
+        <item quantity="one">+%d more</item>
+        <item quantity="other">+%d more</item>
+    </plurals>
+    <string name="achievement_toast_title_more">%1$s · %2$s</string>
 </resources>

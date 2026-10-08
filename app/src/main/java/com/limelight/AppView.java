@@ -28,6 +28,8 @@ import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.preferences.StreamSettings;
 import com.limelight.ui.MenuSheet;
 import com.limelight.profiles.ProfilesManager;
+import com.limelight.stats.AchievementToast;
+import com.limelight.stats.AchievementWatcher;
 import com.limelight.stats.GameStatsSheet;
 import com.limelight.stats.HostLink;
 import com.limelight.stats.HostSession;
@@ -62,6 +64,7 @@ import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.ContextMenu.ContextMenuInfo;
 import android.graphics.RenderEffect;
 import android.graphics.Shader;
@@ -140,6 +143,9 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
     private final java.util.HashMap<Integer, Bitmap> backgroundCache = new java.util.HashMap<>();
 
     private PreferenceConfiguration prefConfig;
+
+    // Long enough for SuccessStory to have read the game's new state once it closed.
+    private final static long AFTER_STREAM_CHECK_DELAY_MS = 4000;
 
     private final static int START_OR_RESUME_ID = 1;
     private final static int QUIT_ID = 2;
@@ -559,6 +565,9 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         inForeground = true;
         startComputerUpdates();
 
+        // Back from a stream: SuccessStory may only now have written what was unlocked in it.
+        checkAchievementsAfterStream();
+
         MaterialButton profilesButton = findViewById(R.id.profilesButton);
         // User report Samsung and Xiaomi devices have this problem
         // Why just these two brands have the most problems?
@@ -806,6 +815,27 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
         if (link != null) {
             StatsActivity.start(this, link);
         }
+    }
+
+    // SuccessStory usually refreshes a game's achievements when it closes, after the stream's
+    // last look; so the library looks once more, a few seconds after it comes back, and toasts
+    // whatever the stream did not already announce.
+    private void checkAchievementsAfterStream() {
+        HostSession session = getStatsSession();
+        if (session == null) {
+            return;
+        }
+        final long since = AchievementWatcher.takePendingCheck(uuidString);
+        if (since < 0) {
+            return;
+        }
+        findViewById(android.R.id.content).postDelayed(() ->
+                AchievementWatcher.checkOnce(session, since, fresh -> {
+                    View content = findViewById(android.R.id.content);
+                    if (!isFinishing() && content instanceof ViewGroup) {
+                        AchievementToast.show((ViewGroup) content, fresh, session);
+                    }
+                }), AFTER_STREAM_CHECK_DELAY_MS);
     }
 
     private void showGameStats(NvApp app) {
@@ -1441,6 +1471,8 @@ public class AppView extends AppCompatActivity implements AdapterFragmentCallbac
                 final boolean hasStats = stats;
                 runOnUiThread(() -> {
                     setStatsAvailable(hasStats);
+                    // A library recreated after a stream only gets here once it can reach the PC.
+                    checkAchievementsAfterStream();
                     appMetadata = fetched;
                     // The orders that rank by metadata were sorting on nothing until now.
                     appGridAdapter.setAppMetadata(fetched);

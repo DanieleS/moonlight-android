@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    "Achievement unlocked", raised over the stream or the library for a few seconds when
+    SuccessStory reports something new: the icon, the title with how many more came with it,
+    and the achievement and game beneath. It never takes focus, so the game keeps the pad.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="@drawable/achievement_toast_bg"
+    android:elevation="12dp"
+    android:focusable="false"
+    android:gravity="center_vertical"
+    android:minWidth="260dp"
+    android:orientation="horizontal"
+    android:padding="10dp">
+
+    <ImageView
+        android:id="@+id/achievementToastIcon"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:background="@drawable/stats_icon_bg"
+        android:importantForAccessibility="no"
+        android:scaleType="centerCrop" />
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="6dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/achievementToastTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="sans-serif-medium"
+            android:singleLine="true"
+            android:textColor="@color/signal"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/achievementToastDetail"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:ellipsize="end"
+            android:maxWidth="320dp"
+            android:singleLine="true"
+            android:textColor="@color/content_primary"
+            android:textSize="14sp" />
+
+    </LinearLayout>
+
+</LinearLayout>

@@ -4,4 +4,6 @@
          end up showing the icon or cover meant for its previous occupant. -->
     <item name="achievementIconUrl" type="id" />
     <item name="coverAppUuid" type="id" />
+    <!-- The unlock toast, so a newer one can find and replace the one still showing. -->
+    <item name="achievementToast" type="id" />
 </resources>

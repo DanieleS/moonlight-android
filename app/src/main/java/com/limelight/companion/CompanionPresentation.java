@@ -14,6 +14,7 @@ import android.util.DisplayMetrics;
 import android.view.Display;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebResourceRequest;
@@ -31,7 +32,10 @@ import android.widget.TextView;
 import com.limelight.LimeLog;
 import com.limelight.R;
 import com.limelight.binding.video.PerfStats;
+import com.limelight.nvstream.http.Achievement;
 import com.limelight.nvstream.http.AppMetadata;
+import com.limelight.stats.AchievementToast;
+import com.limelight.stats.HostSession;
 import com.limelight.ui.MaxHeightScrollView;
 
 import org.json.JSONObject;
@@ -693,6 +697,14 @@ public class CompanionPresentation extends android.app.Presentation
     // routes it here while the menu is up — moving the selection and activating a row through the
     // methods below. The selected row is marked activated rather than focused (there is no real
     // focus to give it), and the two wear the same ring.
+
+    /** The unlock toast, over whatever the panel shows, at its bottom centre. */
+    public void showAchievementToast(List<Achievement> fresh, HostSession session) {
+        View content = findViewById(android.R.id.content);
+        if (content instanceof ViewGroup) {
+            AchievementToast.show((ViewGroup) content, fresh, session);
+        }
+    }
 
     public boolean isMenuOpen() {
         return menuOverlay != null && menuOverlay.getVisibility() == View.VISIBLE;
