@@ -26,13 +26,15 @@ Ratatoskr's main addition over upstream Artemis is the library. When paired with
 5. Library sync to a folder that external scanning frontends can read.
 6. Play statistics, from the app bar: a week, month or year at a time with a chart per day or month,
    the most played games, the library's totals and the games worth picking up again, as
-   [CouchPilot](https://github.com/DanieleS/couchpilot) shows them. Vibepollo serves them from the
-   session log its Playnite plugin keeps (`/appstats`). Fully driven by a gamepad: the bumpers step
-   the period, X and Y the range.
+   [CouchPilot](https://github.com/DanieleS/couchpilot) shows them. Vibepollo serves them
+   (`/appstats`) from the sessions the
+   [GameActivity](https://github.com/Lacro59/playnite-gameactivity-plugin) Playnite extension
+   records; without it only Playnite's totals are there, and the screen says to install it. Fully
+   driven by a gamepad: the bumpers step the period, X and Y the range.
 7. Achievements, from what [SuccessStory](https://github.com/Lacro59/playnite-successstory-plugin)
    keeps on the PC (`/appachievements`): per game from its menu ("Stats & achievements", with the
-   hours, sessions and a twelve-week sparkline), in the statistics, and as a toast when one is
-   unlocked during a stream or reported just after it.
+   hours and launches, or with GameActivity the sessions and a twelve-week sparkline), in the
+   statistics, and as a toast when one is unlocked during a stream or reported just after it.
 8. Screenshot, "Save last 30 s" and recording from the in-game menu, through the PC's Game Bar or
    NVIDIA overlay shortcuts (stream setting "Capture tool").
 

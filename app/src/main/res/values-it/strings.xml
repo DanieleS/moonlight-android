@@ -318,8 +318,9 @@
     <string name="stats_failed_hint">Il PC non ha risposto. Premi A per riprovare.</string>
     <string name="stats_previous">Periodo precedente</string>
     <string name="stats_next">Periodo successivo</string>
-    <string name="stats_untracked">Le partite sono registrate da quando il plugin Playnite di Vibepollo è stato aggiornato: per questo periodo non ci sono sessioni. Playnite tiene solo i totali, che trovi qui sotto.</string>
-    <string name="stats_untracked_since">Le partite sono registrate dal %1$s: per questo periodo non ci sono sessioni. Playnite tiene solo i totali, che trovi qui sotto.</string>
+    <string name="stats_untracked">GameActivity non ha ancora sessioni: per questo periodo non ce ne sono. Playnite tiene solo i totali, che trovi qui sotto.</string>
+    <string name="stats_untracked_since">GameActivity ha sessioni dal %1$s: per questo periodo non ce ne sono. Playnite tiene solo i totali, che trovi qui sotto.</string>
+    <string name="stats_no_activity">Installa GameActivity in Playnite per vedere quando giochi: Playnite tiene solo i totali, che trovi qui sotto.</string>
     <string name="stats_played">Giocate</string>
     <string name="stats_than_week_running">della settimana scorsa a questo punto</string>
     <string name="stats_than_week_done">della settimana prima</string>

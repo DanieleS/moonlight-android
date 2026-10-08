@@ -25,6 +25,7 @@ import com.limelight.nvstream.http.Achievement;
 import com.limelight.nvstream.http.AppStats;
 import com.limelight.utils.UiHelper;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -343,7 +344,8 @@ public class StatsActivity extends AppCompatActivity {
         previousView.setAlpha(offset <= AppStats.MIN_OFFSET ? 0.25f : 1f);
         nextView.setAlpha(offset >= 0 ? 0.25f : 1f);
 
-        // Before the log started there is nothing to show by day; say so instead of zeros.
+        // Without GameActivity, or before its first session, there is nothing to show by day;
+        // say so instead of zeros.
         boolean tracked = s.isTracked();
         untrackedView.setVisibility(tracked ? View.GONE : View.VISIBLE);
         trackedView.setVisibility(tracked ? View.VISIBLE : View.GONE);
@@ -377,7 +379,7 @@ public class StatsActivity extends AppCompatActivity {
         } else {
             memo.restore(periodNav);
         }
-        // The chart goes away for a period before the log began; don't leave the pad nowhere.
+        // The chart goes away for a period GameActivity has nothing of; don't leave the pad nowhere.
         View focused = getCurrentFocus();
         if (focused == null || !focused.isShown()) {
             periodNav.requestFocus();
@@ -421,7 +423,8 @@ public class StatsActivity extends AppCompatActivity {
 
     private void bindTop(AppStats s) {
         topList.removeAllViews();
-        List<AppStats.TopGame> top = s.getTop();
+        // Without GameActivity the host sends none, but a list of zeros would be no better.
+        List<AppStats.TopGame> top = s.hasActivity() ? s.getTop() : Collections.<AppStats.TopGame>emptyList();
         topSection.setVisibility(top.isEmpty() ? View.GONE : View.VISIBLE);
         long max = 1;
         for (AppStats.TopGame g : top) {

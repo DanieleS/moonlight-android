@@ -847,8 +847,8 @@
     <string name="remote_session_monitor">Remote Monitor</string>
     <string name="remote_session_input">Remote Input</string>
 
-    <!-- Statistics, from Vibepollo's /appstats: CouchPilot's play statistics, with the
-         achievements SuccessStory keeps. -->
+    <!-- Statistics, from Vibepollo's /appstats: CouchPilot's play statistics, with the sessions
+         GameActivity records and the achievements SuccessStory keeps. -->
     <string name="action_stats">Statistics</string>
     <string name="stats_title">Statistics</string>
     <string name="stats_back">Back</string>
@@ -861,8 +861,10 @@
     <string name="stats_failed_hint">The PC didn\'t answer. Press A to try again.</string>
     <string name="stats_previous">Previous period</string>
     <string name="stats_next">Next period</string>
-    <string name="stats_untracked">Sessions are logged since Vibepollo\'s Playnite plugin was updated, so there are none for this period. Playnite keeps only the totals, which you\'ll find below.</string>
-    <string name="stats_untracked_since">Sessions are logged since %1$s, so there are none for this period. Playnite keeps only the totals, which you\'ll find below.</string>
+    <string name="stats_untracked">GameActivity has no sessions yet, so there are none for this period. Playnite keeps only the totals, which you\'ll find below.</string>
+    <string name="stats_untracked_since">GameActivity has sessions from %1$s, so there are none for this period. Playnite keeps only the totals, which you\'ll find below.</string>
+    <!-- The host found no data from the GameActivity Playnite extension, the one source of sessions. -->
+    <string name="stats_no_activity">Install GameActivity in Playnite to see when you play: Playnite itself keeps only totals, which you find below.</string>
     <string name="stats_played">Played</string>
     <!-- Compared with the period before: "+2h 10m vs last week at this point". -->
     <string name="stats_than_week_running">last week at this point</string>

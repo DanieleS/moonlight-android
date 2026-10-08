@@ -117,8 +117,14 @@ public class StatsText implements StatsFormat.Words {
         return res.getString(R.string.stats_diff, signed, thanText);
     }
 
-    /** What the log has to say about a period before it started. */
+    /**
+     * What to say instead of a period's figures: that GameActivity is missing, or that its
+     * sessions start after this period.
+     */
     public String untracked(AppStats s) {
+        if (!s.hasActivity()) {
+            return res.getString(R.string.stats_no_activity);
+        }
         Calendar since = Iso8601.parseDay(s.getTrackingSince());
         if (since == null) {
             return res.getString(R.string.stats_untracked);

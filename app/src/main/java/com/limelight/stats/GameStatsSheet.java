@@ -28,9 +28,9 @@ import java.util.List;
  *
  * <p>The play figures come from {@code /appstats?appuuid=} and the achievements from
  * {@code /appachievements}; either can be missing (a game SuccessStory doesn't follow, a game
- * never played since the log began) and the sheet shows whichever there is. Sessions only exist
- * since the session log started, while Playnite's totals always do, so the figures fall back to
- * launches when there are no sessions to count, as CouchPilot's do.
+ * GameActivity has no session of) and the sheet shows whichever there is. Sessions only exist
+ * where GameActivity recorded them, while Playnite's totals always do, so the figures fall back
+ * to launches, without the sparkline, when there are no sessions to count, as CouchPilot's do.
  */
 public final class GameStatsSheet {
     private static final int LATEST_ICONS = 5;
@@ -124,9 +124,11 @@ public final class GameStatsSheet {
         TextView count = panel.findViewById(R.id.gameStatsCount);
         TextView countLabel = panel.findViewById(R.id.gameStatsCountLabel);
         TextView average = panel.findViewById(R.id.gameStatsAverage);
+        // Without GameActivity the host reports no sessions; don't trust a stray count either.
+        boolean hasSessions = s.hasActivity() && s.getSessions() > 0;
         TextView averageLabel = panel.findViewById(R.id.gameStatsAverageLabel);
         View averageBlock = panel.findViewById(R.id.gameStatsAverageBlock);
-        if (s.getSessions() > 0) {
+        if (hasSessions) {
             count.setText(text.number(s.getSessions()));
             countLabel.setText(activity.getResources().getQuantityString(R.plurals.game_stats_sessions, s.getSessions()));
             average.setText(text.duration(s.getAverageSeconds()));
@@ -143,7 +145,7 @@ public final class GameStatsSheet {
         }
 
         View weeks = panel.findViewById(R.id.gameStatsWeeks);
-        if (s.getSessions() > 0) {
+        if (hasSessions) {
             long[] values = s.getWeeks();
             ((TextView) panel.findViewById(R.id.gameStatsThisWeek)).setText(
                     activity.getString(R.string.game_stats_this_week, text.duration(values[values.length - 1])));
@@ -154,15 +156,16 @@ public final class GameStatsSheet {
             weeks.setVisibility(View.GONE);
         }
 
-        // The last session the log has, or Playnite's last activity when the log has none.
+        // The last session GameActivity has, or Playnite's last activity when it has none.
         TextView last = panel.findViewById(R.id.gameStatsLast);
-        String when = s.hasLastSession() ? s.getLastSessionStart() : s.getLastActivity();
+        boolean lastSession = s.hasActivity() && s.hasLastSession();
+        String when = lastSession ? s.getLastSessionStart() : s.getLastActivity();
         long millis = Iso8601.parseMillis(when);
         if (millis == 0) {
             last.setVisibility(View.GONE);
         } else {
             String day = lastPlayedDay(activity, text, millis);
-            last.setText(s.hasLastSession()
+            last.setText(lastSession
                     ? activity.getString(R.string.game_stats_last_played_for, day, text.duration(s.getLastSessionSeconds()))
                     : activity.getString(R.string.game_stats_last_played, day));
         }
