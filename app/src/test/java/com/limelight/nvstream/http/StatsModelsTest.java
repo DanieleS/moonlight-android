@@ -23,7 +23,7 @@ public class StatsModelsTest {
 
     private static final String OVERVIEW = "{"
             + "\"range\":\"week\",\"offset\":-1,\"from\":\"2026-09-28\",\"to\":\"2026-10-05\","
-            + "\"today\":\"2026-10-08\",\"tracking_since\":\"2026-08-01\","
+            + "\"activity\":true,\"today\":\"2026-10-08\",\"tracking_since\":\"2026-08-01\","
             + "\"total_seconds\":12345,\"previous_total_seconds\":6000,\"previous_from\":\"2026-09-21\","
             + "\"sessions\":4,"
             + "\"buckets\":[{\"date\":\"2026-09-28\",\"seconds\":3600},{\"date\":\"2026-09-29\",\"seconds\":0}],"
@@ -41,6 +41,7 @@ public class StatsModelsTest {
     @Test
     public void parsesTheOverview() throws Exception {
         AppStats s = AppStats.fromJson(new JSONObject(OVERVIEW));
+        assertTrue(s.hasActivity());
         assertEquals("week", s.getRange());
         assertEquals(-1, s.getOffset());
         assertEquals("2026-09-28", s.getFrom());
@@ -87,6 +88,33 @@ public class StatsModelsTest {
     }
 
     @Test
+    public void anOlderHostWithoutTheFlagStillHasActivity() throws Exception {
+        JSONObject json = new JSONObject(OVERVIEW);
+        json.remove("activity");
+        AppStats s = AppStats.fromJson(json);
+        assertTrue(s.hasActivity());
+        assertTrue(s.isTracked());
+
+        json.put("activity", JSONObject.NULL);
+        assertTrue(AppStats.fromJson(json).hasActivity());
+    }
+
+    @Test
+    public void withoutGameActivityNothingIsTracked() throws Exception {
+        JSONObject json = new JSONObject(OVERVIEW);
+        json.put("activity", false);
+        AppStats s = AppStats.fromJson(json);
+        assertFalse(s.hasActivity());
+        // Even if a stray date came along, there is no period to show by day or compare.
+        assertFalse(s.isTracked());
+        assertFalse(s.isComparable());
+        // What comes from Playnite and SuccessStory is untouched.
+        assertEquals(120, s.getLibrary().getGames());
+        assertEquals("Celeste", s.getResume().get(0).getName());
+        assertNotNull(s.getAchievements());
+    }
+
+    @Test
     public void aPeriodUnderWayIsRunning() throws Exception {
         JSONObject json = new JSONObject(OVERVIEW);
         json.put("from", "2026-10-05").put("to", "2026-10-12").put("previous_from", "2026-09-28");
@@ -112,6 +140,8 @@ public class StatsModelsTest {
                 + "\"average_seconds\":1800,\"weeks\":[0,0,0,0,0,0,0,0,0,0,600,1200],"
                 + "\"last_session\":{\"start\":\"2026-10-07T20:00:00Z\",\"seconds\":3600},"
                 + "\"tracking_since\":\"2026-08-01\"}"));
+        // No flag, as an older host sends it: sessions are there.
+        assertTrue(g.hasActivity());
         assertEquals(36000, g.getPlaytimeSeconds());
         assertEquals(12, g.getPlayCount());
         assertEquals(5, g.getSessions());
@@ -133,6 +163,24 @@ public class StatsModelsTest {
         assertNull(g.getTrackingSince());
         // A short list is right-aligned: its last entry is still this week.
         assertArrayEquals(new long[]{0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3}, g.getWeeks());
+    }
+
+    @Test
+    public void aGameWithoutGameActivityKeepsPlayniteTotals() throws Exception {
+        GameStats g = GameStats.fromJson(new JSONObject("{\"uuid\":\"AAA\",\"activity\":false,"
+                + "\"playtime_seconds\":36000,\"play_count\":12,\"last_activity\":\"2026-10-07T21:00:00Z\","
+                + "\"sessions\":0,\"average_seconds\":0,\"weeks\":[0,0,0,0,0,0,0,0,0,0,0,0],"
+                + "\"last_session\":null,\"tracking_since\":null}"));
+        assertFalse(g.hasActivity());
+        assertEquals(36000, g.getPlaytimeSeconds());
+        assertEquals(12, g.getPlayCount());
+        assertEquals("2026-10-07T21:00:00Z", g.getLastActivity());
+        assertEquals(0, g.getSessions());
+        assertFalse(g.hasLastSession());
+        assertNull(g.getTrackingSince());
+        assertArrayEquals(new long[GameStats.WEEKS], g.getWeeks());
+
+        assertTrue(GameStats.fromJson(new JSONObject("{\"activity\":true}")).hasActivity());
     }
 
     @Test

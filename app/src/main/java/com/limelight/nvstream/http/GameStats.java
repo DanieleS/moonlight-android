@@ -5,12 +5,13 @@ import org.json.JSONObject;
 
 /**
  * One game's play statistics, as Vibepollo serves them from {@code /appstats?appuuid=}: Playnite's
- * totals (playtime, play count, last activity), and what the session log knows about its sessions
- * since the log began.
+ * totals (playtime, play count, last activity), and what the GameActivity Playnite extension
+ * recorded of its sessions.
  */
 public class GameStats {
     public static final int WEEKS = 12;
 
+    private final boolean activity;
     private final String uuid;
     private final long playtimeSeconds;
     private final long playCount;
@@ -22,9 +23,10 @@ public class GameStats {
     private final long lastSessionSeconds;
     private final String trackingSince;
 
-    private GameStats(String uuid, long playtimeSeconds, long playCount, String lastActivity, int sessions,
+    private GameStats(boolean activity, String uuid, long playtimeSeconds, long playCount, String lastActivity, int sessions,
                       long averageSeconds, long[] weeks, String lastSessionStart, long lastSessionSeconds,
                       String trackingSince) {
+        this.activity = activity;
         this.uuid = uuid;
         this.playtimeSeconds = playtimeSeconds;
         this.playCount = playCount;
@@ -51,6 +53,8 @@ public class GameStats {
 
         JSONObject last = obj.isNull("last_session") ? null : obj.optJSONObject("last_session");
         return new GameStats(
+                // Missing on hosts from before GameActivity, whose own session log is there.
+                Json.bool(obj, "activity", true),
                 Json.string(obj, "uuid", ""),
                 Json.longValue(obj, "playtime_seconds", 0),
                 Json.longValue(obj, "play_count", 0),
@@ -63,11 +67,19 @@ public class GameStats {
                 Json.string(obj, "tracking_since", null));
     }
 
+    /**
+     * Whether the host found GameActivity's data. Without it there are no sessions, average, weeks
+     * or last session, while Playnite's playtime, play count and last activity are still there.
+     */
+    public boolean hasActivity() {
+        return activity;
+    }
+
     public String getUuid() {
         return uuid;
     }
 
-    /** Playnite's total, which counts every session it ever saw, logged or not. */
+    /** Playnite's total, which counts every session it ever saw, recorded by GameActivity or not. */
     public long getPlaytimeSeconds() {
         return playtimeSeconds;
     }
@@ -81,7 +93,7 @@ public class GameStats {
         return lastActivity;
     }
 
-    /** Sessions in the log; 0 when the log started after the game was last played. */
+    /** Sessions GameActivity recorded; 0 when it has none of this game. */
     public int getSessions() {
         return sessions;
     }
@@ -99,7 +111,7 @@ public class GameStats {
         return lastSessionStart != null;
     }
 
-    /** ISO8601, or null when the log has no session of this game. */
+    /** ISO8601, or null when GameActivity has no session of this game. */
     public String getLastSessionStart() {
         return lastSessionStart;
     }

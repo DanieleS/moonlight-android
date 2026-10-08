@@ -8,8 +8,9 @@ import java.util.List;
 
 /**
  * How much has been played on the host over a week, a month or a year, as Vibepollo serves it from
- * {@code /appstats?range=&offset=}: the period's total and buckets from the session log the
- * Playnite connector keeps, the library's totals from Playnite, and what SuccessStory unlocked.
+ * {@code /appstats?range=&offset=}: the period's total and buckets from the sessions the
+ * GameActivity Playnite extension records, the library's totals from Playnite, and what
+ * SuccessStory unlocked.
  *
  * <p>The days ({@link #getFrom()}, {@link #getTo()}, {@link #getToday()} and the bucket dates) are
  * {@code yyyy-MM-dd} days of play in the PC's calendar, which run from 5:00 to 5:00; {@code to} is
@@ -154,6 +155,7 @@ public class AppStats {
         }
     }
 
+    private final boolean activity;
     private final String range;
     private final int offset;
     private final String from;
@@ -170,10 +172,11 @@ public class AppStats {
     private final List<ResumeGame> resume;
     private final Achievements achievements;
 
-    private AppStats(String range, int offset, String from, String to, String today, String trackingSince,
+    private AppStats(boolean activity, String range, int offset, String from, String to, String today, String trackingSince,
                      long totalSeconds, long previousTotalSeconds, String previousFrom, int sessions,
                      List<Bucket> buckets, List<TopGame> top, Library library, List<ResumeGame> resume,
                      Achievements achievements) {
+        this.activity = activity;
         this.range = range;
         this.offset = offset;
         this.from = from;
@@ -227,6 +230,8 @@ public class AppStats {
         }
 
         return new AppStats(
+                // Missing on hosts from before GameActivity, whose own session log is there.
+                Json.bool(obj, "activity", true),
                 Json.string(obj, "range", RANGE_WEEK),
                 Json.intValue(obj, "offset", 0),
                 Json.string(obj, "from", ""),
@@ -242,6 +247,15 @@ public class AppStats {
                 library,
                 Collections.unmodifiableList(resume),
                 achievements);
+    }
+
+    /**
+     * Whether the host found GameActivity's data. Without it there are no sessions at all: the
+     * period's figures are zeros and {@link #getTop()} is empty, while the library, the games to
+     * resume and the achievements, which come from Playnite and SuccessStory, are all there.
+     */
+    public boolean hasActivity() {
+        return activity;
     }
 
     public String getRange() {
@@ -264,7 +278,7 @@ public class AppStats {
         return today;
     }
 
-    /** The first day the session log has, or null when it has nothing yet. */
+    /** The day of the first session GameActivity has, or null when it has none. */
     public String getTrackingSince() {
         return trackingSince;
     }
@@ -316,18 +330,18 @@ public class AppStats {
     }
 
     /**
-     * Whether the session log reaches into this period at all. Before it started there is nothing
-     * to show by day, and saying so beats a chart of zeros.
+     * Whether GameActivity's sessions reach into this period at all. Before the first one there is
+     * nothing to show by day, and saying so beats a chart of zeros.
      */
     public boolean isTracked() {
-        return trackingSince != null && trackingSince.compareTo(to) < 0;
+        return activity && trackingSince != null && trackingSince.compareTo(to) < 0;
     }
 
     /**
      * Whether the comparison with the period before means anything: only when that period was
-     * logged in full, or the difference would be noise.
+     * recorded in full, or the difference would be noise.
      */
     public boolean isComparable() {
-        return trackingSince != null && trackingSince.compareTo(previousFrom) <= 0;
+        return activity && trackingSince != null && trackingSince.compareTo(previousFrom) <= 0;
     }
 }

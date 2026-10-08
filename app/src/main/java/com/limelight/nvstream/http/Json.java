@@ -50,6 +50,15 @@ final class Json {
         return value == null ? fallback : (int) Math.round(value);
     }
 
+    /** A boolean, or the fallback when the key is missing, null, or not a boolean. */
+    static boolean bool(JSONObject obj, String key, boolean fallback) {
+        if (obj == null || !obj.has(key) || obj.isNull(key)) {
+            return fallback;
+        }
+        Object value = obj.opt(key);
+        return value instanceof Boolean ? (Boolean) value : fallback;
+    }
+
     static List<JSONObject> objects(JSONArray array) {
         if (array == null || array.length() == 0) {
             return Collections.emptyList();
