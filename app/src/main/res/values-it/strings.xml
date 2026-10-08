@@ -437,4 +437,12 @@
         <item quantity="other">+%d altri</item>
     </plurals>
     <string name="achievement_toast_title_more">%1$s · %2$s</string>
+    <string name="title_capture_tool">Strumento di cattura</string>
+    <string name="summary_capture_tool">L\'app sul PC usata dalle voci di screenshot e registrazione del menu di gioco, premendo le sue scorciatoie da tastiera. Disattivato nasconde quelle voci.</string>
+    <string name="capture_tool_gamebar">Xbox Game Bar</string>
+    <string name="capture_tool_nvidia">NVIDIA (GeForce Experience, app NVIDIA)</string>
+    <string name="capture_tool_off">Disattivato</string>
+    <string name="game_menu_capture_screenshot">Screenshot</string>
+    <string name="game_menu_capture_replay">Salva gli ultimi 30 s</string>
+    <string name="game_menu_capture_record">Avvia/ferma registrazione</string>
 </resources>

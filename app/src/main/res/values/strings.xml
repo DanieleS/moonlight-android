@@ -986,4 +986,13 @@
         <item quantity="other">+%d more</item>
     </plurals>
     <string name="achievement_toast_title_more">%1$s · %2$s</string>
+    <!-- Captures from the in-game menu, through the PC's own capture tool. -->
+    <string name="title_capture_tool">Capture tool</string>
+    <string name="summary_capture_tool">The app on the PC that the in-game menu\'s screenshot and recording entries use, by pressing its keyboard shortcuts. Off hides those entries.</string>
+    <string name="capture_tool_gamebar">Xbox Game Bar</string>
+    <string name="capture_tool_nvidia">NVIDIA (GeForce Experience, NVIDIA app)</string>
+    <string name="capture_tool_off">Off</string>
+    <string name="game_menu_capture_screenshot">Screenshot</string>
+    <string name="game_menu_capture_replay">Save last 30 s</string>
+    <string name="game_menu_capture_record">Start/stop recording</string>
 </resources>

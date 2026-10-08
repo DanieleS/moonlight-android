@@ -16,6 +16,7 @@ import com.limelight.companion.CompanionDisplayManager;
 import com.limelight.companion.CompanionMenuItem;
 import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.ui.MenuSheet;
+import com.limelight.utils.CaptureTool;
 import com.limelight.utils.KeyConfigHelper;
 import com.limelight.utils.KeyMapper;
 
@@ -76,6 +77,13 @@ public class GameMenu implements Game.GameMenuCallbacks {
 
     private void sendKeys(short[] keys) {
         game.sendKeys(keys);
+    }
+
+    private void sendCapture(CaptureTool tool, CaptureTool.Action action) {
+        short[] keys = tool.keysFor(action);
+        if (keys != null) {
+            sendKeys(keys);
+        }
     }
 
     private void runWithGameFocus(Runnable runnable) {
@@ -314,6 +322,18 @@ public class GameMenu implements Game.GameMenuCallbacks {
             options.add(new MenuOption(getString(CompanionDisplayManager.isShowing()
                     ? R.string.game_menu_companion_hide : R.string.game_menu_companion_show),
                     CompanionDisplayManager::toggle));
+        }
+
+        // Captures, made by the PC's own capture tool: its shortcuts go out through the stream's
+        // keyboard, once the menu is gone and the game has focus again, as if pressed at the PC.
+        CaptureTool captureTool = PreferenceConfiguration.readPreferences(game).captureTool;
+        if (captureTool.isEnabled()) {
+            options.add(new MenuOption(getString(R.string.game_menu_capture_screenshot), true,
+                    () -> sendCapture(captureTool, CaptureTool.Action.SCREENSHOT)));
+            options.add(new MenuOption(getString(R.string.game_menu_capture_replay), true,
+                    () -> sendCapture(captureTool, CaptureTool.Action.SAVE_REPLAY)));
+            options.add(new MenuOption(getString(R.string.game_menu_capture_record), true,
+                    () -> sendCapture(captureTool, CaptureTool.Action.TOGGLE_RECORDING)));
         }
 
         options.add(new MenuOption(getString(R.string.game_menu_advanced), true,

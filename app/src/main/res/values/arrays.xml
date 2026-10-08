@@ -200,4 +200,15 @@
         <item>right</item>
     </string-array>
 
+    <!-- The capture tools the in-game menu can drive; see CaptureTool. -->
+    <string-array name="capture_tool_names">
+        <item>@string/capture_tool_gamebar</item>
+        <item>@string/capture_tool_nvidia</item>
+        <item>@string/capture_tool_off</item>
+    </string-array>
+    <string-array name="capture_tool_values" translatable="false">
+        <item>gamebar</item>
+        <item>nvidia</item>
+        <item>off</item>
+    </string-array>
 </resources>
