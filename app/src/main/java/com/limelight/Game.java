@@ -3956,6 +3956,9 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 (now - outageStartMs) + " ms");
         lastReconnectedAtMs = now;
         endReconnect();
+        // A "poor connection" warning belonged to the dead connection. The new one starts out
+        // okay and only reports a change, so it would never take that warning down.
+        notificationVisibilityBeforeReconnect = View.GONE;
         hideReconnectStatus();
 
         // The host is running a new session that has never seen our controllers
