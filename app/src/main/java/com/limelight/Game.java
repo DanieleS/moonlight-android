@@ -969,8 +969,13 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         //streamContainer.getHolder().addCallback(this);
 
         final Display streamDisplay = currentDisplay;
-        streamContainer.setOnSurfaceAvailable(() -> {
-            if (!attemptedConnection) {
+        // In the AI 3D render modes this is called on the GLSurfaceView's GL thread, which has no
+        // Looper for the refresh meter's Choreographer. Hop to the main thread, which also keeps
+        // attemptedConnection and refreshMeter in step with surfaceDestroyed().
+        streamContainer.setOnSurfaceAvailable(() -> runOnUiThread(() -> {
+            // The surface may have gone again before we got here (only 2D clears it). It calls
+            // back when it's back.
+            if (!attemptedConnection && streamContainer.getSurface() != null) {
                 attemptedConnection = true;
 
                 // Measure the display's actual refresh rate first, now that its mode is set, so the
@@ -986,7 +991,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                     startConnection(0);
                 }
             }
-        });
+        }));
 
         gameMenuCallbacks = new GameMenu(this);
 
