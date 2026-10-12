@@ -350,7 +350,8 @@ public class MoonBridge {
                                               int clientRefreshRateX100,
                                               byte[] riAesKey, byte[] riAesIv,
                                               int videoCapabilities,
-                                              int colorSpace, int colorRange);
+                                              int colorSpace, int colorRange,
+                                              int controlPeerTimeoutMs);
 
     public static native void stopConnection();
 
@@ -415,6 +416,10 @@ public class MoonBridge {
 
     // The RTT is in the top 32 bits, and the RTT variance is in the bottom 32 bits
     public static native long getEstimatedRttInfo();
+
+    // Milliseconds since anything last arrived from the host on the control stream, or -1 when
+    // the control stream is not connected
+    public static native int getControlStreamSilenceMs();
 
     public static native String getLaunchUrlQueryParameters();
 
