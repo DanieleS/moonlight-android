@@ -86,7 +86,7 @@ Ratatoskr carries the full Artemis feature set on top of upstream Moonlight, inc
 ## Building
 
 * Install Android Studio and the Android NDK.
-* Run `git submodule update --init --recursive` from within the repository.
+* Run `git submodule update --init --recursive` from within the repository. In a clone made before moonlight-common-c moved to DanieleS/moonlight-common-c, run `git submodule sync --recursive` first so the submodule fetches from the new URL.
 * Create a `local.properties` file in the repository root. Add an `ndk.dir=` property pointing at your NDK directory.
 * Build the APK using Android Studio or Gradle. The installable flavor is `nonRoot_game` (e.g. `./gradlew :app:assembleNonRoot_gameRelease`).
 
