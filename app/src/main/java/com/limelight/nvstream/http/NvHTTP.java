@@ -949,6 +949,59 @@ public class NvHTTP {
         return execute(call);
     }
 
+    /**
+     * Whether the host can change a running stream's bitrate, from {@code /api/abr/capabilities}
+     * (Vibepollo, and Sunshine forks that speak Moonlight V+'s ABR protocol). Vibepollo answers
+     * {@code {"supported":false,"features":["runtime_bitrate"]}}: it makes no bitrate decisions of
+     * its own, but takes them through {@code /bitrate}. False on hosts without the endpoint, and
+     * when the question can't be asked at all, since either way there is nothing to offer.
+     */
+    public boolean supportsRuntimeBitrate() {
+        JSONObject json;
+        try {
+            json = getOptionalJson("api/abr/capabilities", null);
+        } catch (IOException e) {
+            LimeLog.warning("ABR capabilities unavailable: " + e.getMessage());
+            return false;
+        }
+        if (json == null) {
+            return false;
+        }
+        if (json.optBoolean("supported", false)) {
+            // A host making its own decisions applies them through /bitrate too.
+            return true;
+        }
+        JSONArray features = json.optJSONArray("features");
+        if (features != null) {
+            for (int i = 0; i < features.length(); i++) {
+                if ("runtime_bitrate".equals(features.optString(i))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Change the encoder bitrate of this client's running stream, through the host's
+     * {@code /bitrate}. The number goes to the encoder as it is: see
+     * {@link com.limelight.bitrate.BitrateSteps#toEncoderKbps} for what to send.
+     *
+     * @return the bitrate the host applied, which is lower than asked when it hit the host's limit
+     * @throws FileNotFoundException on hosts without the endpoint
+     * @throws HostHttpResponseException when the host refused, e.g. 404 with no stream running for
+     *         this client
+     */
+    public int setRuntimeBitrate(int encoderKbps) throws IOException, XmlPullParserException {
+        String xmlStr = openHttpConnectionToString(httpClientLongConnectTimeout, getHttpsUrl(true),
+                "bitrate", "bitrate=" + encoderKbps);
+        try {
+            return Integer.parseInt(getXmlString(xmlStr, "bitrate", true).trim());
+        } catch (NumberFormatException e) {
+            throw new XmlPullParserException("Malformed bitrate response: " + e.getMessage());
+        }
+    }
+
     public LinkedList<NvApp> getAppList() throws HostHttpResponseException, IOException, XmlPullParserException {
         if (verbose) {
             // Use the raw function so the app list is printed
