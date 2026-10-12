@@ -37,6 +37,10 @@ Ratatoskr's main addition over upstream Artemis is the library. When paired with
    statistics, and as a toast when one is unlocked during a stream or reported just after it.
 8. Screenshot, "Save last 30 s" and recording from the in-game menu, through the PC's Game Bar or
    NVIDIA overlay shortcuts (stream setting "Capture tool").
+9. Reconnect after a network drop (advanced setting, off by default): the last frame stays on
+   screen while the Wi-Fi is gone, and the game comes back through the host's `/resume` once it
+   returns. To ride out longer drops without reconnecting at all, raise the "hold" time together
+   with the host's `ping_timeout`.
 
 Everything degrades gracefully on a stock Sunshine/Apollo host: with no metadata to rank by, the
 metadata-driven orders simply fall back to alphabetical, so the library still works — it just shows less.

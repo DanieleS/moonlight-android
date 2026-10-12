@@ -154,6 +154,11 @@
     <string name="delete_pc_msg">Are you sure you want to delete this PC?</string>
     <string name="slow_connection_msg">Slow connection to PC\nReduce your bitrate</string>
     <string name="poor_connection_msg">Poor connection to PC</string>
+    <string name="reconnect_waiting_msg">Network lost, waiting for the PC… %1$d s</string>
+    <string name="reconnect_reconnecting_msg">Connection lost, reconnecting… %1$d s</string>
+    <string name="reconnect_failed_msg">The connection could not be restored within %1$d seconds.</string>
+    <string name="reconnect_failed_no_session_msg">The game is no longer running on the PC, so there was nothing to reconnect to.</string>
+    <string name="reconnect_failed_refused_msg">The PC refused to resume the session (error %1$d).</string>
     <string name="perf_overlay_streamdetails">Video stream: %1$s %2$.2f FPS</string>
     <string name="perf_overlay_decoder">Decoder: %1$s</string>
     <string name="perf_overlay_incomingfps">Incoming frame rate from network: %1$.2f FPS</string>
@@ -341,6 +346,13 @@
     <string name="summary_full_range">This will cause loss of detail in light and dark areas if your device doesn\'t properly display full range video content.</string>
     <string name="title_prevent_packet_loss">Prevent Packet Loss</string>
     <string name="summary_prevent_packet_loss">For devices that have packet loss for unknown reasons, you can try to enable this option.</string>
+    <string name="title_auto_reconnect">Reconnect after a network drop</string>
+    <string name="summary_auto_reconnect">When the Wi-Fi drops, keep the last frame on screen and resume the game once the network is back, instead of ending the stream</string>
+    <string name="title_network_timeout">Hold a silent connection for</string>
+    <string name="summary_network_timeout">How long the stream waits for the PC to be heard from again before it counts the connection as lost and reconnects. The PC gives up after its own ping_timeout (10 s by default): raise both to ride out longer drops without reconnecting</string>
+    <string name="title_reconnect_window">Keep trying to reconnect for</string>
+    <string name="summary_reconnect_window">How long to keep trying to resume the game once the connection is lost</string>
+    <string name="suffix_seconds">s</string>
     <string name="title_enable_perf_overlay">Show performance stats while streaming</string>
     <string name="summary_enable_perf_overlay">Display real-time stream performance information while streaming</string>
     <string name="title_enable_post_stream_toast">Show latency message after streaming</string>

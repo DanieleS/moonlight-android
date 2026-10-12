@@ -25,6 +25,7 @@ import com.limelight.binding.input.virtual_controller.VirtualController;
 import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardController;
 import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardLayoutController;
 import com.limelight.binding.video.CrashListener;
+import com.limelight.binding.video.DecoderParking;
 import com.limelight.binding.video.MediaCodecDecoderRenderer;
 import com.limelight.binding.video.MediaCodecHelper;
 import com.limelight.binding.video.PerfOverlayListener;
@@ -39,6 +40,7 @@ import com.limelight.stats.AchievementWatcher;
 import com.limelight.stats.HostSession;
 import com.limelight.nvstream.NvConnection;
 import com.limelight.nvstream.NvConnectionListener;
+import com.limelight.nvstream.ReconnectPolicy;
 import com.limelight.nvstream.StreamConfiguration;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
@@ -87,12 +89,14 @@ import android.hardware.display.DisplayManager;
 import android.hardware.input.InputManager;
 import android.media.AudioManager;
 import android.net.ConnectivityManager;
+import android.net.Network;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.PersistableBundle;
+import android.os.SystemClock;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.util.Rational;
@@ -130,6 +134,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Random;
 import java.util.Queue;
 import java.util.ArrayDeque;
 
@@ -289,6 +294,11 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     private MediaCodecDecoderRenderer decoderRenderer;
     private boolean reportedCrash;
+    // What the decoder was built with in onCreate, so a reconnect attempt builds the same one
+    private boolean decoderNetworkMetered;
+    private boolean decoderWillStreamHdr;
+    private boolean decoderInvertResolution;
+    private String decoderGlRenderer;
 
     private WifiManager.WifiLock highPerfWifiLock;
     private WifiManager.WifiLock lowLatencyWifiLock;
@@ -399,6 +409,71 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             MoonBridge.sendEmptyPayload();
         }
     };
+
+    // Builds the video decoder: once in onCreate, and again for every reconnect attempt, since a
+    // renderer that has been stopped cannot be started again.
+    private MediaCodecDecoderRenderer createDecoderRenderer() {
+        MediaCodecDecoderRenderer renderer = new MediaCodecDecoderRenderer(
+                this,
+                prefConfig,
+                new CrashListener() {
+                    @Override
+                    public void notifyCrash(Exception e) {
+                        // The MediaCodec instance is going down due to a crash
+                        // let's tell the user something when they open the app again
+
+                        // We must use commit because the app will crash when we return from this function
+                        tombstonePrefs.edit().putInt("CrashCount", tombstonePrefs.getInt("CrashCount", 0) + 1).commit();
+                        reportedCrash = true;
+                    }
+                },
+                tombstonePrefs.getInt("CrashCount", 0),
+                decoderNetworkMetered,
+                decoderWillStreamHdr,
+                decoderInvertResolution,
+                decoderGlRenderer,
+                this);
+
+        // The renderer seeds itself from the perf overlay preference, which says nothing about
+        // the companion. Tell it who is really watching.
+        renderer.setPerfStatsRequested(statsVisible);
+
+// --- Force tight thresholds (prefConfig.forceTightThresholds) ---
+        try {
+            boolean forceTight = false;
+            if (prefConfig != null) {
+                try {
+                    java.lang.reflect.Field f = prefConfig.getClass().getDeclaredField("forceTightThresholds");
+                    f.setAccessible(true);
+                    Object v = f.get(prefConfig);
+                    if (v instanceof Boolean) forceTight = (Boolean) v;
+                } catch (Throwable ignored) {}
+            }
+            try { renderer.setForceTightThresholds(forceTight); } catch (Throwable ignored) {}
+            if (forceTight) {
+                LimeLog.info("ForceTightThresholds enabled: using vsync-based thresholds on all devices");
+            }
+        } catch (Throwable ignored) {}
+
+// --- latency profile selection ---
+        try {
+            if (prefConfig != null && prefConfig.preferLowerDelays) {
+                // Intermediate: more responsive than Balanced but not 0 µs
+                renderer.setPreferLowerDelays(true);
+                renderer.setPreferLowerDelaysTimeoutUs(500);  // 0.5 ms
+                prefConfig.framePacing = PreferenceConfiguration.FRAME_PACING_BALANCED;
+                LimeLog.info("PreferLowerDelays: preferLowerDelays=true, timeout=500us, pacing=BALANCED");
+            } else {
+                // Balanced default
+                renderer.setPreferLowerDelays(false);
+                renderer.setPreferLowerDelaysTimeoutUs(2000); // 2 ms
+                prefConfig.framePacing = PreferenceConfiguration.FRAME_PACING_BALANCED;
+                LimeLog.info("Balanced: preferLowerDelays=false, timeout=2000us, pacing=BALANCED");
+            }
+        } catch (Throwable ignored) {}
+
+        return renderer;
+    }
 
     @SuppressLint({"MissingInflatedId", "ClickableViewAccessibility"})
     @Override
@@ -732,64 +807,12 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             }
         }
 
-        decoderRenderer = new MediaCodecDecoderRenderer(
-                this,
-                prefConfig,
-                new CrashListener() {
-                    @Override
-                    public void notifyCrash(Exception e) {
-                        // The MediaCodec instance is going down due to a crash
-                        // let's tell the user something when they open the app again
-
-                        // We must use commit because the app will crash when we return from this function
-                        tombstonePrefs.edit().putInt("CrashCount", tombstonePrefs.getInt("CrashCount", 0) + 1).commit();
-                        reportedCrash = true;
-                    }
-                },
-                tombstonePrefs.getInt("CrashCount", 0),
-                connMgr.isActiveNetworkMetered(),
-                willStreamHdr,
-                shouldInvertDecoderResolution,
-                glPrefs.glRenderer,
-                this);
-
-        // The renderer seeds itself from the perf overlay preference, which says nothing about
-        // the companion. Tell it who is really watching.
-        decoderRenderer.setPerfStatsRequested(statsVisible);
-
-// --- Force tight thresholds (prefConfig.forceTightThresholds) ---
-        try {
-            boolean forceTight = false;
-            if (prefConfig != null) {
-                try {
-                    java.lang.reflect.Field f = prefConfig.getClass().getDeclaredField("forceTightThresholds");
-                    f.setAccessible(true);
-                    Object v = f.get(prefConfig);
-                    if (v instanceof Boolean) forceTight = (Boolean) v;
-                } catch (Throwable ignored) {}
-            }
-            try { decoderRenderer.setForceTightThresholds(forceTight); } catch (Throwable ignored) {}
-            if (forceTight) {
-                LimeLog.info("ForceTightThresholds enabled: using vsync-based thresholds on all devices");
-            }
-        } catch (Throwable ignored) {}
-
-// --- latency profile selection ---
-        try {
-            if (prefConfig != null && prefConfig.preferLowerDelays) {
-                // Intermediate: more responsive than Balanced but not 0 µs
-                decoderRenderer.setPreferLowerDelays(true);
-                decoderRenderer.setPreferLowerDelaysTimeoutUs(500);  // 0.5 ms
-                prefConfig.framePacing = PreferenceConfiguration.FRAME_PACING_BALANCED;
-                LimeLog.info("PreferLowerDelays: preferLowerDelays=true, timeout=500us, pacing=BALANCED");
-            } else {
-                // Balanced default
-                decoderRenderer.setPreferLowerDelays(false);
-                decoderRenderer.setPreferLowerDelaysTimeoutUs(2000); // 2 ms
-                prefConfig.framePacing = PreferenceConfiguration.FRAME_PACING_BALANCED;
-                LimeLog.info("Balanced: preferLowerDelays=false, timeout=2000us, pacing=BALANCED");
-            }
-        } catch (Throwable ignored) {}
+        // Kept for createDecoderRenderer(), which also builds the decoder of each reconnect attempt
+        decoderNetworkMetered = connMgr.isActiveNetworkMetered();
+        decoderWillStreamHdr = willStreamHdr;
+        decoderInvertResolution = shouldInvertDecoderResolution;
+        decoderGlRenderer = glPrefs.glRenderer;
+        decoderRenderer = createDecoderRenderer();
 
 // Don't stream HDR if the decoder can't support it
         if (willStreamHdr && !decoderRenderer.isHevcMain10Hdr10Supported() && !decoderRenderer.isAv1Main10Supported()) {
@@ -886,6 +909,9 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 .setColorSpace(decoderRenderer.getPreferredColorSpace())
                 .setColorRange(decoderRenderer.getPreferredColorRange())
                 .setPersistGamepadsAfterDisconnect(!prefConfig.multiController)
+                // With auto-reconnect on, a silent connection is held as long as the user asked
+                // before it counts as lost; otherwise moonlight-common-c's default applies
+                .setControlPeerTimeoutMs(prefConfig.autoReconnect ? prefConfig.networkTimeoutSeconds * 1000 : 0)
                 .build();
 
         // Initialize the connection
@@ -1800,6 +1826,12 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
         instance = null;
         timerHandler.removeCallbacksAndMessages(null);
+
+        // Nothing is left to reconnect: give back a decoder kept for it
+        stopNetworkWatch();
+        if (decoderParking != null) {
+            decoderParking.close("the stream screen closed");
+        }
 
         // The stream is over: send the companion back to its idle surface, and stop routing our
         // menu button to a screen that is going away.
@@ -3656,8 +3688,339 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     public void stageComplete(String stage) {
     }
 
+    // --- Auto-reconnect (opt-in: prefConfig.autoReconnect) ---
+    //
+    // While streaming, a watchdog polls how long the control stream has heard nothing from the
+    // host, and says so on screen once the network goes quiet. If the connection then dies of that
+    // drop (ReconnectPolicy.isNetworkDrop), the stream screen stays: the dead connection is stopped
+    // with its decoder parked (DecoderParking), so the last frame stays on screen, and the same
+    // NvConnection is started again as a reconnect attempt, which only ever /resumes the game still
+    // running on the host. Attempts back off, or start at once when Android reports a network,
+    // until one gets through or the reconnect window runs out. Then the usual "connection
+    // terminated" dialog takes over.
+
+    private static final int SILENCE_WATCHDOG_PERIOD_MS = 500;
+    private static final int RECONNECT_TICK_MS = 1000;
+
+    private long silenceStartMs;        // elapsedRealtime() when the control stream went quiet, 0 = not quiet
+    private long networkLostAtMs;       // elapsedRealtime() when Android last lost the network, 0 = never
+    private boolean reconnecting;       // a reconnect is under way
+    private boolean deadConnectionStopped; // the connection that dropped has been stopped; attempts may start
+    // An attempt's NvConnection.start() has not reported back yet. Read on the connection thread.
+    private volatile boolean reconnectAttemptInFlight;
+    private int reconnectAttempt;       // attempts made in this reconnect
+    private int reconnectCause;         // the termination code that started it
+    private long outageStartMs;         // when the connection was lost (see ReconnectPolicy.outageStartMs)
+    private long lastReconnectedAtMs;   // when a reconnect last brought the stream back, 0 = never
+    private DecoderParking decoderParking;
+    private boolean reconnectStatusShown;
+    private CharSequence notificationTextBeforeReconnect;
+    private int notificationVisibilityBeforeReconnect;
+    private ConnectivityManager.NetworkCallback reconnectNetworkCallback;
+    private final Random reconnectRandom = new Random();
+
+    private final Runnable silenceWatchdog = new Runnable() {
+        @Override
+        public void run() {
+            if (!connected) {
+                return;
+            }
+            checkControlStreamSilence();
+            timerHandler.postDelayed(this, SILENCE_WATCHDOG_PERIOD_MS);
+        }
+    };
+
+    private void checkControlStreamSilence() {
+        int silenceMs = MoonBridge.getControlStreamSilenceMs();
+        long now = SystemClock.elapsedRealtime();
+        if (silenceMs >= ReconnectPolicy.SILENCE_THRESHOLD_MS) {
+            if (silenceStartMs == 0) {
+                silenceStartMs = now - silenceMs;
+                LimeLog.info("Reconnect: no word from the host for " + silenceMs + " ms");
+            }
+            showReconnectStatus(getString(R.string.reconnect_waiting_msg, (int) ((now - silenceStartMs) / 1000)));
+        }
+        else if (silenceMs >= 0 && silenceStartMs != 0) {
+            LimeLog.info("Reconnect: the host is back after " + (now - silenceStartMs) + " ms of silence");
+            silenceStartMs = 0;
+            hideReconnectStatus();
+        }
+    }
+
+    // The reconnect status borrows the notification overlay that otherwise says the connection is
+    // poor; whatever that had to say comes back when the status goes.
+    private void showReconnectStatus(String text) {
+        if (!reconnectStatusShown) {
+            reconnectStatusShown = true;
+            notificationTextBeforeReconnect = notificationOverlayView.getText();
+            notificationVisibilityBeforeReconnect = requestedNotificationOverlayVisibility;
+        }
+        notificationOverlayView.setText(text);
+        requestedNotificationOverlayVisibility = View.VISIBLE;
+        if (!isHidingOverlays) {
+            notificationOverlayView.setVisibility(View.VISIBLE);
+        }
+    }
+
+    private void hideReconnectStatus() {
+        if (!reconnectStatusShown) {
+            return;
+        }
+        reconnectStatusShown = false;
+        notificationOverlayView.setText(notificationTextBeforeReconnect);
+        requestedNotificationOverlayVisibility = notificationVisibilityBeforeReconnect;
+        if (!isHidingOverlays) {
+            notificationOverlayView.setVisibility(requestedNotificationOverlayVisibility);
+        }
+    }
+
+    // Android's view of the network: a loss explains a socket error that comes with it, and a
+    // network coming back during a reconnect is the moment to try again
+    private void startNetworkWatch() {
+        if (reconnectNetworkCallback != null || Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+            return;
+        }
+        ConnectivityManager connMgr = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        reconnectNetworkCallback = new ConnectivityManager.NetworkCallback() {
+            @Override
+            public void onAvailable(Network network) {
+                runOnUiThread(() -> {
+                    if (reconnecting && deadConnectionStopped && !reconnectAttemptInFlight) {
+                        LimeLog.info("Reconnect: a network is available, trying now");
+                        timerHandler.removeCallbacks(reconnectAttemptRunnable);
+                        timerHandler.post(reconnectAttemptRunnable);
+                    }
+                });
+            }
+
+            @Override
+            public void onLost(Network network) {
+                runOnUiThread(() -> {
+                    LimeLog.info("Reconnect: Android lost the network");
+                    networkLostAtMs = SystemClock.elapsedRealtime();
+                });
+            }
+        };
+        try {
+            connMgr.registerDefaultNetworkCallback(reconnectNetworkCallback);
+        } catch (RuntimeException e) {
+            LimeLog.warning("Reconnect: cannot follow the network: " + e);
+            reconnectNetworkCallback = null;
+        }
+    }
+
+    private void stopNetworkWatch() {
+        if (reconnectNetworkCallback == null) {
+            return;
+        }
+        ConnectivityManager connMgr = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        try {
+            connMgr.unregisterNetworkCallback(reconnectNetworkCallback);
+        } catch (RuntimeException e) {
+            // Already gone
+        }
+        reconnectNetworkCallback = null;
+    }
+
+    // UI thread, first thing when a live stream ends. Returns true when the end is a network drop
+    // that a reconnect now takes care of, so the caller leaves the stream screen as it is.
+    private boolean maybeStartReconnect(int errorCode) {
+        if (!prefConfig.autoReconnect || !connected || reconnecting || displayedFailureDialog || isFinishing()) {
+            return false;
+        }
+
+        long now = SystemClock.elapsedRealtime();
+        boolean networkTrouble = ReconnectPolicy.hadNetworkTrouble(silenceStartMs, networkLostAtMs, now);
+        if (!ReconnectPolicy.isNetworkDrop(errorCode, networkTrouble)) {
+            LimeLog.info("Reconnect: not a network drop (error " + errorCode + ", network trouble: " + networkTrouble + ")");
+            return false;
+        }
+
+        long outageStart = ReconnectPolicy.outageStartMs(now, lastReconnectedAtMs, outageStartMs);
+        if (!ReconnectPolicy.withinWindow(now - outageStart, prefConfig.reconnectWindowSeconds)) {
+            LimeLog.info("Reconnect: the network keeps dropping, not trying again");
+            return false;
+        }
+
+        Surface surface = streamContainer.getSurface();
+        if (surface == null || !surface.isValid()) {
+            return false;
+        }
+
+        LimeLog.info("Reconnect: connection lost (error " + errorCode + "), reconnecting");
+        reconnecting = true;
+        deadConnectionStopped = false;
+        reconnectAttempt = 0;
+        reconnectCause = errorCode;
+        outageStartMs = outageStart;
+        connected = false;
+        updatePipAutoEnter();
+        timerHandler.removeCallbacks(silenceWatchdog);
+        silenceStartMs = 0;
+        showReconnectStatus(getString(R.string.reconnect_reconnecting_msg, (int) ((now - outageStartMs) / 1000)));
+        timerHandler.post(reconnectTick);
+
+        // The dead connection's decoder cleanup parks the codec instead of releasing it, so the
+        // last frame stays on screen and the next connection carries on with it
+        if (decoderParking == null) {
+            decoderParking = new DecoderParking();
+        }
+        decoderParking.open();
+        decoderRenderer.setDecoderParking(decoderParking);
+
+        // Stop the dead connection off the UI thread, as stopConnection() does, then try again
+        new Thread() {
+            public void run() {
+                conn.stop();
+                runOnUiThread(() -> {
+                    deadConnectionStopped = true;
+                    scheduleReconnectAttempt();
+                });
+            }
+        }.start();
+        return true;
+    }
+
+    private void scheduleReconnectAttempt() {
+        if (!reconnecting) {
+            return;
+        }
+        long delay = ReconnectPolicy.retryDelayMs(reconnectAttempt + 1, reconnectRandom.nextDouble());
+        timerHandler.removeCallbacks(reconnectAttemptRunnable);
+        timerHandler.postDelayed(reconnectAttemptRunnable, delay);
+    }
+
+    // One attempt: a fresh decoder renderer on the same surface (it takes the parked codec), and
+    // the same NvConnection started again
+    private final Runnable reconnectAttemptRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (!reconnecting || !deadConnectionStopped || reconnectAttemptInFlight) {
+                return;
+            }
+            Surface surface = streamContainer.getSurface();
+            if (surface == null || !surface.isValid()) {
+                giveUpReconnect(0);
+                return;
+            }
+
+            reconnectAttempt++;
+            reconnectAttemptInFlight = true;
+            LimeLog.info("Reconnect: attempt " + reconnectAttempt + " after " +
+                    (SystemClock.elapsedRealtime() - outageStartMs) + " ms");
+
+            decoderRenderer = createDecoderRenderer();
+            decoderRenderer.setRenderTarget(surface);
+            decoderRenderer.setDecoderParking(decoderParking);
+            conn.setReconnectAttempt(true);
+            conn.start(new AndroidAudioRenderer(Game.this, prefConfig.playHostAudio),
+                    decoderRenderer, Game.this);
+        }
+    };
+
+    // The countdown on screen, and the end of the reconnect window
+    private final Runnable reconnectTick = new Runnable() {
+        @Override
+        public void run() {
+            if (!reconnecting) {
+                return;
+            }
+            long elapsed = SystemClock.elapsedRealtime() - outageStartMs;
+            if (!ReconnectPolicy.withinWindow(elapsed, prefConfig.reconnectWindowSeconds)) {
+                giveUpReconnect(0);
+                return;
+            }
+            showReconnectStatus(getString(R.string.reconnect_reconnecting_msg, (int) (elapsed / 1000)));
+            timerHandler.postDelayed(this, RECONNECT_TICK_MS);
+        }
+    };
+
+    // UI thread: an attempt failed before the stream came back
+    private void onReconnectAttemptFailed(int errorCode) {
+        reconnectAttemptInFlight = false;
+        if (!reconnecting) {
+            // An attempt that outlived its reconnect; NvConnection has already let go of the core
+            return;
+        }
+        if (ReconnectPolicy.isAttemptFailureFinal(errorCode)) {
+            giveUpReconnect(errorCode);
+            return;
+        }
+        scheduleReconnectAttempt();
+    }
+
+    // UI thread: an attempt brought the stream back
+    private void finishReconnect() {
+        long now = SystemClock.elapsedRealtime();
+        LimeLog.info("Reconnect: the stream is back after " + reconnectAttempt + " attempt(s) and " +
+                (now - outageStartMs) + " ms");
+        lastReconnectedAtMs = now;
+        endReconnect();
+        hideReconnectStatus();
+
+        // The host is running a new session that has never seen our controllers
+        controllerHandler.reannounceControllers();
+    }
+
+    // UI thread: the reconnect ends, whichever way. An attempt still running is left to finish on
+    // its own and dealt with where it reports (stageFailed, connectionStarted): stopping it from
+    // here could release the connection semaphore before it has taken it.
+    private void endReconnect() {
+        reconnecting = false;
+        timerHandler.removeCallbacks(reconnectAttemptRunnable);
+        timerHandler.removeCallbacks(reconnectTick);
+        if (reconnectAttemptInFlight) {
+            // Cut short a connection start in progress, if it has got that far
+            MoonBridge.interruptConnection();
+        }
+        // From now on the decoder is released the usual way, and so is anything still parked
+        decoderRenderer.setDecoderParking(null);
+        decoderParking.close("the reconnect ended");
+    }
+
+    // UI thread: the window ran out, or the host made clear the session cannot come back.
+    // finalAttemptError is the error of the attempt that showed it, or 0.
+    private void giveUpReconnect(int finalAttemptError) {
+        LimeLog.info("Reconnect: giving up after " + reconnectAttempt + " attempt(s)" +
+                (finalAttemptError != 0 ? " (error " + finalAttemptError + ")" : ""));
+        endReconnect();
+        hideReconnectStatus();
+        UiHelper.notifyStreamEnded(this);
+
+        String reason;
+        if (finalAttemptError == NvConnection.RESUME_ERROR_NO_SESSION) {
+            reason = getString(R.string.reconnect_failed_no_session_msg);
+        }
+        else if (finalAttemptError != 0) {
+            reason = getString(R.string.reconnect_failed_refused_msg, finalAttemptError);
+        }
+        else {
+            reason = getString(R.string.reconnect_failed_msg, prefConfig.reconnectWindowSeconds);
+        }
+        showConnectionEnd(reconnectCause, 0, MoonBridge.ML_TEST_RESULT_INCONCLUSIVE, reason);
+    }
+
+    // UI thread, from stopConnection(): the user left, or the stream screen went away, while
+    // reconnecting
+    private boolean cancelReconnect() {
+        if (!reconnecting) {
+            return false;
+        }
+        LimeLog.info("Reconnect: cancelled after " + reconnectAttempt + " attempt(s)");
+        endReconnect();
+        hideReconnectStatus();
+        return true;
+    }
+
     private void stopConnection() {
-        if (connecting || connected) {
+        // Leaving ends a reconnect too. Between attempts no connection is held, so then only the
+        // rest of the teardown runs.
+        final boolean wasReconnecting = cancelReconnect();
+        timerHandler.removeCallbacks(silenceWatchdog);
+        stopNetworkWatch();
+
+        if (connecting || connected || wasReconnecting) {
+            final boolean holdsConnection = connecting || connected;
             connecting = connected = false;
             updatePipAutoEnter();
 
@@ -3673,7 +4036,9 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             // during the process of stopping this one.
             new Thread() {
                 public void run() {
-                    conn.stop();
+                    if (holdsConnection) {
+                        conn.stop();
+                    }
                     if (httpConn != null && quitOnStop) {
                         try {
                             sleep(1000);
@@ -3690,6 +4055,13 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     public boolean stageFailed(final String stage, final int portFlags, final int errorCode) {
+        // A failed reconnect attempt is not the end: no port test, no dialog, just the next try
+        if (reconnectAttemptInFlight) {
+            LimeLog.info("Reconnect: attempt " + reconnectAttempt + " failed at " + stage + " (error " + errorCode + ")");
+            runOnUiThread(() -> onReconnectAttemptFailed(errorCode));
+            return false;
+        }
+
         // Perform a connection test if the failure could be due to a blocked port
         // This does network I/O, so don't do it on the main thread.
         final int portTestResult = MoonBridge.testClientConnectivity(ServerHelper.CONNECTION_TEST_SERVER, 443, portFlags);
@@ -3778,84 +4150,103 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                // Let the display go to sleep now
-                getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-
-                // Stop processing controller input
-                controllerHandler.stop();
-                timerHandler.removeCallbacksAndMessages(null);
-
-                // Ungrab input
-                setInputGrabState(false);
-
-                // If the stream dropped before it ever went live, the scene is still up.
-                if (connectionOverlay != null) {
-                    connectionOverlay.dismiss();
-                    connectionOverlay = null;
+                // A network drop with auto-reconnect on keeps the stream screen as it is
+                if (maybeStartReconnect(errorCode)) {
+                    return;
                 }
 
-                if (!displayedFailureDialog) {
-                    displayedFailureDialog = true;
-                    LimeLog.severe("Connection terminated: " + errorCode);
-                    stopConnection();
-
-                    // Display the error dialog if it was an unexpected termination.
-                    // Otherwise, just finish the activity immediately.
-                    if (errorCode != MoonBridge.ML_ERROR_GRACEFUL_TERMINATION) {
-                        String message;
-
-                        if (portTestResult != MoonBridge.ML_TEST_RESULT_INCONCLUSIVE && portTestResult != 0) {
-                            // If we got a blocked result, that supersedes any other error message
-                            message = getResources().getString(R.string.nettest_text_blocked);
-                        }
-                        else {
-                            switch (errorCode) {
-                                case MoonBridge.ML_ERROR_NO_VIDEO_TRAFFIC:
-                                    message = getResources().getString(R.string.no_video_received_error);
-                                    break;
-
-                                case MoonBridge.ML_ERROR_NO_VIDEO_FRAME:
-                                    message = getResources().getString(R.string.no_frame_received_error);
-                                    break;
-
-                                case MoonBridge.ML_ERROR_UNEXPECTED_EARLY_TERMINATION:
-                                case MoonBridge.ML_ERROR_PROTECTED_CONTENT:
-                                    message = getResources().getString(R.string.early_termination_error);
-                                    break;
-
-                                case MoonBridge.ML_ERROR_FRAME_CONVERSION:
-                                    message = getResources().getString(R.string.frame_conversion_error);
-                                    break;
-
-                                default:
-                                    String errorCodeString;
-                                    // We'll assume large errors are hex values
-                                    if (Math.abs(errorCode) > 1000) {
-                                        errorCodeString = Integer.toHexString(errorCode);
-                                    }
-                                    else {
-                                        errorCodeString = Integer.toString(errorCode);
-                                    }
-                                    message = getResources().getString(R.string.conn_terminated_msg) + "\n\n" +
-                                            getResources().getString(R.string.error_code_prefix) + " " + errorCodeString;
-                                    break;
-                            }
-                        }
-
-                        if (portFlags != 0) {
-                            message += "\n\n" + getResources().getString(R.string.check_ports_msg) + "\n" +
-                                    MoonBridge.stringifyPortFlags(portFlags, "\n");
-                        }
-
-                        Dialog.displayDialog(Game.this, getResources().getString(R.string.conn_terminated_title),
-                                message, true);
-                    }
-                    else {
-                        finish();
-                    }
-                }
+                showConnectionEnd(errorCode, portFlags, portTestResult, null);
             }
         });
+    }
+
+    // UI thread: the stream is over. reconnectFailure, when not null, says why a reconnect could
+    // not bring it back.
+    private void showConnectionEnd(int errorCode, int portFlags, int portTestResult, String reconnectFailure) {
+        // Let the display go to sleep now
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+        // Stop processing controller input
+        controllerHandler.stop();
+        timerHandler.removeCallbacksAndMessages(null);
+
+        // The "network lost" status must not stay frozen behind the dialog
+        silenceStartMs = 0;
+        hideReconnectStatus();
+
+        // Ungrab input
+        setInputGrabState(false);
+
+        // If the stream dropped before it ever went live, the scene is still up.
+        if (connectionOverlay != null) {
+            connectionOverlay.dismiss();
+            connectionOverlay = null;
+        }
+
+        if (!displayedFailureDialog) {
+            displayedFailureDialog = true;
+            LimeLog.severe("Connection terminated: " + errorCode);
+            stopConnection();
+
+            // Display the error dialog if it was an unexpected termination.
+            // Otherwise, just finish the activity immediately.
+            if (errorCode != MoonBridge.ML_ERROR_GRACEFUL_TERMINATION) {
+                String message;
+
+                if (portTestResult != MoonBridge.ML_TEST_RESULT_INCONCLUSIVE && portTestResult != 0) {
+                    // If we got a blocked result, that supersedes any other error message
+                    message = getResources().getString(R.string.nettest_text_blocked);
+                }
+                else {
+                    switch (errorCode) {
+                        case MoonBridge.ML_ERROR_NO_VIDEO_TRAFFIC:
+                            message = getResources().getString(R.string.no_video_received_error);
+                            break;
+
+                        case MoonBridge.ML_ERROR_NO_VIDEO_FRAME:
+                            message = getResources().getString(R.string.no_frame_received_error);
+                            break;
+
+                        case MoonBridge.ML_ERROR_UNEXPECTED_EARLY_TERMINATION:
+                        case MoonBridge.ML_ERROR_PROTECTED_CONTENT:
+                            message = getResources().getString(R.string.early_termination_error);
+                            break;
+
+                        case MoonBridge.ML_ERROR_FRAME_CONVERSION:
+                            message = getResources().getString(R.string.frame_conversion_error);
+                            break;
+
+                        default:
+                            String errorCodeString;
+                            // We'll assume large errors are hex values
+                            if (Math.abs(errorCode) > 1000) {
+                                errorCodeString = Integer.toHexString(errorCode);
+                            }
+                            else {
+                                errorCodeString = Integer.toString(errorCode);
+                            }
+                            message = getResources().getString(R.string.conn_terminated_msg) + "\n\n" +
+                                    getResources().getString(R.string.error_code_prefix) + " " + errorCodeString;
+                            break;
+                    }
+                }
+
+                if (portFlags != 0) {
+                    message += "\n\n" + getResources().getString(R.string.check_ports_msg) + "\n" +
+                            MoonBridge.stringifyPortFlags(portFlags, "\n");
+                }
+
+                if (reconnectFailure != null) {
+                    message = reconnectFailure + "\n\n" + message;
+                }
+
+                Dialog.displayDialog(Game.this, getResources().getString(R.string.conn_terminated_title),
+                        message, true);
+            }
+            else {
+                finish();
+            }
+        }
     }
 
     @Override
@@ -3864,6 +4255,19 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             @Override
             public void run() {
                 if (prefConfig.disableWarnings) {
+                    return;
+                }
+
+                if (reconnectStatusShown) {
+                    // The reconnect status has the overlay; this is what it gives back
+                    if (connectionStatus == MoonBridge.CONN_STATUS_POOR) {
+                        notificationTextBeforeReconnect = getResources().getString(prefConfig.bitrate > 5000 ?
+                                R.string.slow_connection_msg : R.string.poor_connection_msg);
+                        notificationVisibilityBeforeReconnect = View.VISIBLE;
+                    }
+                    else if (connectionStatus == MoonBridge.CONN_STATUS_OKAY) {
+                        notificationVisibilityBeforeReconnect = View.GONE;
+                    }
                     return;
                 }
 
@@ -3890,9 +4294,28 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     public void connectionStarted() {
+        // A reconnect attempt that got through, as opposed to the first start of the stream
+        final boolean reconnected = reconnectAttemptInFlight;
+
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
+                if (reconnected) {
+                    reconnectAttemptInFlight = false;
+                    if (!reconnecting) {
+                        // The reconnect ended (given up, or the user left) while this attempt
+                        // was still on its way: nobody wants the stream now
+                        LimeLog.info("Reconnect: a late attempt connected after the reconnect ended, stopping it");
+                        new Thread() {
+                            public void run() {
+                                conn.stop();
+                            }
+                        }.start();
+                        return;
+                    }
+                    finishReconnect();
+                }
+
                 if (connectionOverlay != null) {
                     connectionOverlay.onConnected();
                     connectionOverlay = null;
@@ -3939,10 +4362,26 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
                 startAchievementWatcher();
 
-                // Open this game's companion app on the second screen, if one was assigned.
-                maybeAutoLaunchCompanionApp();
+                if (prefConfig.autoReconnect) {
+                    // Watch for the network going quiet, and follow Android's view of it
+                    silenceStartMs = 0;
+                    timerHandler.removeCallbacks(silenceWatchdog);
+                    timerHandler.postDelayed(silenceWatchdog, SILENCE_WATCHDOG_PERIOD_MS);
+                    startNetworkWatch();
+                }
+
+                // Open this game's companion app on the second screen, if one was assigned. A
+                // reconnect brings back the same stream, so it is already open.
+                if (!reconnected) {
+                    maybeAutoLaunchCompanionApp();
+                }
             }
         });
+
+        if (reconnected) {
+            // The USB driver is still running and the shortcut was reported when the stream began
+            return;
+        }
 
         if (prefConfig.usbDriver) {
             // Start the USB driver
@@ -4033,6 +4472,11 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     public void displayMessage(final String message) {
+        if (reconnectAttemptInFlight) {
+            // A reconnect attempt's trouble goes to the log; the status on screen says enough
+            LimeLog.info("Reconnect: " + message);
+            return;
+        }
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -4043,6 +4487,10 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     public void displayTransientMessage(final String message) {
+        if (reconnectAttemptInFlight) {
+            // Already said when the stream first started
+            return;
+        }
         if (!prefConfig.disableWarnings) {
             runOnUiThread(new Runnable() {
                 @Override
@@ -4147,7 +4595,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             // Let the decoder know immediately that the surface is gone
             decoderRenderer.prepareForStop();
 
-            if (connected) {
+            if (connected || reconnecting) {
                 stopConnection();
             }
         }
@@ -4306,6 +4754,12 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     }
 
     public void sendExecServerCmd(int cmdId) {
+        // Server commands travel on the control stream, which is not there while the stream is
+        // reconnecting (the menu stays usable then)
+        if (!connected) {
+            LimeLog.warning("Server command " + cmdId + " dropped: not connected");
+            return;
+        }
         conn.sendExecServerCmd(cmdId);
     }
 
