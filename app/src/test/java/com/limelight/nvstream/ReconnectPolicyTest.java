@@ -33,10 +33,17 @@ public class ReconnectPolicyTest {
     }
 
     @Test
+    public void noCompleteFrameIsADropOnlyAfterNetworkTrouble() {
+        // -101 comes right after a connection or resume, while a link that just came back may
+        // still be unsteady; without a silence or a network loss it is something else
+        assertTrue(ReconnectPolicy.isNetworkDrop(-101, true));
+        assertFalse(ReconnectPolicy.isNetworkDrop(-101, false));
+    }
+
+    @Test
     public void otherCodesAreNotDrops() {
         // No video at the start of a stream (a blocked port) and unknown host codes
         assertFalse(ReconnectPolicy.isNetworkDrop(-100, true));
-        assertFalse(ReconnectPolicy.isNetworkDrop(-101, true));
         assertFalse(ReconnectPolicy.isNetworkDrop(0x800e9403, true));
     }
 

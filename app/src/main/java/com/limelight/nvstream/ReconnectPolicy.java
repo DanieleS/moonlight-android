@@ -39,7 +39,11 @@ public final class ReconnectPolicy {
      * drop. A dead ENet peer (-1) and socket errors (positive errno values) are, but only when the
      * network was seen to be in trouble just before: -1 is also what a host that disconnects on
      * purpose produces, and a positive code can also be a host termination reason passed through
-     * unchanged. Anything else is not reconnected after.
+     * unchanged. No complete video frame within 10 s of the first video packet
+     * (ML_ERROR_NO_VIDEO_FRAME) counts too, under the same condition: it can only happen right
+     * after a connection or a resume, when a link that has just come back is still unsteady. No
+     * video at all (ML_ERROR_NO_VIDEO_TRAFFIC) points at a blocked port rather than a drop, and
+     * anything else is not reconnected after either.
      */
     public static boolean isNetworkDrop(int errorCode, boolean networkTrouble) {
         switch (errorCode) {
@@ -49,6 +53,7 @@ public final class ReconnectPolicy {
             case MoonBridge.ML_ERROR_FRAME_CONVERSION:
                 return false;
             case -1:
+            case MoonBridge.ML_ERROR_NO_VIDEO_FRAME:
                 return networkTrouble;
             default:
                 return errorCode > 0 && networkTrouble;
