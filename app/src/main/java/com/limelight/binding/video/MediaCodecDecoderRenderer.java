@@ -16,6 +16,7 @@ import org.jcodec.codecs.h264.io.model.VUIParameters;
 import com.limelight.BuildConfig;
 import com.limelight.LimeLog;
 import com.limelight.R;
+import com.limelight.bitrate.AdaptiveBitrateController;
 import com.limelight.nvstream.av.video.VideoDecoderRenderer;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.preferences.PreferenceConfiguration;
@@ -146,6 +147,8 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
      * companion surface asks for them on its own account, and the in-game menu toggles them.
      */
     private boolean perfStatsRequested;
+    /** Fed each second's loss, round trip and decode time while the bitrate adapts; null otherwise. */
+    private volatile AdaptiveBitrateController.SampleListener bitrateSampleListener;
 
     private static final int CR_MAX_TRIES = 10;
     private static final int CR_RECOVERY_TYPE_NONE = 0;
@@ -1747,6 +1750,11 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         }
     }
 
+    /** Starts or stops feeding the adaptive bitrate controller; null stops. */
+    public void setBitrateSampleListener(AdaptiveBitrateController.SampleListener listener) {
+        this.bitrateSampleListener = listener;
+    }
+
     /** Stops or resumes the once-a-second {@link PerfOverlayListener#onPerfUpdate} callbacks. */
     public void setPerfStatsRequested(boolean requested) {
         this.perfStatsRequested = requested;
@@ -1925,6 +1933,17 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                     minDecodeTime = decodeTimeMs;
                     minDecodeTimeFullLog = fullLog;
                 }
+            }
+            AdaptiveBitrateController.SampleListener sampleListener = bitrateSampleListener;
+            if (sampleListener != null && activeWindowVideoStats.totalFrames > 0) {
+                // The one second just ended, not the two the overlay averages over: a burst of loss
+                // should count once, not in two samples in a row.
+                VideoStats window = activeWindowVideoStats;
+                sampleListener.onSample(new AdaptiveBitrateController.Sample(
+                        (float) window.framesLost / window.totalFrames * 100,
+                        (int) (MoonBridge.getEstimatedRttInfo() >> 32),
+                        window.totalFramesReceived > 0
+                                ? (float) window.decoderTimeMs / window.totalFramesReceived : 0));
             }
             globalVideoStats.add(activeWindowVideoStats);
             lastWindowVideoStats.copy(activeWindowVideoStats);

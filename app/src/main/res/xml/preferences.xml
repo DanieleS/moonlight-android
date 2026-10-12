@@ -49,6 +49,22 @@
             seekbar:keyStep="1000"
             seekbar:min="0"
             seekbar:step="500" />
+        <!-- Lower the bitrate mid-stream when the network struggles; only hosts with /bitrate. -->
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="checkbox_adaptive_bitrate"
+            android:summary="@string/summary_adaptive_bitrate"
+            android:title="@string/title_adaptive_bitrate"
+            app:iconSpaceReserved="false" />
+        <ListPreference
+            android:defaultValue="balanced"
+            android:dependency="checkbox_adaptive_bitrate"
+            android:entries="@array/adaptive_bitrate_mode_names"
+            android:entryValues="@array/adaptive_bitrate_mode_values"
+            android:key="list_adaptive_bitrate_mode"
+            android:summary="@string/summary_adaptive_bitrate_mode"
+            android:title="@string/title_adaptive_bitrate_mode"
+            app:iconSpaceReserved="false" />
 
         <ListPreference
             android:defaultValue="latency"

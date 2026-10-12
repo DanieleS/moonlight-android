@@ -994,4 +994,19 @@
     <string name="game_menu_capture_screenshot">Screenshot</string>
     <string name="game_menu_capture_replay">Save last 30 s</string>
     <string name="game_menu_capture_record">Start/stop recording</string>
+    <string name="title_adaptive_bitrate">Adaptive bitrate</string>
+    <string name="summary_adaptive_bitrate">Lowers the bitrate while the network is losing frames or lagging, and brings it back up to the bitrate above once it recovers. Needs a host that can change bitrate mid-stream, such as Vibepollo; with others nothing changes.</string>
+    <string name="title_adaptive_bitrate_mode">Adaptive bitrate mode</string>
+    <string name="summary_adaptive_bitrate_mode">How readily picture quality is given up for a smooth stream</string>
+    <string name="adaptive_bitrate_mode_quality">Quality first</string>
+    <string name="adaptive_bitrate_mode_balanced">Balanced</string>
+    <string name="adaptive_bitrate_mode_low_latency">Smoothness first</string>
+    <string name="game_menu_bitrate">Bitrate: %1$s Mbps</string>
+    <string name="game_menu_bitrate_adaptive">Bitrate: %1$s Mbps (adaptive)</string>
+    <string name="game_menu_bitrate_choice">%1$s Mbps</string>
+    <string name="game_menu_bitrate_choice_current">%1$s Mbps (now)</string>
+    <string name="game_menu_bitrate_adaptive_on">Adaptive bitrate: on</string>
+    <string name="game_menu_bitrate_adaptive_off">Adaptive bitrate: off</string>
+    <string name="toast_bitrate_set">Bitrate set to %1$s Mbps</string>
+    <string name="toast_bitrate_failed">Couldn\'t change the bitrate to %1$s Mbps</string>
 </resources>

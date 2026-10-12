@@ -29,6 +29,8 @@ import com.limelight.binding.video.MediaCodecDecoderRenderer;
 import com.limelight.binding.video.MediaCodecHelper;
 import com.limelight.binding.video.PerfOverlayListener;
 import com.limelight.binding.video.PerfStats;
+import com.limelight.bitrate.BitrateSteps;
+import com.limelight.bitrate.LiveBitrate;
 import com.limelight.companion.CompanionAppLauncher;
 import com.limelight.companion.CompanionDisplayManager;
 import com.limelight.companion.CompanionState;
@@ -348,6 +350,11 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     // Follows SuccessStory's unlocks for the "achievement unlocked" toast while the stream runs.
     private AchievementWatcher achievementWatcher;
     private HostSession achievementSession;
+
+    /** The bitrate the stream was started with: the settings', or the metered one. */
+    private int streamBitrateKbps;
+    /** Changes the bitrate mid-stream, by hand or adaptively, on hosts that allow it. Null when not streaming. */
+    private LiveBitrate liveBitrate;
 
     public interface GameMenuCallbacks {
         void showMenu(GameInputDevice devic);
@@ -863,6 +870,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             chosenFrameRate *= prefConfig.framePacingWarpFactor;
         }
 
+        streamBitrateKbps = isMetered ? prefConfig.meteredBitrate : prefConfig.bitrate;
         StreamConfiguration config = new StreamConfiguration.Builder()
                 .setResolution(
                         displayWidth,
@@ -874,7 +882,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 .setResolutionScaleFactor(prefConfig.resolutionScaleFactor)
                 .setApp(app)
                 .setEnableUltraLowLatency(prefConfig.enableUltraLowLatency)
-                .setBitrate(isMetered ? prefConfig.meteredBitrate: prefConfig.bitrate)
+                .setBitrate(streamBitrateKbps)
                 .setEnableSops(prefConfig.enableSops)
                 .enableLocalAudioPlayback(prefConfig.playHostAudio)
                 .setMaxPacketSize(1392)
@@ -1818,6 +1826,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             achievementWatcher.stop();
             achievementWatcher = null;
         }
+        stopLiveBitrate();
         CompanionState.getInstance().leaveStreaming();
 
         if (prefConfig.enableFullExDisplay) handleDisplayRemoved();
@@ -3663,6 +3672,9 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
             controllerHandler.stop();
 
+            // The host is about to drop the session; a bitrate change now would only fail.
+            stopLiveBitrate();
+
             // Update GameManager state to indicate we're no longer in game
             UiHelper.notifyStreamEnded(this);
 
@@ -3939,6 +3951,8 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
                 startAchievementWatcher();
 
+                startLiveBitrate();
+
                 // Open this game's companion app on the second screen, if one was assigned.
                 maybeAutoLaunchCompanionApp();
             }
@@ -3988,6 +4002,60 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         }
         telemetryController = new TelemetryController(this, httpConn, CompanionState.getInstance());
         telemetryController.start();
+    }
+
+    /**
+     * Get ready to change the bitrate mid-stream: from the in-game menu, and adaptively when the
+     * setting is on. The host is asked first whether it can; one that can't is sent nothing more,
+     * and the menu offers nothing.
+     */
+    private void startLiveBitrate() {
+        if (httpConn == null || liveBitrate != null) {
+            return;
+        }
+        liveBitrate = LiveBitrate.create(httpConn, new LiveBitrate.Listener() {
+            @Override
+            public void onBitrateChanged(int kbps, boolean adaptive) {
+                // The controller's steps go to the log; only a choice made by hand is confirmed.
+                if (!adaptive && !isFinishing()) {
+                    Toast.makeText(Game.this, getString(R.string.toast_bitrate_set, formatMbps(kbps)),
+                            Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onBitrateChangeFailed(int kbps) {
+                if (!isFinishing()) {
+                    Toast.makeText(Game.this, getString(R.string.toast_bitrate_failed, formatMbps(kbps)),
+                            Toast.LENGTH_SHORT).show();
+                }
+            }
+        }, prefConfig.adaptiveBitrateMode, Math.round(prefConfig.fps),
+                prefConfig.audioConfiguration.channelCount, streamBitrateKbps);
+        if (decoderRenderer != null) {
+            decoderRenderer.setBitrateSampleListener(liveBitrate::onSample);
+        }
+        liveBitrate.start(prefConfig.enableAdaptiveBitrate);
+    }
+
+    private void stopLiveBitrate() {
+        if (decoderRenderer != null) {
+            decoderRenderer.setBitrateSampleListener(null);
+        }
+        if (liveBitrate != null) {
+            liveBitrate.stop();
+            liveBitrate = null;
+        }
+    }
+
+    /** The mid-stream bitrate control, when the host allows one; null otherwise. */
+    public LiveBitrate getLiveBitrate() {
+        LiveBitrate bitrate = liveBitrate;
+        return bitrate != null && bitrate.isSupported() ? bitrate : null;
+    }
+
+    public String formatMbps(int kbps) {
+        return BitrateSteps.formatMbps(kbps, getResources().getConfiguration().locale);
     }
 
     /**
