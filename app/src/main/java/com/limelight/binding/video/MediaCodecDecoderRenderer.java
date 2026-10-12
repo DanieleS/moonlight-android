@@ -614,7 +614,11 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
         videoDecoder.configure(format, renderTarget, null, 0);
 
-        try { applySurfaceFrameRate(renderTarget, targetFps); } catch (Throwable ignored) {}
+        // NB: the frame rate hint for this surface is issued by Game.surfaceCreated() with
+        // FRAME_RATE_COMPATIBILITY_FIXED_SOURCE + CHANGE_FRAME_RATE_ALWAYS. Don't re-issue it
+        // here: the two-argument overload means CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS, and a
+        // 60 -> 120 Hz switch isn't seamless on most panels, so this weaker hint replaced the
+        // working one and kept the display at 60 Hz.
 
         try {
             MediaCodecInfo __info = (android.os.Build.VERSION.SDK_INT >= 21) ? videoDecoder.getCodecInfo() : null;
@@ -2416,20 +2420,6 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         }
     }
 
-
-    private void applySurfaceFrameRate(android.view.Surface surface, int targetFps) {
-        if (surface == null) return;
-        try {
-            // API 30+ supports Surface.setFrameRate; for older, attempt View-based call elsewhere.
-            if (android.os.Build.VERSION.SDK_INT >= 30) {
-                surface.setFrameRate((float) targetFps,
-                        android.view.Surface.FRAME_RATE_COMPATIBILITY_DEFAULT);
-                LimeLog.info("Applied Surface frame rate: " + targetFps + " Hz");
-            }
-        } catch (Throwable t) {
-            // best-effort
-        }
-    }
 
 
 
