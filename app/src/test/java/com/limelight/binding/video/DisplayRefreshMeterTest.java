@@ -113,6 +113,45 @@ public class DisplayRefreshMeterTest {
         assertEquals(14400, DisplayRefreshMeter.clientRefreshRateX100(144f, 144));
     }
 
+    // The rate Vibepollo captures and encodes at for an x100 value (video_policy.cpp,
+    // framerate_x100_to_rational)
+    private static double hostRateHz(int x100) {
+        if (x100 % 2997 == 0) {
+            return (x100 / 2997) * 30000 / 1001.0;
+        }
+        if (x100 == 2397 || x100 == 2398) {
+            return 24000 / 1001.0;
+        }
+        return x100 / 100.0;
+    }
+
+    @Test
+    public void keepsTheHostAtOrJustBelowThePanel() {
+        double[] rates = {59.94, 60000 / 1001.0, 59.9999, 60.0, 89.91, 90000 / 1001.0, 119.88,
+                120000 / 1001.0, 119.8801, 119.98996, 119.99, 120.0, 143.65, 144.0};
+        int[] fpsValues = {30, 40, 45, 60, 72, 90, 120, 144};
+        for (double hz : rates) {
+            for (int fps : fpsValues) {
+                int x100 = DisplayRefreshMeter.clientRefreshRateX100(hz, fps);
+                if (x100 > 0) {
+                    double panelFps = hz / Math.round(hz / fps);
+                    double hostFps = hostRateHz(x100);
+                    String what = hz + " Hz, " + fps + " FPS -> " + x100;
+                    // Never more than a hundredth slower...
+                    assertEquals(what, true, hostFps > panelFps - 0.01);
+                    // ...and faster only by the host's NTSC reading of a multiple of 2997, or
+                    // the float allowance, both below what the meter can resolve
+                    if (x100 % 2997 == 0) {
+                        assertEquals(what, true, hostFps <= panelFps + 0.00013);
+                    }
+                    else {
+                        assertEquals(what, true, hostFps <= panelFps + 0.00005);
+                    }
+                }
+            }
+        }
+    }
+
     @Test
     public void sendsNothingWhenNoHostRateLinesUp() {
         // 60 FPS at 144 Hz alternates 2 and 3 vsyncs per frame

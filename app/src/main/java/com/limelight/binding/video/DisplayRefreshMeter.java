@@ -104,7 +104,11 @@ public class DisplayRefreshMeter implements Choreographer.FrameCallback {
      * "Balanced with FPS limit"), since no host rate lines up with our vsyncs then.
      *
      * Rounded down: a host a hair slower than the display costs a repeated frame now and then,
-     * one a hair faster builds up a queued frame of latency.
+     * one a hair faster builds up a queued frame of latency. The one exception is the host's own:
+     * it reads a multiple of 2997 as an NTSC rate (11988 as 120000/1001 = 119.88012 Hz), up to
+     * 0.00012 Hz above x100 / 100. That is one frame every two hours or more, and below what we can
+     * measure; an NTSC panel measures as exactly that rate, so sending one less would make it a
+     * repeated frame every 100 s instead.
      */
     public static int clientRefreshRateX100(double refreshHz, int streamFps) {
         if (!(refreshHz > 0) || streamFps <= 0) {
@@ -119,7 +123,8 @@ public class DisplayRefreshMeter implements Choreographer.FrameCallback {
             return 0;
         }
         // The small allowance keeps a float's representation error (59.94f is 59.93999...) from
-        // dropping a whole hundredth
+        // dropping a whole hundredth. It can leave the host up to 0.00005 Hz above the panel, again
+        // below what we can measure.
         return (int) Math.floor(rate * 100 + 0.005);
     }
 
