@@ -72,6 +72,13 @@ class VideoStats {
         this.measurementStartTimestamp = 0;
     }
 
+    // Time from the first packet of a frame to its enqueue, in milliseconds. Taken as the
+    // difference of the two timestamps in whole milliseconds, like the millisecond timestamps
+    // this used to receive, so the per-frame sum isn't biased low by truncating each delta.
+    static long receiveTimeMs(long receiveTimeUs, long enqueueTimeUs) {
+        return (enqueueTimeUs / 1000) - (receiveTimeUs / 1000);
+    }
+
     VideoStatsFps getFps() {
         float elapsed = (SystemClock.uptimeMillis() - this.measurementStartTimestamp) / (float) 1000;
 

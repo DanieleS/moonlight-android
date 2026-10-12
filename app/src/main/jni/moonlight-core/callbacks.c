@@ -2,6 +2,7 @@
 
 #include <pthread.h>
 #include <string.h>
+#include <time.h>
 
 #include <Limelight.h>
 
@@ -143,9 +144,30 @@ void BridgeDrCleanup(void) {
     (*env)->CallStaticVoidMethod(env, GlobalBridgeClass, BridgeDrCleanupMethod);
 }
 
+// moonlight-common-c stamps decode units with LiGetMicroseconds(), whose epoch is
+// implementation-defined (CLOCK_MONOTONIC_RAW since the first call). The Java side
+// compares these timestamps with System.nanoTime(), so rebase them onto CLOCK_MONOTONIC.
+// Rebasing each frame against a fresh pair of clock reads, rather than once per session,
+// keeps the drift between the raw and NTP-slewed clocks out of the result.
+static jlong ToMonotonicMicroseconds(uint64_t commonTimeUs, uint64_t commonNowUs, uint64_t monotonicNowUs) {
+    return (jlong)monotonicNowUs - (jlong)(commonNowUs - commonTimeUs);
+}
+
+static uint64_t GetMonotonicMicroseconds(void) {
+    struct timespec ts;
+
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ((uint64_t)ts.tv_sec * 1000000) + (ts.tv_nsec / 1000);
+}
+
 int BridgeDrSubmitDecodeUnit(PDECODE_UNIT decodeUnit) {
     JNIEnv* env = GetThreadEnv();
     int ret;
+
+    uint64_t commonNowUs = LiGetMicroseconds();
+    uint64_t monotonicNowUs = GetMonotonicMicroseconds();
+    jlong receiveTimeUs = ToMonotonicMicroseconds(decodeUnit->receiveTimeUs, commonNowUs, monotonicNowUs);
+    jlong enqueueTimeUs = ToMonotonicMicroseconds(decodeUnit->enqueueTimeUs, commonNowUs, monotonicNowUs);
 
     // Increase the size of our frame data buffer if our frame won't fit
     if ((*env)->GetArrayLength(env, DecodedFrameBuffer) < decodeUnit->fullLength) {
@@ -168,7 +190,7 @@ int BridgeDrSubmitDecodeUnit(PDECODE_UNIT decodeUnit) {
             ret = (*env)->CallStaticIntMethod(env, GlobalBridgeClass, BridgeDrSubmitDecodeUnitMethod,
                                               DecodedFrameBuffer, currentEntry->length, currentEntry->bufferType,
                                               decodeUnit->frameNumber, decodeUnit->frameType, (jchar)decodeUnit->frameHostProcessingLatency,
-                                              (jlong)decodeUnit->receiveTimeMs, (jlong)decodeUnit->enqueueTimeMs);
+                                              receiveTimeUs, enqueueTimeUs);
             if ((*env)->ExceptionCheck(env)) {
                 // We will crash here
                 (*JVM)->DetachCurrentThread(JVM);
@@ -189,7 +211,7 @@ int BridgeDrSubmitDecodeUnit(PDECODE_UNIT decodeUnit) {
     ret = (*env)->CallStaticIntMethod(env, GlobalBridgeClass, BridgeDrSubmitDecodeUnitMethod,
                                        DecodedFrameBuffer, offset, BUFFER_TYPE_PICDATA,
                                        decodeUnit->frameNumber, decodeUnit->frameType, (jchar)decodeUnit->frameHostProcessingLatency,
-                                       (jlong)decodeUnit->receiveTimeMs, (jlong)decodeUnit->enqueueTimeMs);
+                                       receiveTimeUs, enqueueTimeUs);
     if ((*env)->ExceptionCheck(env)) {
         // We will crash here
         (*JVM)->DetachCurrentThread(JVM);
