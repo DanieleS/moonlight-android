@@ -11,6 +11,10 @@
 
 #include <cpu-features.h>
 
+#ifdef HAVE_PYROWAVE
+#include "pyrowave_renderer.h"
+#endif
+
 static OpusMSDecoder* Decoder;
 static OPUS_MULTISTREAM_CONFIGURATION OpusConfig;
 
@@ -161,6 +165,14 @@ static uint64_t GetMonotonicMicroseconds(void) {
 }
 
 int BridgeDrSubmitDecodeUnit(PDECODE_UNIT decodeUnit) {
+#ifdef HAVE_PYROWAVE
+    // PyroWave frames never cross into Java: copying megabytes per frame into a
+    // byte[] would cost more than decoding them. The native renderer takes them.
+    if (PyroWaveRendererIsActive()) {
+        return PyroWaveRendererSubmitDecodeUnit(decodeUnit);
+    }
+#endif
+
     JNIEnv* env = GetThreadEnv();
     int ret;
 
