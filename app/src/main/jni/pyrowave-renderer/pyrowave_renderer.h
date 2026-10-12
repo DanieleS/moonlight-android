@@ -29,12 +29,10 @@ int PyroWaveRendererStart(ANativeWindow* window, int videoFormat, int width, int
 // Stops and destroys the renderer, if any.
 void PyroWaveRendererStop(void);
 
-// Whether a renderer is running; callbacks.c routes decode units to it then.
-int PyroWaveRendererIsActive(void);
-
 // Hands one frame to the renderer. Copies what it needs and returns at once:
 // decoding happens on the renderer's own thread, and a frame still waiting
 // when a newer one arrives is dropped (every PyroWave frame is independent).
+// Without a running renderer (stopped, or never started) the frame is dropped.
 int PyroWaveRendererSubmitDecodeUnit(PDECODE_UNIT decodeUnit);
 
 #ifdef __cplusplus

@@ -13,6 +13,10 @@
 
 #ifdef HAVE_PYROWAVE
 #include "pyrowave_renderer.h"
+
+// Whether the session negotiated PyroWave: its decode units go to the native
+// renderer, or are dropped once it has stopped, and never reach Java.
+static bool PyroWaveSession;
 #endif
 
 static OpusMSDecoder* Decoder;
@@ -122,6 +126,10 @@ int BridgeDrSetup(int videoFormat, int width, int height, int redrawRate, void* 
         return err;
     }
 
+#ifdef HAVE_PYROWAVE
+    PyroWaveSession = (videoFormat & VIDEO_FORMAT_MASK_PYROWAVE) != 0;
+#endif
+
     // Use a 32K frame buffer that will increase if needed
     DecodedFrameBuffer = (*env)->NewGlobalRef(env, (*env)->NewByteArray(env, 32768));
 
@@ -168,7 +176,9 @@ int BridgeDrSubmitDecodeUnit(PDECODE_UNIT decodeUnit) {
 #ifdef HAVE_PYROWAVE
     // PyroWave frames never cross into Java: copying megabytes per frame into a
     // byte[] would cost more than decoding them. The native renderer takes them.
-    if (PyroWaveRendererIsActive()) {
+    // It may already be stopped (surfaceDestroyed stops it before moonlight-common-c
+    // stops the video threads), and the frames that still arrive are then dropped.
+    if (PyroWaveSession) {
         return PyroWaveRendererSubmitDecodeUnit(decodeUnit);
     }
 #endif

@@ -224,6 +224,8 @@ bool hasExtension(const std::vector<VkExtensionProperties>& extensions, const ch
 // feature structs stay alive with the context: pyrowave_create_device() keeps
 // pointers to them for the lifetime of the pyrowave_device.
 // ---------------------------------------------------------------------------
+// How long a frame may wait for the previous one's GPU work (1 s)
+constexpr uint64_t k_FenceTimeoutNs = 1000000000ull;
 
 struct VulkanContext {
     Vk vk;
@@ -676,6 +678,11 @@ public:
             m_Thread.join();
         }
         if (m_Ctx.device == VK_NULL_HANDLE) {
+            // initialize() failed after creating the surface but before the device
+            if (m_Surface != VK_NULL_HANDLE) {
+                vk().DestroySurfaceKHR(m_Ctx.instance, m_Surface, nullptr);
+                m_Surface = VK_NULL_HANDLE;
+            }
             releaseWindow();
             return;
         }
@@ -1344,8 +1351,22 @@ private:
         }
     }
 
+    // Stops decoding and presenting for the rest of the session. The stream
+    // freezes on its last frame, but shutdown can still join the render thread.
+    void markBroken(const char* reason)
+    {
+        if (!m_Broken) {
+            LOGE("PyroWave renderer stopped presenting: %s", reason);
+            m_Broken = true;
+        }
+    }
+
     void decodeAndPresent(const PendingFrame& frame)
     {
+        if (m_Broken) {
+            framesRejected++;
+            return;
+        }
         if (!decodeFrame(frame)) {
             return;
         }
@@ -1359,8 +1380,18 @@ private:
             m_NeedRecreate = false;
         }
 
-        // The command buffer and acquire semaphore are reused every frame
-        v.WaitForFences(dev, 1, &m_FrameFence, VK_TRUE, UINT64_MAX);
+        // The command buffer and acquire semaphore are reused every frame. The
+        // wait is bounded so that a hung GPU cannot keep shutdown from joining
+        // this thread; a frame takes milliseconds.
+        const VkResult fenceResult = v.WaitForFences(dev, 1, &m_FrameFence, VK_TRUE, k_FenceTimeoutNs);
+        if (fenceResult == VK_TIMEOUT) {
+            logDrop("the previous frame is still on the GPU");
+            return;
+        }
+        if (fenceResult != VK_SUCCESS) {
+            markBroken("device lost");
+            return;
+        }
 
         uint32_t imageIndex = 0;
         VkResult result = v.AcquireNextImageKHR(dev, m_Swapchain, 100000000ull, m_AcquireSemaphore,
@@ -1449,7 +1480,9 @@ private:
         {
             std::lock_guard<std::mutex> lock(m_Ctx.queueLock);
             if (v.QueueSubmit(m_Ctx.queue, 1, &submitInfo, m_FrameFence) != VK_SUCCESS) {
-                LOGE("vkQueueSubmit failed");
+                // The fence stays unsignalled, the image acquired and the acquire
+                // semaphore signalled: none of them can be used again safely
+                markBroken("vkQueueSubmit failed");
                 return;
             }
             m_RenderValue++;
@@ -1497,6 +1530,7 @@ private:
     std::vector<VkFramebuffer> m_Framebuffers;
     std::vector<VkSemaphore> m_PresentSemaphores;
     bool m_NeedRecreate = false;
+    bool m_Broken = false;
 
     VkCommandPool m_CommandPool = VK_NULL_HANDLE;
     VkCommandBuffer m_CommandBuffer = VK_NULL_HANDLE;
@@ -1521,10 +1555,12 @@ private:
 // start/stop run on Java threads.
 std::mutex g_RendererLock;
 std::unique_ptr<Renderer> g_Renderer;
-std::atomic<bool> g_Active {false};
 
-// Probe result cache: -1 unknown, 0 unsupported, 1 supported
-std::atomic<int> g_Supported {-1};
+// Probe result cache: -1 unknown, 0 unsupported, 1 supported. g_ProbeLock makes
+// a caller wait for a probe already running (the app starts one in the
+// background) rather than create a second Vulkan device.
+std::mutex g_ProbeLock;
+int g_Supported = -1;
 
 bool probeSupport()
 {
@@ -1554,11 +1590,6 @@ bool probeSupport()
 
 extern "C" {
 
-int PyroWaveRendererIsActive(void)
-{
-    return g_Active.load(std::memory_order_acquire) ? 1 : 0;
-}
-
 int PyroWaveRendererSubmitDecodeUnit(PDECODE_UNIT decodeUnit)
 {
     std::lock_guard<std::mutex> lock(g_RendererLock);
@@ -1571,13 +1602,12 @@ int PyroWaveRendererSubmitDecodeUnit(PDECODE_UNIT decodeUnit)
 
 int PyroWaveRendererIsSupported(void)
 {
-    int supported = g_Supported.load();
-    if (supported < 0) {
-        supported = probeSupport() ? 1 : 0;
-        g_Supported.store(supported);
-        LOGI("PyroWave decoding is %s on this device", supported ? "available" : "unavailable");
+    std::lock_guard<std::mutex> lock(g_ProbeLock);
+    if (g_Supported < 0) {
+        g_Supported = probeSupport() ? 1 : 0;
+        LOGI("PyroWave decoding is %s on this device", g_Supported ? "available" : "unavailable");
     }
-    return supported;
+    return g_Supported;
 }
 
 int PyroWaveRendererStart(ANativeWindow* window, int videoFormat, int width, int height,
@@ -1592,7 +1622,6 @@ int PyroWaveRendererStart(ANativeWindow* window, int videoFormat, int width, int
 
     std::lock_guard<std::mutex> lock(g_RendererLock);
     g_Renderer = std::move(renderer);
-    g_Active.store(true, std::memory_order_release);
     return 0;
 }
 
@@ -1601,7 +1630,6 @@ void PyroWaveRendererStop(void)
     std::unique_ptr<Renderer> renderer;
     {
         std::lock_guard<std::mutex> lock(g_RendererLock);
-        g_Active.store(false, std::memory_order_release);
         renderer = std::move(g_Renderer);
     }
     if (renderer) {

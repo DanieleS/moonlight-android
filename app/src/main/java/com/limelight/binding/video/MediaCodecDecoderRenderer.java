@@ -1612,6 +1612,13 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         // Let the decoding code know to ignore codec exceptions now
         stopping = true;
 
+        if (pyroWave) {
+            // Called from surfaceDestroyed(): the native renderer must stop presenting to the
+            // Surface before it returns. Frames that still arrive are dropped natively.
+            MoonBridge.pyroWaveStop();
+            return;
+        }
+
         // Halt the rendering thread
         if (rendererThread != null) {
             rendererThread.interrupt();
@@ -1641,6 +1648,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     @Override
     public void stop() {
         if (pyroWave) {
+            // Usually stopped in prepareForStop() already; stopping twice is harmless
             stopping = true;
             MoonBridge.pyroWaveStop();
             return;
