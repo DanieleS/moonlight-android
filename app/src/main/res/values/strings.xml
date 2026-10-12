@@ -349,7 +349,7 @@
     <string name="title_auto_reconnect">Reconnect after a network drop</string>
     <string name="summary_auto_reconnect">When the Wi-Fi drops, keep the last frame on screen and resume the game once the network is back, instead of ending the stream</string>
     <string name="title_network_timeout">Hold a silent connection for</string>
-    <string name="summary_network_timeout">How long the stream waits for the PC to be heard from again before it counts the connection as lost and reconnects. The PC gives up after its own ping_timeout (10 s by default): raise both to ride out longer drops without reconnecting</string>
+    <string name="summary_network_timeout">How long the stream waits for the PC to be heard from again before it counts the connection as lost and reconnects. A stock Sunshine or Vibepollo PC lets go of a silent client after about 5 s, whatever its ping_timeout, so a longer hold only delays the reconnect unless the PC has been changed to hold the session longer</string>
     <string name="title_reconnect_window">Keep trying to reconnect for</string>
     <string name="summary_reconnect_window">How long to keep trying to resume the game once the connection is lost</string>
     <string name="suffix_seconds">s</string>

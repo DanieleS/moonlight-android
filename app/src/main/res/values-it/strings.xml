@@ -175,7 +175,7 @@
     <string name="title_auto_reconnect">Riconnetti dopo un calo di rete</string>
     <string name="summary_auto_reconnect">Quando il Wi-Fi cade, tiene l\'ultimo fotogramma sullo schermo e riprende il gioco appena torna la rete, invece di chiudere lo stream</string>
     <string name="title_network_timeout">Mantieni una connessione silenziosa per</string>
-    <string name="summary_network_timeout">Quanto lo stream aspetta di risentire il PC prima di considerare persa la connessione e riconnettersi. Il PC si arrende dopo il proprio ping_timeout (10 s di default): alzali entrambi per superare cali più lunghi senza riconnettersi</string>
+    <string name="summary_network_timeout">Quanto lo stream aspetta di risentire il PC prima di considerare persa la connessione e riconnettersi. Un PC con Sunshine o Vibepollo standard lascia andare un client silenzioso dopo circa 5 s, qualunque sia il suo ping_timeout: un\'attesa più lunga ritarda solo la riconnessione, a meno che il PC non sia stato modificato per tenere la sessione più a lungo</string>
     <string name="title_reconnect_window">Continua a tentare la riconnessione per</string>
     <string name="summary_reconnect_window">Per quanto tempo provare a riprendere il gioco una volta persa la connessione</string>
     <string name="applist_menu_hide_app">Nascondi App</string>

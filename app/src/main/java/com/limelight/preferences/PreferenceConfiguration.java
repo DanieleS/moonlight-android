@@ -213,8 +213,10 @@ public class PreferenceConfiguration {
     private static final boolean DEFAULT_ENABLE_RUMBLE = true;
     private static final boolean DEFAULT_PREVENT_PACKET_LOSS = false;
     private static final boolean DEFAULT_AUTO_RECONNECT = false;
-    // moonlight-common-c's own control stream timeout, and Sunshine's default ping_timeout
-    public static final int DEFAULT_NETWORK_TIMEOUT_SECONDS = 10;
+    // About when a stock Sunshine/Vibepollo host lets go of a silent client: its control server
+    // keeps ENet's default peer timeout, which ping_timeout does not change. Holding the
+    // connection longer than the host does only delays the reconnect.
+    public static final int DEFAULT_NETWORK_TIMEOUT_SECONDS = 5;
     private static final int DEFAULT_RECONNECT_WINDOW_SECONDS = 60;
     private static final boolean DEFAULT_GAMEPAD_ENABLE_BATTERY_REPORT = true;
     private static final boolean DEFAULT_FORCE_QWERTY = true;

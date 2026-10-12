@@ -910,7 +910,9 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 .setColorRange(decoderRenderer.getPreferredColorRange())
                 .setPersistGamepadsAfterDisconnect(!prefConfig.multiController)
                 // With auto-reconnect on, a silent connection is held as long as the user asked
-                // before it counts as lost; otherwise moonlight-common-c's default applies
+                // before it counts as lost (by default about as long as a stock host holds it, so
+                // the reconnect starts once the host has let go); otherwise moonlight-common-c's
+                // default of 10 s applies
                 .setControlPeerTimeoutMs(prefConfig.autoReconnect ? prefConfig.networkTimeoutSeconds * 1000 : 0)
                 .build();
 

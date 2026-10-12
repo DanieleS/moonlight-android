@@ -1023,7 +1023,7 @@
             android:title="@string/title_auto_reconnect"
             app:iconSpaceReserved="false" />
         <com.limelight.preferences.SeekBarPreference
-            android:defaultValue="10"
+            android:defaultValue="5"
             android:dependency="checkbox_auto_reconnect"
             android:key="seekbar_network_timeout_seconds"
             android:max="120"
@@ -1031,7 +1031,7 @@
             android:text="@string/suffix_seconds"
             android:title="@string/title_network_timeout"
             app:iconSpaceReserved="false"
-            seekbar:min="10" />
+            seekbar:min="5" />
         <com.limelight.preferences.SeekBarPreference
             android:defaultValue="60"
             android:dependency="checkbox_auto_reconnect"
