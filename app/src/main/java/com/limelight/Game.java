@@ -4030,8 +4030,20 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                             Toast.LENGTH_SHORT).show();
                 }
             }
+
+            @Override
+            public void onAdaptiveStopped(boolean restored) {
+                // Otherwise the stream could sit at whatever the controller last reached, with
+                // only the menu to tell.
+                if (!isFinishing()) {
+                    Toast.makeText(Game.this, restored ? R.string.toast_adaptive_bitrate_stopped
+                                    : R.string.toast_adaptive_bitrate_stopped_stuck,
+                            Toast.LENGTH_LONG).show();
+                }
+            }
         }, prefConfig.adaptiveBitrateMode, Math.round(prefConfig.fps),
-                prefConfig.audioConfiguration.channelCount, streamBitrateKbps);
+                prefConfig.audioConfiguration.channelCount, streamBitrateKbps,
+                prefConfig.framePacingWarpFactor);
         if (decoderRenderer != null) {
             decoderRenderer.setBitrateSampleListener(liveBitrate::onSample);
         }

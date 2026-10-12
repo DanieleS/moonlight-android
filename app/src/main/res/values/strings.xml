@@ -1009,4 +1009,6 @@
     <string name="game_menu_bitrate_adaptive_off">Adaptive bitrate: off</string>
     <string name="toast_bitrate_set">Bitrate set to %1$s Mbps</string>
     <string name="toast_bitrate_failed">Couldn\'t change the bitrate to %1$s Mbps</string>
+    <string name="toast_adaptive_bitrate_stopped">Adaptive bitrate turned off: the host stopped taking changes. Back to the chosen bitrate.</string>
+    <string name="toast_adaptive_bitrate_stopped_stuck">Adaptive bitrate turned off: the host stopped taking changes. The bitrate may stay lower until you pick one from the menu.</string>
 </resources>

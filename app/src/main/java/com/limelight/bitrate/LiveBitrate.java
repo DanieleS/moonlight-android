@@ -24,12 +24,22 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  * <p>Both go through the host's {@code /bitrate}, which only Vibepollo-family hosts have. Whether
  * this one does is asked once, when the stream starts; until the answer is yes nothing else is
- * sent, the menu offers nothing, and the controller is never fed. A host that later answers
- * {@code /bitrate} with a 404 is taken at its word for the rest of the stream.
+ * sent, the menu offers nothing, and the controller is never fed. A host whose {@code /bitrate}
+ * turns out to be missing after all (an HTTP 404) is taken at its word for the rest of the stream.
+ * A refusal in the reply itself, such as Vibepollo's "no active session for this client" (a 404
+ * status inside an HTTP 200), is only a failed change: the menu may try again, and the controller
+ * gives up after {@link #MAX_ADAPTIVE_FAILURES} in a row.
  *
  * <p>Bitrates here are the settings' kind, the whole stream's budget; they are turned into what
  * the host's encoder wants only on the way out ({@link BitrateSteps#toEncoderKbps}). Changes last
  * for this stream only: the bitrate in the settings is left as it is.
+ *
+ * <p>A host with a bitrate limit of its own ({@code max_bitrate}) applies it to a starting
+ * stream's whole budget, before error correction and audio come off, but to a live change's
+ * encoder bitrate. Nothing tells this end the limit up front, and a stream started above it runs
+ * lower than this end believes. The first request the host clamps gives it away; from then on
+ * every request is held to it, the way a starting stream's is, and the request it clamped is
+ * asked again from where the stream really was.
  *
  * <p>Requests run on one worker thread, in order, so a change by hand and one from the controller
  * never cross. The controller lives on that thread too.
@@ -51,6 +61,12 @@ public class LiveBitrate {
 
         /** A bitrate asked for from the menu could not be set. */
         void onBitrateChangeFailed(int kbps);
+
+        /**
+         * Adaptation switched itself off, after the host refused too many changes in a row. The
+         * chosen bitrate has been asked for again; {@code restored} says whether the host took it.
+         */
+        void onAdaptiveStopped(boolean restored);
     }
 
     interface Clock {
@@ -66,6 +82,7 @@ public class LiveBitrate {
     private final int fps;
     private final int audioChannels;
     private final int startKbps;
+    private final int warpFactor;
     private final ExecutorService worker;
     private final Executor main;
     private final Clock clock;
@@ -82,9 +99,15 @@ public class LiveBitrate {
     // Worker thread only.
     private AdaptiveBitrateController controller;
     private int adaptiveFailures;
+    /** The host's own bitrate limit, once a request has run into it; 0 until then. */
+    private int hostCapKbps;
 
+    /**
+     * @param warpFactor the frame-pacing warp factor the stream asked for, 0 for none: the host
+     *                   multiplied the starting bitrate by it, so live changes are too
+     */
     public static LiveBitrate create(NvHTTP http, Listener listener, AdaptiveBitrateController.Mode mode,
-                                     int fps, int audioChannels, int startKbps) {
+                                     int fps, int audioChannels, int startKbps, int warpFactor) {
         Host host = new Host() {
             @Override
             public boolean supportsRuntimeBitrate() {
@@ -102,18 +125,20 @@ public class LiveBitrate {
             return thread;
         });
         Handler mainHandler = new Handler(Looper.getMainLooper());
-        return new LiveBitrate(host, listener, mode, fps, audioChannels, startKbps,
+        return new LiveBitrate(host, listener, mode, fps, audioChannels, startKbps, warpFactor,
                 worker, mainHandler::post, SystemClock::uptimeMillis);
     }
 
     LiveBitrate(Host host, Listener listener, AdaptiveBitrateController.Mode mode, int fps,
-                int audioChannels, int startKbps, ExecutorService worker, Executor main, Clock clock) {
+                int audioChannels, int startKbps, int warpFactor, ExecutorService worker, Executor main,
+                Clock clock) {
         this.host = host;
         this.listener = listener;
         this.mode = mode;
         this.fps = fps;
         this.audioChannels = audioChannels;
         this.startKbps = startKbps;
+        this.warpFactor = warpFactor;
         this.worker = worker;
         this.main = main;
         this.clock = clock;
@@ -172,12 +197,27 @@ public class LiveBitrate {
             adaptive = false;
             controller = null;
             LimeLog.info("Live bitrate: adaptive off");
-            int chosen = chosenKbps;
-            if (currentKbps != chosen && send(chosen) != null) {
-                currentKbps = chosen;
-                main.execute(() -> listener.onBitrateChanged(chosen, false));
-            }
+            restoreChosen();
         });
+    }
+
+    /**
+     * Go back to the chosen bitrate, held to the host's limit if one is known.
+     *
+     * @return whether the stream is there now
+     */
+    private boolean restoreChosen() {
+        int target = withinHostCap(chosenKbps);
+        if (currentKbps == target) {
+            return true;
+        }
+        Integer now = send(target, 0);
+        if (now == null) {
+            return false;
+        }
+        currentKbps = now;
+        main.execute(() -> listener.onBitrateChanged(now, false));
+        return true;
     }
 
     /** A bitrate picked from the menu. It becomes the chosen one, and the controller's ceiling. */
@@ -186,18 +226,18 @@ public class LiveBitrate {
             if (!supported) {
                 return;
             }
-            Integer applied = send(kbps);
-            if (applied == null) {
+            Integer now = send(kbps, 0);
+            if (now == null) {
                 main.execute(() -> listener.onBitrateChangeFailed(kbps));
                 return;
             }
-            currentKbps = kbps;
+            currentKbps = now;
             chosenKbps = kbps;
             if (controller != null) {
-                // Should the host have capped it, the controller learns so from its first probe up.
-                controller.onManualChange(kbps, clock.nowMs());
+                // Lower than the pick when the host's limit held it down: the limit is the ceiling.
+                controller.onManualChange(now, clock.nowMs());
             }
-            main.execute(() -> listener.onBitrateChanged(kbps, false));
+            main.execute(() -> listener.onBitrateChanged(now, false));
         });
     }
 
@@ -219,7 +259,8 @@ public class LiveBitrate {
         if (adaptive && controller != null) {
             return;
         }
-        controller = new AdaptiveBitrateController(mode, chosenKbps, currentKbps, fps, clock.nowMs());
+        controller = new AdaptiveBitrateController(mode, withinHostCap(chosenKbps), currentKbps, fps,
+                clock.nowMs());
         adaptiveFailures = 0;
         adaptive = true;
         LimeLog.info("Live bitrate: adaptive on (" + mode.getPreferenceValue() + "), between "
@@ -236,42 +277,83 @@ public class LiveBitrate {
             return;
         }
         int from = currentKbps;
-        Integer applied = send(decision.bitrateKbps);
-        if (applied == null) {
+        // A step down is a step from where the stream is; should the host's limit turn out to
+        // have held the stream below where this end thought, it is taken from there instead.
+        Integer now = send(decision.bitrateKbps, decision.bitrateKbps < from ? from : 0);
+        if (now == null) {
             c.onFailed(clock.nowMs());
             if (adaptive && ++adaptiveFailures >= MAX_ADAPTIVE_FAILURES) {
                 LimeLog.warning("Live bitrate: adaptive off after " + adaptiveFailures + " failed changes");
                 adaptive = false;
                 controller = null;
+                // Don't leave the stream wherever the controller had taken it, unannounced.
+                boolean restored = restoreChosen();
+                main.execute(() -> listener.onAdaptiveStopped(restored));
             }
             return;
         }
         adaptiveFailures = 0;
-        c.onApplied(decision.bitrateKbps, clock.nowMs());
-        if (applied < BitrateSteps.toEncoderKbps(decision.bitrateKbps, audioChannels, startKbps)) {
-            c.capCeiling(decision.bitrateKbps);
+        c.onApplied(now, clock.nowMs());
+        if (hostCapKbps > 0) {
+            c.capCeiling(hostCapKbps);
         }
-        currentKbps = decision.bitrateKbps;
-        LimeLog.info("Live bitrate: " + from + " -> " + decision.bitrateKbps + " kbps (" + decision.reason + ")");
-        int kbps = decision.bitrateKbps;
-        main.execute(() -> listener.onBitrateChanged(kbps, true));
+        currentKbps = now;
+        LimeLog.info("Live bitrate: " + from + " -> " + now + " kbps (" + decision.reason + ")");
+        main.execute(() -> listener.onBitrateChanged(now, true));
+    }
+
+    private int withinHostCap(int kbps) {
+        return hostCapKbps > 0 ? Math.min(kbps, hostCapKbps) : kbps;
     }
 
     /**
-     * Ask the host for {@code kbps}, as the settings mean it.
+     * Ask the host for {@code kbps}, as the settings mean it, held to the host's limit if one is
+     * known.
      *
-     * @return the encoder bitrate the host applied, or null when it could not be set
+     * <p>When the host clamps the request, that reveals its limit, and that the stream has been
+     * running at the limit rather than at the bitrate this end thought: the host held the starting
+     * budget to it. The encoder has just been set to the limit itself, above where the stream was,
+     * so the request is made again at once: an absolute one held to the limit, a step taken from
+     * the limit by the same proportion.
+     *
+     * @param stepFromKbps for a step relative to the stream's bitrate, the bitrate it was taken
+     *                     from; 0 for an absolute bitrate
+     * @return the bitrate the stream is at now, the settings' kind, or null when it could not be
+     *         set
      */
-    private Integer send(int kbps) {
-        int encoderKbps = BitrateSteps.toEncoderKbps(kbps, audioChannels, startKbps);
+    private Integer send(int kbps, int stepFromKbps) {
+        int wireKbps = withinHostCap(kbps);
+        int encoderKbps = toEncoder(wireKbps);
+        Integer applied = request(encoderKbps);
+        if (applied == null || applied >= encoderKbps) {
+            return applied == null ? null : wireKbps;
+        }
+
+        if (hostCapKbps == 0 || applied < hostCapKbps) {
+            hostCapKbps = applied;
+        }
+        int corrected = stepFromKbps > 0
+                ? (int) ((long) Math.min(stepFromKbps, hostCapKbps) * kbps / stepFromKbps)
+                : kbps;
+        corrected = withinHostCap(corrected);
+        LimeLog.info("Live bitrate: host capped " + encoderKbps + " kbps to " + applied
+                + "; its limit is " + hostCapKbps + " kbps, asking for " + corrected + " instead");
+        // With warp, even this can exceed the limit once multiplied; the host clamps it again,
+        // which is the closest it can come.
+        return request(toEncoder(corrected)) == null ? null : corrected;
+    }
+
+    private int toEncoder(int kbps) {
+        return BitrateSteps.toEncoderKbps(kbps, audioChannels, startKbps, warpFactor);
+    }
+
+    /** @return the encoder bitrate the host applied, or null when it could not be set */
+    private Integer request(int encoderKbps) {
         try {
             int applied = host.setRuntimeBitrate(encoderKbps);
             if (applied <= 0) {
                 LimeLog.warning("Live bitrate: host did not apply " + encoderKbps + " kbps");
                 return null;
-            }
-            if (applied < encoderKbps) {
-                LimeLog.info("Live bitrate: host capped " + encoderKbps + " kbps to " + applied);
             }
             return applied;
         } catch (FileNotFoundException e) {

@@ -45,12 +45,20 @@ public final class BitrateSteps {
      * sum is done here, with the host's default error-correction share, which is the one this end
      * can know.
      *
+     * <p>Frame-pacing warp asks the host to capture at two or four times the frame rate it
+     * encodes at, and the host makes up for it by multiplying the starting bitrate by the same
+     * factor before anything comes off (rtsp.cpp, when its "limit framerate" is on, which warp
+     * needs). That is done here too, or the first live change would cut the encoder to a half or a
+     * quarter of where it started.
+     *
      * @param audioChannels the stream's audio channel count
      * @param startKbps the bitrate the stream started with, which decided its audio quality
+     * @param warpFactor the frame-pacing warp factor the stream asked for, 0 or 1 for none
      */
-    public static int toEncoderKbps(int wireKbps, int audioChannels, int startKbps) {
+    public static int toEncoderKbps(int wireKbps, int audioChannels, int startKbps, int warpFactor) {
+        long budget = (long) wireKbps * Math.max(1, warpFactor);
         // Written as the host writes it, so the truncation lands the same way.
-        long kbps = (long) (wireKbps / (100f / (100 - HOST_FEC_PERCENT)));
+        long kbps = (long) (budget / (100f / (100 - HOST_FEC_PERCENT)));
         boolean highQualityAudio = startKbps >= HIGH_QUALITY_AUDIO_THRESHOLD_KBPS;
         long audioKbps = (long) (highQualityAudio ? 256 : 96) * audioChannels;
         kbps -= Math.min(audioKbps, kbps / 5);

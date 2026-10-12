@@ -15,28 +15,36 @@ public class BitrateStepsTest {
     @Test
     public void encoderBitrateMatchesWhatTheHostStartsAStreamWith() {
         // 50 Mbps stereo: 40000, high-quality audio 512 -> 39488, overhead 500 -> 38988.
-        assertEquals(38988, BitrateSteps.toEncoderKbps(50000, 2, 50000));
+        assertEquals(38988, BitrateSteps.toEncoderKbps(50000, 2, 50000, 0));
         // 10 Mbps stereo: 8000, normal audio 192 -> 7808, overhead 500 -> 7308.
-        assertEquals(7308, BitrateSteps.toEncoderKbps(10000, 2, 10000));
+        assertEquals(7308, BitrateSteps.toEncoderKbps(10000, 2, 10000, 0));
         // 5.1 at 80 Mbps: 64000, 6 x 256 = 1536 -> 62464, -500 -> 61964.
-        assertEquals(61964, BitrateSteps.toEncoderKbps(80000, 6, 80000));
+        assertEquals(61964, BitrateSteps.toEncoderKbps(80000, 6, 80000, 0));
         // 1 Mbps: the caps bite. 800, audio capped at 160 -> 640, overhead capped at 64 -> 576.
-        assertEquals(576, BitrateSteps.toEncoderKbps(1000, 2, 1000));
+        assertEquals(576, BitrateSteps.toEncoderKbps(1000, 2, 1000, 0));
     }
 
     @Test
     public void audioQualityFollowsTheBitrateTheStreamStartedWith() {
         // Started at 50 Mbps, so the audio stays high quality when the controller drops to 10.
-        assertEquals(10000 * 4 / 5 - 512 - 500, BitrateSteps.toEncoderKbps(10000, 2, 50000));
+        assertEquals(10000 * 4 / 5 - 512 - 500, BitrateSteps.toEncoderKbps(10000, 2, 50000, 0));
         // Started below 15 Mbps, so it stays normal quality above it.
-        assertEquals(20000 * 4 / 5 - 192 - 500, BitrateSteps.toEncoderKbps(20000, 2, 10000));
+        assertEquals(20000 * 4 / 5 - 192 - 500, BitrateSteps.toEncoderKbps(20000, 2, 10000, 0));
+    }
+
+    @Test
+    public void warpMultipliesTheBudgetFirst() {
+        // rtsp.cpp multiplies by the warp factor before any deduction.
+        assertEquals(BitrateSteps.toEncoderKbps(100000, 2, 50000, 0), BitrateSteps.toEncoderKbps(50000, 2, 50000, 2));
+        assertEquals(BitrateSteps.toEncoderKbps(200000, 2, 50000, 0), BitrateSteps.toEncoderKbps(50000, 2, 50000, 4));
+        assertEquals(BitrateSteps.toEncoderKbps(50000, 2, 50000, 0), BitrateSteps.toEncoderKbps(50000, 2, 50000, 1));
     }
 
     @Test
     public void lowerBudgetMeansLowerEncoderBitrate() {
         int previous = 0;
         for (int kbps = 500; kbps <= 300000; kbps += 500) {
-            int encoder = BitrateSteps.toEncoderKbps(kbps, 2, 40000);
+            int encoder = BitrateSteps.toEncoderKbps(kbps, 2, 40000, 0);
             assertTrue(encoder > previous);
             assertTrue(encoder < kbps);
             previous = encoder;

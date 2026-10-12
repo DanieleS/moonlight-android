@@ -458,4 +458,6 @@
     <string name="game_menu_bitrate_adaptive_off">Bitrate adattivo: disattivato</string>
     <string name="toast_bitrate_set">Bitrate impostato a %1$s Mbps</string>
     <string name="toast_bitrate_failed">Impossibile cambiare il bitrate a %1$s Mbps</string>
+    <string name="toast_adaptive_bitrate_stopped">Bitrate adattivo disattivato: l\'host non accetta più modifiche. Ripristinato il bitrate scelto.</string>
+    <string name="toast_adaptive_bitrate_stopped_stuck">Bitrate adattivo disattivato: l\'host non accetta più modifiche. Il bitrate potrebbe restare più basso finché non ne scegli uno dal menu.</string>
 </resources>
