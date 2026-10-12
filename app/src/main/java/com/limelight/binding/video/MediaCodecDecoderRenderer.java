@@ -1097,6 +1097,19 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             // by holding onto them for too long. This also ensures we will have that 1 extra
             // frame of buffer to smooth over network/rendering jitter.
             Integer nextOutputBuffer = outputBufferQueue.poll();
+            if (preferLowerDelays) {
+                // "Prefer lower delays": show the newest decoded frame and drop any older ones
+                // queued in front of it, giving up Balanced's extra frame of buffering for latency.
+                Integer newerOutputBuffer;
+                while (nextOutputBuffer != null && (newerOutputBuffer = outputBufferQueue.poll()) != null) {
+                    try {
+                        videoDecoder.releaseOutputBuffer(nextOutputBuffer, false);
+                    } catch (IllegalStateException ignored) {
+                        // The release of the newest one below will surface a codec failure
+                    }
+                    nextOutputBuffer = newerOutputBuffer;
+                }
+            }
             if (nextOutputBuffer != null) {
                 try {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
