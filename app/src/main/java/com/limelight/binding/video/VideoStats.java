@@ -79,6 +79,13 @@ class VideoStats {
         return (enqueueTimeUs / 1000) - (receiveTimeUs / 1000);
     }
 
+    // Frame pacing compares decode unit timestamps with System.nanoTime(), so they must be
+    // on CLOCK_MONOTONIC. A frame that has only just arrived can't be more than a second away
+    // from now; anything further means the JNI glue stopped rebasing common-c's clock.
+    static boolean isOnMonotonicClock(long timestampUs, long monotonicNowUs) {
+        return Math.abs(monotonicNowUs - timestampUs) < 1_000_000;
+    }
+
     VideoStatsFps getFps() {
         float elapsed = (SystemClock.uptimeMillis() - this.measurementStartTimestamp) / (float) 1000;
 

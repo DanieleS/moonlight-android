@@ -1787,6 +1787,10 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
         if (lastFrameNumber == 0) {
             activeWindowVideoStats.measurementStartTimestamp = SystemClock.uptimeMillis();
+
+            if (!VideoStats.isOnMonotonicClock(enqueueTimeUs, System.nanoTime() / 1000)) {
+                LimeLog.severe("Decode unit timestamp " + enqueueTimeUs + " us is not on CLOCK_MONOTONIC; frame pacing will misjudge frame age");
+            }
         } else if (frameNumber != lastFrameNumber && frameNumber != lastFrameNumber + 1) {
             // We can receive the same "frame" multiple times if it's an IDR frame.
             // In that case, each frame start NALU is submitted independently.
