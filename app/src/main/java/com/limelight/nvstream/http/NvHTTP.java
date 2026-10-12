@@ -206,6 +206,12 @@ public class NvHTTP {
                 .build();
     }
 
+    // Cancels the requests of this NvHTTP that are in progress; each fails with an IOException.
+    // All its clients are built from httpClientLongConnectTimeout, so they share its dispatcher.
+    public void cancelRequests() {
+        httpClientLongConnectTimeout.dispatcher().cancelAll();
+    }
+
     public HttpUrl getHttpsUrl(boolean likelyOnline) throws IOException {
         if (httpsPort == 0) {
             // Fetch the HTTPS port if we don't have it already

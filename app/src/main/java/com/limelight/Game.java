@@ -3965,16 +3965,17 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         controllerHandler.reannounceControllers();
     }
 
-    // UI thread: the reconnect ends, whichever way. An attempt still running is left to finish on
-    // its own and dealt with where it reports (stageFailed, connectionStarted): stopping it from
-    // here could release the connection semaphore before it has taken it.
+    // UI thread: the reconnect ends, whichever way. An attempt still running is told to give up,
+    // and dealt with where it reports (stageFailed, or connectionStarted if it got too far to
+    // stop): stopping it from here could release the connection semaphore before it has taken it.
     private void endReconnect() {
         reconnecting = false;
         timerHandler.removeCallbacks(reconnectAttemptRunnable);
         timerHandler.removeCallbacks(reconnectTick);
         if (reconnectAttemptInFlight) {
-            // Cut short a connection start in progress, if it has got that far
-            MoonBridge.interruptConnection();
+            // Cancel its /resume and keep it from connecting, so it cannot get in the way of a
+            // stream started right after this one
+            conn.abortStart();
         }
         // From now on the decoder is released the usual way, and so is anything still parked
         decoderRenderer.setDecoderParking(null);
