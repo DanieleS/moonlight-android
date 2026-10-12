@@ -994,6 +994,12 @@
             app:iconSpaceReserved="false" />
         <SwitchPreferenceCompat
             android:defaultValue="false"
+            android:key="checkbox_enable_pyrowave"
+            android:summary="@string/summary_enable_pyrowave"
+            android:title="@string/title_enable_pyrowave"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
             android:key="checkbox_unlock_fps"
             android:summary="@string/summary_unlock_fps"
             android:title="@string/title_unlock_fps"

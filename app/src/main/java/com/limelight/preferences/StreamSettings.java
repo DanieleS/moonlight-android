@@ -53,6 +53,7 @@ import com.limelight.PcView;
 import com.limelight.R;
 import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardControllerConfigurationLoader;
 import com.limelight.binding.video.MediaCodecHelper;
+import com.limelight.binding.video.PyroWaveSupport;
 import com.limelight.utils.Dialog;
 import com.limelight.computers.ComputerDatabaseManager;
 import com.limelight.nvstream.http.ComputerDetails;
@@ -404,6 +405,14 @@ public class StreamSettings extends AppCompatActivity {
                 PreferenceCategory category =
                         (PreferenceCategory) findPreference("category_ui_settings");
                 category.removePreference(findPreference("checkbox_enable_pip"));
+            }
+
+            // PyroWave needs the arm64 renderer and a Vulkan 1.3 GPU. Only the cheap check runs
+            // here; the stream does the full one (a Vulkan device and a decoder) when enabled.
+            if (!PyroWaveSupport.isCandidateDevice(activity)) {
+                PreferenceCategory category =
+                        (PreferenceCategory) findPreference("category_advanced_settings");
+                category.removePreference(findPreference("checkbox_enable_pyrowave"));
             }
 
             // Fire TV apps are not allowed to use WebViews or browsers, so hide the Help category

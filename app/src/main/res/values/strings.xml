@@ -335,6 +335,9 @@
     <string name="summary_disable_frame_drop">May reduce micro-stuttering on some devices, but can increase latency</string>
     <string name="title_video_format">Change codec settings</string>
     <string name="summary_video_format">Newer codecs can lower video bandwidth requirements if your device supports them. Codec selections may be ignored if not supported by the host software or GPU.</string>
+    <string name="title_enable_pyrowave">Use PyroWave when the host offers it (experimental)</string>
+    <string name="summary_enable_pyrowave">Vibepollo hosts can stream PyroWave, an intra-only codec decoded on the GPU with Vulkan. It cuts encode and decode latency and a lost packet costs at most one frame, but it needs hundreds of Mbps (raise the bitrate). Other hosts keep the codec above.</string>
+    <string name="toast_pyrowave_unsupported">PyroWave needs a 64-bit device with Vulkan 1.3; using the regular codecs</string>
     <string name="title_enable_hdr">Enable HDR (Experimental)</string>
     <string name="summary_enable_hdr">Stream HDR when the game and PC GPU support it. HDR requires a GPU with HEVC Main 10 encoding support.</string>
     <string name="title_full_range">Force full range video (Experimental)</string>

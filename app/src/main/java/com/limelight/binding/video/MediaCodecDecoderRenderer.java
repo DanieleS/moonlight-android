@@ -133,6 +133,9 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     private boolean invertResolution;
     private int videoFormat;
     private Surface renderTarget;
+    // A PyroWave session decodes and presents natively (jni/pyrowave-renderer): MediaCodec and
+    // the Java render threads are not used, and decode units never reach submitDecodeUnit().
+    private boolean pyroWave;
     private volatile boolean stopping;
     private CrashListener crashListener;
     private boolean reportedCrash;
@@ -808,6 +811,14 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         this.initialHeight = invertResolution ? width : height;
         this.videoFormat = format;
         this.refreshRate = redrawRate;
+
+        if (PyroWaveSupport.isPyroWave(format)) {
+            pyroWave = true;
+            LimeLog.info("Starting the PyroWave renderer: " + width + "x" + height);
+            try { applySurfaceFrameRate(renderTarget, targetFps); } catch (Throwable ignored) {}
+            return MoonBridge.pyroWaveStart(renderTarget, format, width, height,
+                    getPreferredColorSpace(), getPreferredColorRange());
+        }
 
         return initializeDecoder(false);
     }
@@ -1581,6 +1592,10 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
     @Override
     public void start() {
+        if (pyroWave) {
+            // The native renderer started its own thread in setup()
+            return;
+        }
         startRendererThread();
         startChoreographerThread();
     }
@@ -1618,6 +1633,12 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
     @Override
     public void stop() {
+        if (pyroWave) {
+            stopping = true;
+            MoonBridge.pyroWaveStop();
+            return;
+        }
+
         // May be called already, but we'll call it now to be safe
         prepareForStop();
 
@@ -1650,11 +1671,20 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
     @Override
     public void cleanup() {
+        if (pyroWave) {
+            // Stopped in stop() already; stopping twice is harmless
+            MoonBridge.pyroWaveStop();
+            return;
+        }
         videoDecoder.release();
     }
 
     @Override
     public void setHdrMode(boolean enabled, byte[] hdrMetadata) {
+        if (pyroWave) {
+            // Only 8-bit PyroWave is offered, which the host always sends in SDR
+            return;
+        }
         // HDR metadata is only supported in Android 7.0 and later, so don't bother
         // restarting the codec on anything earlier than that.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {

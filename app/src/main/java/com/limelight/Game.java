@@ -29,6 +29,7 @@ import com.limelight.binding.video.MediaCodecDecoderRenderer;
 import com.limelight.binding.video.MediaCodecHelper;
 import com.limelight.binding.video.PerfOverlayListener;
 import com.limelight.binding.video.PerfStats;
+import com.limelight.binding.video.PyroWaveSupport;
 import com.limelight.companion.CompanionAppLauncher;
 import com.limelight.companion.CompanionDisplayManager;
 import com.limelight.companion.CompanionState;
@@ -818,6 +819,24 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             supportedVideoFormats |= MoonBridge.VIDEO_FORMAT_AV1_MAIN8;
             if (willStreamHdr && decoderRenderer.isAv1Main10Supported()) {
                 supportedVideoFormats |= MoonBridge.VIDEO_FORMAT_AV1_MAIN10;
+            }
+        }
+
+        // PyroWave is opt-in: it trades hundreds of Mbps for its latency. It goes on top of the
+        // formats above, which stay as the fallback for hosts without it (or with another
+        // PyroWave revision). The Vulkan probe only runs when it is enabled.
+        if (prefConfig.enablePyroWave) {
+            boolean pyroWaveSupported = PyroWaveSupport.isCandidateDevice(this) &&
+                    MoonBridge.pyroWaveIsSupported();
+            if (!pyroWaveSupported) {
+                Toast.makeText(this, getString(R.string.toast_pyrowave_unsupported), Toast.LENGTH_LONG).show();
+            }
+            supportedVideoFormats = PyroWaveSupport.addPyroWave(supportedVideoFormats, true, pyroWaveSupported);
+            if (pyroWaveSupported) {
+                LimeLog.info("Offering PyroWave. It looks clean from " +
+                        PyroWaveSupport.cleanBitrateKbps(displayWidth, displayHeight, prefConfig.fps) / 1000 +
+                        " Mbps at this resolution and frame rate; the stream asks for " +
+                        (isMetered ? prefConfig.meteredBitrate : prefConfig.bitrate) / 1000 + " Mbps");
             }
         }
 
@@ -1919,6 +1938,8 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 selectedVideoFormat += "HEVC";
             } else if ((videoFormat & MoonBridge.VIDEO_FORMAT_MASK_AV1) != 0) {
                 selectedVideoFormat += "AV1";
+            } else if (PyroWaveSupport.isPyroWave(videoFormat)) {
+                selectedVideoFormat += "PyroWave";
             }
             else {
                 selectedVideoFormat += "UNKNOWN";

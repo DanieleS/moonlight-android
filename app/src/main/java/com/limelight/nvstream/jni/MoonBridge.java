@@ -16,10 +16,14 @@ public class MoonBridge {
     public static final int VIDEO_FORMAT_H265_MAIN10 = 0x0200;
     public static final int VIDEO_FORMAT_AV1_MAIN8 = 0x1000;
     public static final int VIDEO_FORMAT_AV1_MAIN10 = 0x2000;
+    // PyroWave, the intra-only GPU wavelet codec Vibepollo streams (arm64 and Vulkan 1.3 only,
+    // see binding/video/PyroWaveSupport). Only the 8-bit 4:2:0 profile is ever offered.
+    public static final int VIDEO_FORMAT_PYROWAVE = 0x010000;
 
     public static final int VIDEO_FORMAT_MASK_H264 = 0x000F;
     public static final int VIDEO_FORMAT_MASK_H265 = 0x0F00;
     public static final int VIDEO_FORMAT_MASK_AV1 = 0xF000;
+    public static final int VIDEO_FORMAT_MASK_PYROWAVE = 0x0F0000;
     public static final int VIDEO_FORMAT_MASK_10BIT = 0x2200;
 
     public static final int BUFFER_TYPE_PICDATA = 0;
@@ -425,4 +429,12 @@ public class MoonBridge {
     public static native boolean guessControllerHasShareButton(int vendorId, int productId);
 
     public static native void init();
+
+    // PyroWave renderer (jni/pyrowave-renderer). Decode units reach it straight from native
+    // code; Java only hands it the Surface. pyroWaveIsSupported() creates a Vulkan device and a
+    // decoder the first time (the result is cached), and is always false outside arm64-v8a.
+    public static native boolean pyroWaveIsSupported();
+    public static native int pyroWaveStart(Object surface, int videoFormat, int width, int height,
+                                           int colorspace, int colorRange);
+    public static native void pyroWaveStop();
 }
