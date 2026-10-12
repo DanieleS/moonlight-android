@@ -44,8 +44,8 @@ import android.view.Choreographer;
 import android.view.Surface;
 
 public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements Choreographer.FrameCallback {
-    // Latency profile: favor minimal end-to-end delay over absolute smoothness.
-    // Set true to enable a 'latest-only' fast path in the render loop.
+    // Latency profile: favor minimal end-to-end delay over absolute smoothness, within the
+    // frame pacing mode the user picked.
     private boolean preferLowerDelays = false;
 
 
@@ -57,8 +57,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     // Decode latency tracking: map PTS(us) -> enqueue time (ns)
     private final LongSparseArray<Long> enqueueNsByPtsUs = new LongSparseArray<>();
 
-    // When preferLowerDelays=true we use this configurable timeout (µs) for output dequeue.
-// When preferLowerDelays=false we force 0µs (non-blocking, latest-frame rendering).
+    // Timeout (µs) for the blocking output dequeue; at least 250 µs when preferLowerDelays=true.
     private volatile int preferLowerDelaysTimeoutUs = 2000;
     public void setPreferLowerDelaysTimeoutUs(int us) { this.preferLowerDelaysTimeoutUs = Math.max(0, us); }
 
@@ -1216,42 +1215,11 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                 BufferInfo info = new BufferInfo();
                 long lastOutputNs = System.nanoTime();
                 while (!stopping) {
-                    /* LATEST_ONLY_LOW_LATENCY */
-                    if (!preferLowerDelays) {
-                        try {
-                            android.media.MediaCodec.BufferInfo __tmpInfo = new android.media.MediaCodec.BufferInfo();
-                            int __idx = videoDecoder.dequeueOutputBuffer(__tmpInfo, 0);
-                            int __last = -1;
-                            long __lastPtsUs = -1L;
-
-                            // Drain non-blocking; keep only the newest buffer
-                            while (__idx >= 0) {
-                                if (__last >= 0) {
-                                    try { videoDecoder.releaseOutputBuffer(__last, false); } catch (Throwable ignored) {}
-                                }
-                                __last = __idx;
-                                __lastPtsUs = __tmpInfo.presentationTimeUs;
-                                __idx = videoDecoder.dequeueOutputBuffer(__tmpInfo, 0);
-                            }
-
-                            if (__last >= 0) {
-                                long __nowNs = System.nanoTime();
-                                if (android.os.Build.VERSION.SDK_INT >= 21) {
-                                    releaseWithPolicy(__last, System.nanoTime());} else {
-                                    releaseWithPolicy(__last, System.nanoTime());}
-
-                                // Update decode->present EWMA and decode stats if we have a valid PTS
-                                if (__lastPtsUs >= 0) {
-                                    long __d2pNs = __nowNs - (__lastPtsUs * 1000L);
-                                    ewmaDecodeToPresentNs += EWMA_ALPHA * (__d2pNs - ewmaDecodeToPresentNs);
-                                    try { updateDecodeLatencyStats(__lastPtsUs); } catch (Throwable ignored) {}
-                                }
-
-                                continue; // handled this iteration
-                            }
-                        } catch (Throwable ignored) {}
-                    }
-                    /* /LATEST_ONLY_LOW_LATENCY */
+                    // NB: no "latest-only" drain here. Draining every ready output buffer and
+                    // presenting only the newest bypassed the pacing mode entirely, and turned any
+                    // momentary hiccup into a self-sustaining ~50% frame loss: once two buffers were
+                    // ready per pass it binned one every pass and never recovered. It also ran only
+                    // when "prefer lower delays" was OFF. Frames go through the pacing mode below.
 
 
                     try {
