@@ -18,8 +18,9 @@ import java.util.Locale;
  * skipped frame every few seconds at a 0.1 Hz difference. Half a second of vsync timestamps
  * gives the rate to well under 0.001 Hz.
  *
- * Runs on the main thread. The display mode may still be switching when the stream starts,
- * so a measurement that doesn't fit one steady rate is retried.
+ * Runs on the main thread. The display mode may still be switching when the stream starts: the
+ * meter waits for the mode Game asked for, and a measurement that doesn't fit one steady rate is
+ * retried.
  */
 public class DisplayRefreshMeter implements Choreographer.FrameCallback {
     public interface Listener {
@@ -36,6 +37,7 @@ public class DisplayRefreshMeter implements Choreographer.FrameCallback {
     private static final int MAX_SAMPLES = 256;
 
     private final Display display;
+    private final float expectedHz;
     private final Listener listener;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final long[] frameTimes = new long[MAX_SAMPLES];
@@ -43,24 +45,45 @@ public class DisplayRefreshMeter implements Choreographer.FrameCallback {
     private float nominalHz;
     private int skipped;
     private int attempts;
+    private boolean waitingForMode;
     private boolean done;
 
-    private DisplayRefreshMeter(Display display, Listener listener) {
+    private DisplayRefreshMeter(Display display, float expectedHz, Listener listener) {
         this.display = display;
+        this.expectedHz = expectedHz;
         this.listener = listener;
     }
 
-    /** Starts measuring on the main thread; the listener is called there exactly once, unless cancelled. */
-    public static DisplayRefreshMeter measure(Display display, Listener listener) {
-        DisplayRefreshMeter meter = new DisplayRefreshMeter(display, listener);
+    /**
+     * Starts measuring on the main thread, once the display reports expectedHz (the refresh rate
+     * the stream asked for; 0 for whatever it runs at). The listener is called there exactly
+     * once, unless cancelled.
+     */
+    public static DisplayRefreshMeter measure(Display display, float expectedHz, Listener listener) {
+        DisplayRefreshMeter meter = new DisplayRefreshMeter(display, expectedHz, listener);
         meter.startAttempt();
         meter.handler.postDelayed(() -> {
             if (!meter.done) {
-                LimeLog.warning("Display refresh measurement timed out");
+                if (meter.waitingForMode) {
+                    LimeLog.warning(String.format(Locale.ROOT, "Display stayed at %.3f Hz instead of %.3f Hz; refresh rate not measured",
+                            meter.display.getRefreshRate(), expectedHz));
+                }
+                else {
+                    LimeLog.warning("Display refresh measurement timed out");
+                }
                 meter.finish(0);
             }
         }, TIMEOUT_MS);
         return meter;
+    }
+
+    /**
+     * Whether a display reporting currentHz is in the mode that was asked for. The mode switch
+     * can start after the stream's surface is up, and measuring the mode it is leaving would
+     * hand the host the old rate.
+     */
+    public static boolean isExpectedMode(float currentHz, float expectedHz) {
+        return !(expectedHz > 0) || Math.abs(currentHz - expectedHz) <= expectedHz * 0.01;
     }
 
     // Stops the measurement without calling the listener
@@ -145,7 +168,6 @@ public class DisplayRefreshMeter implements Choreographer.FrameCallback {
         attempts++;
         frameCount = 0;
         skipped = 0;
-        nominalHz = display.getRefreshRate();
         Choreographer.getInstance().postFrameCallback(this);
     }
 
@@ -153,6 +175,19 @@ public class DisplayRefreshMeter implements Choreographer.FrameCallback {
     public void doFrame(long frameTimeNanos) {
         if (done) {
             return;
+        }
+        float currentHz = display.getRefreshRate();
+        if (!isExpectedMode(currentHz, expectedHz)) {
+            // Not there yet. Wait, within the timeout, without using up an attempt.
+            waitingForMode = true;
+            frameCount = 0;
+            skipped = 0;
+            Choreographer.getInstance().postFrameCallback(this);
+            return;
+        }
+        waitingForMode = false;
+        if (skipped == 0 && frameCount == 0) {
+            nominalHz = currentHz;
         }
         if (skipped < SKIP_FRAMES) {
             skipped++;

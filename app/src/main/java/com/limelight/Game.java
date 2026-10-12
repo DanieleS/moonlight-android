@@ -982,7 +982,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 // host can be asked for a frame rate that lines up with our vsyncs
                 if (measureRefreshRate) {
                     LimeLog.info("Surface is available, measuring the display refresh rate...");
-                    refreshMeter = DisplayRefreshMeter.measure(streamDisplay, refreshHz -> {
+                    refreshMeter = DisplayRefreshMeter.measure(streamDisplay, desiredRefreshRate, refreshHz -> {
                         refreshMeter = null;
                         startConnection(refreshHz);
                     });

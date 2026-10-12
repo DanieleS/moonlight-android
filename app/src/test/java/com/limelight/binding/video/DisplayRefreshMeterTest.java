@@ -79,6 +79,18 @@ public class DisplayRefreshMeterTest {
     }
 
     @Test
+    public void waitsForTheModeThatWasAskedFor() {
+        assertEquals(true, DisplayRefreshMeter.isExpectedMode(120f, 120f));
+        assertEquals(true, DisplayRefreshMeter.isExpectedMode(119.88f, 120f));
+        // Still on the mode the switch is leaving
+        assertEquals(false, DisplayRefreshMeter.isExpectedMode(60f, 120f));
+        assertEquals(false, DisplayRefreshMeter.isExpectedMode(90f, 120f));
+        assertEquals(false, DisplayRefreshMeter.isExpectedMode(120f, 60f));
+        // Nothing asked for: any mode will do
+        assertEquals(true, DisplayRefreshMeter.isExpectedMode(60f, 0f));
+    }
+
+    @Test
     public void asksForTheRefreshRateWhenTheStreamMatchesIt() {
         assertEquals(11988, DisplayRefreshMeter.clientRefreshRateX100(119.88, 120));
         assertEquals(12000, DisplayRefreshMeter.clientRefreshRateX100(120.0, 120));
