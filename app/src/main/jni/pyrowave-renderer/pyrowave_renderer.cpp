@@ -2,8 +2,8 @@
 // and presents it in a swapchain on the stream's Surface.
 //
 // Ported from LavArtemis (Lavagnou/LavArtemis 34e3daa6, GPLv3), with the
-// precision and decode path choices of joemossjr16/artemis-android-pyrowave
-// (2e6231a9): the fragment decode path with FP16 wavelets on Adreno.
+// decode path and precision overrides of joemossjr16/artemis-android-pyrowave
+// (2e6231a9). PyroWave picks the fragment decode path on Adreno itself.
 //
 // Frame path (render thread):
 //   decode unit -> PyroWaveFraming::parse (record framing, partial frames)
@@ -224,7 +224,6 @@ bool hasExtension(const std::vector<VkExtensionProperties>& extensions, const ch
 // feature structs stay alive with the context: pyrowave_create_device() keeps
 // pointers to them for the lifetime of the pyrowave_device.
 // ---------------------------------------------------------------------------
-constexpr uint32_t k_VendorIdQualcomm = 0x5143;
 
 struct VulkanContext {
     Vk vk;
@@ -491,25 +490,23 @@ bool chooseFragmentPath(VulkanContext& ctx)
 
 // PyroWave reads its wavelet precision (0: FP16, 1: FP16 storage with FP32
 // coarse levels, the default, 2: FP32) from PYROWAVE_PRECISION once per
-// process, when the first decoder is created. On Adreno the fragment path is
-// fastest in full FP16 (5.66 ms against 6.1 ms per frame on an Adreno 840).
-// The precision only changes the decoder's internal arithmetic, not the
-// bitstream.
-void choosePrecision(VulkanContext& ctx, bool fragmentPath)
+// process, when the first decoder is created.
+//
+// The default stays 1, as in Vibepollo's encoder: precision 0 also stores the
+// three coarsest levels in FP16, while the host quantises them for FP32 (up to
+// 4096 rather than the 512 PyroWave caps them at when FP16 is in play), so FP16
+// could band or clip on bright, flat areas. joemossjr16/artemis-android-pyrowave
+// 2e6231a9 measured full FP16 on an Adreno 840's fragment path at 5.66 ms per
+// frame against 6.1 ms, but kept the default and only added this override:
+// `adb shell setprop debug.pyrowave.precision 0` tries it.
+void choosePrecision()
 {
     static std::once_flag once;
-    std::call_once(once, [&ctx, fragmentPath] {
+    std::call_once(once, [] {
         const std::string precision = debugProperty("debug.pyrowave.precision");
         if (precision == "0" || precision == "1" || precision == "2") {
             setenv("PYROWAVE_PRECISION", precision.c_str(), 1);
             LOGI("PyroWave precision override: %s", precision.c_str());
-            return;
-        }
-        VkPhysicalDeviceProperties props;
-        ctx.vk.GetPhysicalDeviceProperties(ctx.physicalDevice, &props);
-        if (fragmentPath && props.vendorID == k_VendorIdQualcomm && ctx.features12.shaderFloat16) {
-            setenv("PYROWAVE_PRECISION", "0", 1);
-            LOGI("PyroWave decodes in FP16 on this Adreno GPU");
         }
     });
 }
@@ -606,7 +603,7 @@ public:
         }
 
         m_FragmentPath = chooseFragmentPath(m_Ctx);
-        choosePrecision(m_Ctx, m_FragmentPath);
+        choosePrecision();
         pyrowave_decoder_create_info decoderInfo = {};
         decoderInfo.device = m_Ctx.pwDevice;
         decoderInfo.width = width;
@@ -1542,7 +1539,7 @@ bool probeSupport()
     info.height = 256;
     info.chroma = PYROWAVE_CHROMA_SUBSAMPLING_420;
     info.fragment_path = chooseFragmentPath(ctx);
-    choosePrecision(ctx, info.fragment_path);
+    choosePrecision();
     pyrowave_decoder decoder = nullptr;
     const pyrowave_result result = pyrowave_decoder_create(&info, &decoder);
     if (result != PYROWAVE_SUCCESS) {
