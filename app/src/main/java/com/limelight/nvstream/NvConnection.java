@@ -44,6 +44,10 @@ import com.limelight.nvstream.input.MouseButtonPacket;
 import com.limelight.nvstream.jni.MoonBridge;
 
 public class NvConnection {
+    // Reported to stageFailed() when a reconnect attempt finds the game no longer running on the
+    // host, so there is nothing left to resume
+    public static final int RESUME_ERROR_NO_SESSION = -600;
+
     // Context parameters
     private LimelightCryptoProvider cryptoProvider;
     private String uniqueId;
@@ -87,6 +91,13 @@ public class NvConnection {
     
     private static int generateRiKeyId() {
         return new SecureRandom().nextInt();
+    }
+
+    // Marks the following starts as reconnect attempts: they only ever /resume the game that is
+    // already running (never launch or quit one), give up sooner on a host that does not answer,
+    // and the stream gets a fresh remote input key.
+    public void setReconnectAttempt(boolean reconnectAttempt) {
+        context.reconnectAttempt = reconnectAttempt;
     }
 
     public void stop() {
@@ -226,7 +237,9 @@ public class NvConnection {
     {
         NvHTTP h = new NvHTTP(context.serverAddress, context.httpsPort, uniqueId, context.serverCert, cryptoProvider);
 
-        String serverInfo = h.getServerInfo(true);
+        // A reconnect attempt probes the host with the short connect timeout, so an attempt made
+        // while the network is still down fails quickly and the next one starts sooner
+        String serverInfo = h.getServerInfo(!context.reconnectAttempt);
         
         context.serverAppVersion = h.getServerVersion(serverInfo);
         if (context.serverAppVersion == null) {
@@ -310,10 +323,19 @@ public class NvConnection {
             }
         }
         
+        boolean gameRunning = h.getCurrentGame(serverInfo) != 0 || (h.getCurrentGameUUID(serverInfo) != null && !h.getCurrentGameUUID(serverInfo).isEmpty());
+        boolean ourGameRunning = gameRunning && (h.getCurrentGame(serverInfo) == app.getAppId() || Objects.equals(h.getCurrentGameUUID(serverInfo), app.getAppUUID()));
+
+        // A reconnect attempt resumes the game we were streaming or nothing: launching it again,
+        // or quitting whatever replaced it, is not ours to do behind the user's back
+        if (context.reconnectAttempt && !ourGameRunning) {
+            throw new HostHttpResponseException(RESUME_ERROR_NO_SESSION, "The game is no longer running on the host");
+        }
+
         // If there's a game running, resume it
-        if (h.getCurrentGame(serverInfo) != 0 || (h.getCurrentGameUUID(serverInfo) != null && !h.getCurrentGameUUID(serverInfo).isEmpty())) {
+        if (gameRunning) {
             try {
-                if (h.getCurrentGame(serverInfo) == app.getAppId() || Objects.equals(h.getCurrentGameUUID(serverInfo), app.getAppUUID())) {
+                if (ourGameRunning) {
                     if (!h.launchApp(context, "resume", app.getAppUUID(), app.getAppId(), context.negotiatedHdr)) {
                         context.connListener.displayMessage("Failed to resume existing session");
                         return false;
@@ -325,7 +347,11 @@ public class NvConnection {
                     return quitAndLaunch(h, context);
                 }
             } catch (HostHttpResponseException e) {
-                if (e.getErrorCode() == 470) {
+                if (context.reconnectAttempt) {
+                    // Let the reconnect logic see the host's answer rather than a message
+                    throw e;
+                }
+                else if (e.getErrorCode() == 470) {
                     // This is the error you get when you try to resume a session that's not yours.
                     // Because this is fairly common, we'll display a more detailed message.
                     context.connListener.displayMessage("This session wasn't started by this device," +
@@ -389,6 +415,12 @@ public class NvConnection {
     {
         new Thread(new Runnable() {
             public void run() {
+                if (context.reconnectAttempt) {
+                    // The core restarts its AES-GCM IV counter with every connection, so a new
+                    // connection must not reuse the previous one's remote input key
+                    context.riKey = generateRiAesKey();
+                    context.riKeyId = generateRiKeyId();
+                }
                 context.connListener = connectionListener;
                 context.videoCapabilities = videoDecoderRenderer.getCapabilities();
 
