@@ -775,19 +775,20 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         } catch (Throwable ignored) {}
 
 // --- latency profile selection ---
+        // NB: this must not touch prefConfig.framePacing. Forcing BALANCED sent every stream
+        // through the Choreographer path, which renders at most one frame per vsync callback
+        // (some devices deliver those at 60 Hz on a 120 Hz panel), and made the frame pacing
+        // setting a no-op. "Prefer lower delays" tunes the mode the user picked instead.
         try {
             if (prefConfig != null && prefConfig.preferLowerDelays) {
                 // Intermediate: more responsive than Balanced but not 0 µs
                 decoderRenderer.setPreferLowerDelays(true);
                 decoderRenderer.setPreferLowerDelaysTimeoutUs(500);  // 0.5 ms
-                prefConfig.framePacing = PreferenceConfiguration.FRAME_PACING_BALANCED;
-                LimeLog.info("PreferLowerDelays: preferLowerDelays=true, timeout=500us, pacing=BALANCED");
+                LimeLog.info("PreferLowerDelays: preferLowerDelays=true, timeout=500us, pacing=" + prefConfig.framePacing);
             } else {
-                // Balanced default
                 decoderRenderer.setPreferLowerDelays(false);
                 decoderRenderer.setPreferLowerDelaysTimeoutUs(2000); // 2 ms
-                prefConfig.framePacing = PreferenceConfiguration.FRAME_PACING_BALANCED;
-                LimeLog.info("Balanced: preferLowerDelays=false, timeout=2000us, pacing=BALANCED");
+                LimeLog.info("PreferLowerDelays: preferLowerDelays=false, timeout=2000us, pacing=" + prefConfig.framePacing);
             }
         } catch (Throwable ignored) {}
 
