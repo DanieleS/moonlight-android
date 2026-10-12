@@ -413,6 +413,16 @@ public class StreamSettings extends AppCompatActivity {
                 PreferenceCategory category =
                         (PreferenceCategory) findPreference("category_advanced_settings");
                 category.removePreference(findPreference("checkbox_enable_pyrowave"));
+                category.removePreference(findPreference("seekbar_pyrowave_bitrate_kbps"));
+            }
+            else {
+                // Probe now, off the UI thread, rather than when the first stream starts
+                findPreference("checkbox_enable_pyrowave").setOnPreferenceChangeListener((preference, newValue) -> {
+                    if (Boolean.TRUE.equals(newValue)) {
+                        PyroWaveSupport.probeInBackground(activity);
+                    }
+                    return true;
+                });
             }
 
             // Fire TV apps are not allowed to use WebViews or browsers, so hide the Help category

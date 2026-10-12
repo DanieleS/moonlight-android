@@ -23,6 +23,13 @@ public final class PyroWaveSupport {
      */
     static final double CLEAN_BITS_PER_PIXEL = 1.6;
 
+    /** SCM_PYROWAVE in /serverinfo's ServerCodecModeSupport: the host can stream 8-bit 4:2:0 PyroWave. */
+    static final int SCM_PYROWAVE = 0x00800000;
+
+    // Set when the native renderer failed to start in this process: PyroWave is then no longer
+    // offered, so the next stream falls back to MediaCodec instead of failing the same way.
+    private static volatile boolean startFailed;
+
     private PyroWaveSupport() {}
 
     /**
@@ -63,9 +70,59 @@ public final class PyroWaveSupport {
         return (videoFormat & MoonBridge.VIDEO_FORMAT_MASK_PYROWAVE) != 0;
     }
 
+    /** Whether this stream offers PyroWave and the host says it can stream it. */
+    public static boolean hostOffersPyroWave(int supportedVideoFormats, int serverCodecModeSupport) {
+        return isPyroWave(supportedVideoFormats) && (serverCodecModeSupport & SCM_PYROWAVE) != 0;
+    }
+
+    /**
+     * The video formats to negotiate with this host. Only 8-bit PyroWave is offered, but asking
+     * a PyroWave host for HDR at launch lets Vibepollo encode the session in 10 bits (its
+     * per-client "10-bit SDR" option), and the PyroWave bitstream does not carry its bit depth.
+     * So when the host can stream PyroWave, the 10-bit formats go, and with them the HDR request;
+     * a fallback to another codec is then SDR too.
+     */
+    public static int formatsForHost(int supportedVideoFormats, int serverCodecModeSupport) {
+        if (!hostOffersPyroWave(supportedVideoFormats, serverCodecModeSupport)) {
+            return supportedVideoFormats;
+        }
+        return supportedVideoFormats & ~MoonBridge.VIDEO_FORMAT_MASK_10BIT;
+    }
+
     /** The bitrate at which PyroWave looks clean at this resolution and frame rate, in Kbps. */
     public static int cleanBitrateKbps(int width, int height, float fps) {
         double kbps = (double) width * height * fps * CLEAN_BITS_PER_PIXEL / 1000.0;
         return (int) Math.min(Integer.MAX_VALUE, Math.round(kbps));
+    }
+
+    /**
+     * The bitrate a PyroWave stream asks for, in Kbps: the PyroWave bitrate setting, or the clean
+     * bitrate for this resolution and frame rate when it is 0 (automatic). The regular bitrate
+     * stays for the codecs PyroWave falls back to.
+     */
+    public static int bitrateKbps(int preferenceKbps, int width, int height, float fps) {
+        return preferenceKbps > 0 ? preferenceKbps : cleanBitrateKbps(width, height, fps);
+    }
+
+    /** Called when the native renderer could not start: stop offering PyroWave in this process. */
+    public static void recordStartFailure() {
+        startFailed = true;
+    }
+
+    public static boolean hasStartFailed() {
+        return startFailed;
+    }
+
+    /**
+     * Warms the cached Vulkan probe on a background thread, so that starting a stream with
+     * PyroWave enabled does not create a Vulkan device on the UI thread.
+     */
+    public static void probeInBackground(Context context) {
+        if (!isCandidateDevice(context)) {
+            return;
+        }
+        Thread probe = new Thread(MoonBridge::pyroWaveIsSupported, "PyroWave probe");
+        probe.setPriority(Thread.MIN_PRIORITY);
+        probe.start();
     }
 }

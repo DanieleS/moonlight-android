@@ -78,4 +78,37 @@ public class PyroWaveSupportTest {
     public void cleanBitrateDoesNotOverflow() {
         assertEquals(Integer.MAX_VALUE, PyroWaveSupport.cleanBitrateKbps(65535, 65535, 1000));
     }
+
+    @Test
+    public void pyroWaveBitrateIsTheSettingOrAutomaticAtZero() {
+        assertEquals(500_000, PyroWaveSupport.bitrateKbps(500_000, 1920, 1080, 120));
+        assertEquals(398_131, PyroWaveSupport.bitrateKbps(0, 1920, 1080, 120));
+    }
+
+    @Test
+    public void hostOffersPyroWaveOnlyWithItsCodecModeBit() {
+        int offered = MEDIACODEC_FORMATS | MoonBridge.VIDEO_FORMAT_PYROWAVE;
+        assertTrue(PyroWaveSupport.hostOffersPyroWave(offered, 0x00800000));
+        assertTrue(PyroWaveSupport.hostOffersPyroWave(offered, 0x00800000 | 0x20200));
+        assertFalse(PyroWaveSupport.hostOffersPyroWave(offered, 0x20200));
+        assertFalse(PyroWaveSupport.hostOffersPyroWave(MEDIACODEC_FORMATS, 0x00800000));
+    }
+
+    @Test
+    public void pyroWaveHostsGetNo10BitFormatsSoNoHdrRequest() {
+        int hdr = MEDIACODEC_FORMATS | MoonBridge.VIDEO_FORMAT_H265_MAIN10 | MoonBridge.VIDEO_FORMAT_AV1_MAIN10;
+        int offered = hdr | MoonBridge.VIDEO_FORMAT_PYROWAVE;
+        assertEquals(MEDIACODEC_FORMATS | MoonBridge.VIDEO_FORMAT_PYROWAVE,
+                PyroWaveSupport.formatsForHost(offered, 0x00800000 | 0x20200));
+    }
+
+    @Test
+    public void hdrIsKeptWithoutPyroWaveOnEitherSide() {
+        int hdr = MEDIACODEC_FORMATS | MoonBridge.VIDEO_FORMAT_H265_MAIN10;
+        // The host has no PyroWave
+        assertEquals(hdr | MoonBridge.VIDEO_FORMAT_PYROWAVE,
+                PyroWaveSupport.formatsForHost(hdr | MoonBridge.VIDEO_FORMAT_PYROWAVE, 0x20200));
+        // The client does not offer it
+        assertEquals(hdr, PyroWaveSupport.formatsForHost(hdr, 0x00800000 | 0x20200));
+    }
 }

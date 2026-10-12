@@ -816,8 +816,15 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             pyroWave = true;
             LimeLog.info("Starting the PyroWave renderer: " + width + "x" + height);
             try { applySurfaceFrameRate(renderTarget, targetFps); } catch (Throwable ignored) {}
-            return MoonBridge.pyroWaveStart(renderTarget, format, width, height,
+            int err = MoonBridge.pyroWaveStart(renderTarget, format, width, height,
                     getPreferredColorSpace(), getPreferredColorRange());
+            if (err != 0) {
+                // The probe passed but the swapchain or surface did not: stop offering PyroWave,
+                // so the next stream uses MediaCodec instead of failing the same way
+                LimeLog.severe("The PyroWave renderer failed to start: " + err);
+                PyroWaveSupport.recordStartFailure();
+            }
+            return err;
         }
 
         return initializeDecoder(false);

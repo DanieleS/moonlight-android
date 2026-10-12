@@ -51,11 +51,14 @@ The price is bandwidth: a clean picture needs hundreds of Mbps.
 
 Turn it on in the stream settings ("Use PyroWave when the host offers it", under the codec settings);
 it is off by default. It needs a 64-bit device with a Vulkan 1.3 GPU, which the Thor's Adreno 740 is.
+PyroWave streams have their own bitrate setting: at 0 it follows Vibepollo's guidance of 1.6 bits per
+pixel (about 400 Mbps at 1080p120), and the regular bitrate stays for the codecs PyroWave falls back to.
 MediaCodec cannot decode PyroWave: the frames go from moonlight-core to a native Vulkan renderer
-(`app/src/main/jni/pyrowave-renderer`), on the fragment decode path in FP16 on Adreno. The codec is
+(`app/src/main/jni/pyrowave-renderer`), on the fragment decode path on Adreno. The codec is
 vendored at the exact commit Vibepollo encodes with (`app/src/main/jni/pyrowave/VENDOR.txt`), since the
 bitstream has no version field; a host that advertises another revision, or no PyroWave at all, gets the
-usual codecs. 8-bit 4:2:0 SDR only for now.
+usual codecs. 8-bit 4:2:0 SDR only for now: with a PyroWave host the app does not ask for HDR. PyroWave
+is not used on metered networks or in the 3D render modes.
 
 # Inherited features
 
