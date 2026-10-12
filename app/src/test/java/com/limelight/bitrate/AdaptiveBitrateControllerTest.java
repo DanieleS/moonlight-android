@@ -57,8 +57,28 @@ public class AdaptiveBitrateControllerTest {
     @Test
     public void heavyLossCutsByThirtyPercentAtOnce() {
         AdaptiveBitrateController c = balanced(40000);
-        Decision d = next(c, loss(8f));
+        // 12% in one second is 6% over two.
+        Decision d = next(c, loss(12f));
         assertEquals(28000, d.bitrateKbps);
+    }
+
+    @Test
+    public void heavyLossIsJudgedOverTwoSeconds() {
+        AdaptiveBitrateController c = balanced(40000);
+        // 8% in one second, say 10 frames at 120 fps waiting for a recovery frame: 4% over two.
+        assertNull(next(c, loss(8f)));
+        assertNull(next(c, CLEAN));
+        // Held for a second second, it is a collapse.
+        assertNull(next(c, loss(8f)));
+        assertEquals(28000, next(c, loss(8f)).bitrateKbps);
+    }
+
+    @Test
+    public void lossDuringTheStartGraceIsNotRemembered() {
+        AdaptiveBitrateController c = new AdaptiveBitrateController(Mode.BALANCED, 40000, 40000, 60, 0);
+        assertNull(c.onSample(loss(30f), 2000));
+        // 6% alone is 3% over two seconds: the start's 30% doesn't make it a collapse.
+        assertNull(c.onSample(loss(6f), 3000));
     }
 
     @Test
@@ -96,8 +116,9 @@ public class AdaptiveBitrateControllerTest {
     @Test
     public void cooldownHoldsTheNextStep() {
         AdaptiveBitrateController c = balanced(40000);
-        assertEquals(28000, step(c, loss(8f)).bitrateKbps);
+        assertEquals(28000, step(c, loss(12f)).bitrateKbps);
         // Applied at t; the next sample, one second on, is still inside the two-second cooldown.
+        // It still counts as the first of the next two seconds.
         assertNull(next(c, loss(8f)));
         assertEquals(19600, next(c, loss(8f)).bitrateKbps);
     }
@@ -105,10 +126,10 @@ public class AdaptiveBitrateControllerTest {
     @Test
     public void afterAFailedRequestItWaitsACooldown() {
         AdaptiveBitrateController c = balanced(40000);
-        assertNotNull(next(c, loss(8f)));
+        assertNotNull(next(c, loss(12f)));
         c.onFailed(t);
-        assertNull(next(c, loss(8f)));
-        assertEquals(28000, next(c, loss(8f)).bitrateKbps);
+        assertNull(next(c, loss(12f)));
+        assertEquals(28000, next(c, loss(12f)).bitrateKbps);
     }
 
     @Test
@@ -125,20 +146,46 @@ public class AdaptiveBitrateControllerTest {
     }
 
     @Test
-    public void probesBackUpCautiouslyAfterAStepDown() {
+    public void probesBackUpRarelyAndInLargeSteps() {
         AdaptiveBitrateController c = balanced(40000);
-        assertEquals(28000, step(c, loss(8f)).bitrateKbps);
-        // The first sample falls in the cooldown; four clean ones follow it.
-        for (int i = 0; i < 5; i++) {
+        assertEquals(28000, step(c, loss(12f)).bitrateKbps);
+        // The first sample falls in the cooldown; then 10 clean ones, and 5 more after a step down.
+        for (int i = 0; i < 15; i++) {
             assertNull(step(c, CLEAN));
         }
-        // The fifth clean one probes: +2% right after a step down, rounded up to 100 kbps.
-        assertEquals(28600, step(c, CLEAN).bitrateKbps);
-        for (int i = 0; i < 5; i++) {
+        assertEquals(30800, step(c, CLEAN).bitrateKbps);
+        // Once the last step was up, 10 clean seconds will do; +10%, rounded up to 100 kbps.
+        assertNull(step(c, CLEAN));
+        for (int i = 0; i < 9; i++) {
             assertNull(step(c, CLEAN));
         }
-        // Then +5% once the last step was up.
-        assertEquals(30100, step(c, CLEAN).bitrateKbps);
+        assertEquals(33900, step(c, CLEAN).bitrateKbps);
+    }
+
+    @Test
+    public void aSmallBitrateProbesUpByAtLeastTwoMbps() {
+        t = 0;
+        AdaptiveBitrateController c = new AdaptiveBitrateController(Mode.LOW_LATENCY, 20000, 5000, 60, t);
+        t += AdaptiveBitrateController.START_GRACE_MS;
+        for (int i = 0; i < AdaptiveBitrateController.PROBE_SAMPLES - 1; i++) {
+            assertNull(step(c, CLEAN));
+        }
+        assertEquals(7000, step(c, CLEAN).bitrateKbps);
+    }
+
+    @Test
+    public void recoveringFromACollapseTakesFewSteps() {
+        AdaptiveBitrateController c = balanced(40000);
+        step(c, loss(12f));
+        int steps = 0;
+        for (int i = 0; i < 300 && c.getCurrentKbps() < 40000; i++) {
+            if (step(c, CLEAN) != null) {
+                steps++;
+            }
+        }
+        assertEquals(40000, c.getCurrentKbps());
+        // Each step up costs the host a key frame: four, not V+'s eight or nine.
+        assertTrue(steps <= 4);
     }
 
     @Test
@@ -166,9 +213,10 @@ public class AdaptiveBitrateControllerTest {
         AdaptiveBitrateController c = new AdaptiveBitrateController(Mode.QUALITY, 40000, 30000, 60, t);
         t += AdaptiveBitrateController.START_GRACE_MS;
         assertEquals(20000, c.getFloorKbps());
-        assertNull(step(c, CLEAN));
-        assertNull(step(c, CLEAN));
-        assertEquals(31500, step(c, CLEAN).bitrateKbps);
+        for (int i = 0; i < AdaptiveBitrateController.QUALITY_PROBE_SAMPLES - 1; i++) {
+            assertNull(step(c, CLEAN));
+        }
+        assertEquals(33000, step(c, CLEAN).bitrateKbps);
     }
 
     @Test
@@ -256,17 +304,62 @@ public class AdaptiveBitrateControllerTest {
     }
 
     @Test
-    public void aBusyDecoderBlocksProbing() {
+    public void aDecoderThatStaysSlowCostsOneStepAndIsThenIgnored() {
+        AdaptiveBitrateController c = balanced(40000);
+        // Slower than 15 ms a frame whatever the bitrate, as a hardware decoder's time mostly is.
+        Sample slow = new Sample(0f, 4, 16f);
+        int downs = 0;
+        int previous = c.getCurrentKbps();
+        for (int i = 0; i < 120; i++) {
+            step(c, slow);
+            if (c.getCurrentKbps() < previous) {
+                downs++;
+            }
+            previous = c.getCurrentKbps();
+        }
+        assertEquals(1, downs);
+        assertEquals(AdaptiveBitrateController.DecodeVerdict.INDEPENDENT, c.getDecodeVerdict());
+        // And it no longer holds the bitrate down: it climbs back to the one chosen.
+        assertEquals(40000, c.getCurrentKbps());
+    }
+
+    @Test
+    public void aDecodeStepThatHelpsKeepsDecodeTimeCounting() {
+        AdaptiveBitrateController c = balanced(40000);
+        Sample slow = new Sample(0f, 4, 16f);
+        // 13 ms of 16.7: past three quarters, short of overloaded, and a fifth less than 16.
+        Sample busy = new Sample(0f, 4, 13f);
+        step(c, slow);
+        step(c, slow);
+        assertEquals(36000, step(c, slow).bitrateKbps);
+        assertNull(step(c, busy)); // the cooldown
+        for (int i = 0; i < AdaptiveBitrateController.PRESSURE_SAMPLES; i++) {
+            assertNull(step(c, busy));
+        }
+        assertEquals(AdaptiveBitrateController.DecodeVerdict.FOLLOWS_BITRATE, c.getDecodeVerdict());
+
+        // A busy decoder now blocks probing...
+        for (int i = 0; i < 30; i++) {
+            assertNull(step(c, busy));
+        }
+        assertEquals(36000, c.getCurrentKbps());
+        // ...and an overloaded one steps down again.
+        step(c, slow);
+        step(c, slow);
+        assertEquals(32400, step(c, slow).bitrateKbps);
+    }
+
+    @Test
+    public void aBusyDecoderDoesNotBlockProbingUntilAStepHasHelped() {
         AdaptiveBitrateController c = balanced(40000);
         step(c, loss(3f));
         step(c, loss(3f));
-        int before = c.getCurrentKbps();
-        // 13 ms of 16.7: past three quarters, short of overloaded.
+        assertEquals(36000, c.getCurrentKbps());
         Sample busy = new Sample(0f, 4, 13f);
-        for (int i = 0; i < 20; i++) {
-            assertNull(step(c, busy));
+        for (int i = 0; i < 40; i++) {
+            step(c, busy);
         }
-        assertEquals(before, c.getCurrentKbps());
+        assertEquals(40000, c.getCurrentKbps());
     }
 
     @Test

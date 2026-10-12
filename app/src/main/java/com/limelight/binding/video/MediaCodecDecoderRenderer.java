@@ -1936,8 +1936,8 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             }
             AdaptiveBitrateController.SampleListener sampleListener = bitrateSampleListener;
             if (sampleListener != null && activeWindowVideoStats.totalFrames > 0) {
-                // The one second just ended, not the two the overlay averages over: a burst of loss
-                // should count once, not in two samples in a row.
+                // The one second just ended, not the two the overlay averages over, so each sample
+                // stands alone; the controller keeps its own two-second view of loss.
                 VideoStats window = activeWindowVideoStats;
                 sampleListener.onSample(new AdaptiveBitrateController.Sample(
                         (float) window.framesLost / window.totalFrames * 100,
