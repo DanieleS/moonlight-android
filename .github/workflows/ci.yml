@@ -1,0 +1,46 @@
+name: CI
+
+# Unit tests and a debug build of the flavor we ship, on every PR and on main. The upstream sync
+# job waits on this before merging, so a merge that breaks the native build or the tests stops here.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install the NDK
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.0.12077973" > /dev/null
+
+      - name: Unit tests
+        run: ./gradlew --no-daemon :app:testNonRoot_gameDebugUnitTest
+
+      - name: Debug build
+        run: ./gradlew --no-daemon :app:assembleNonRoot_gameDebug
+
+      - name: Test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: app/build/reports/tests/
+          retention-days: 7

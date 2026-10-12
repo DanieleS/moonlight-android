@@ -1,0 +1,115 @@
+name: Release
+
+# Pushing a vX.Y.Z tag builds, signs and publishes the release. The tag must match versionName in
+# app/build.gradle, so the release commit bumps the version and the tag only points at it.
+#
+# Secrets: RATATOSKR_KEYSTORE_B64 (the .jks, base64), RATATOSKR_KEYSTORE_PASSWORD,
+# RATATOSKR_KEY_ALIAS, RATATOSKR_KEY_PASSWORD.
+
+on:
+  push:
+    tags: ['v*']
+  # A dry run from the Actions tab builds and signs, then keeps the APK as an artifact instead of
+  # publishing it: a check that the signing secrets still work.
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# The certificate every Ratatoskr release so far was signed with. An APK signed with anything else
+# can't update an installed copy, so a mismatch fails the release instead of publishing it.
+env:
+  EXPECTED_CERT_SHA256: F9:FE:86:6D:43:36:37:87:4E:8C:EC:D8:9D:1E:AA:FD:B8:BA:CD:44:72:1A:18:CC:83:5D:DB:1D:E9:F6:09:48
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Check the tag against versionName
+        run: |
+          declared=$(sed -n 's/^ *versionName "\(.*\)"/\1/p' app/build.gradle)
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            version="$declared"
+          else
+            version="${GITHUB_REF_NAME#v}"
+          fi
+          if [ "$version" != "$declared" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match versionName \"$declared\" in app/build.gradle"
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install the NDK
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.0.12077973" > /dev/null
+
+      - name: Set up release signing
+        env:
+          KEYSTORE_B64: ${{ secrets.RATATOSKR_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.RATATOSKR_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.RATATOSKR_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.RATATOSKR_KEY_PASSWORD }}
+        run: |
+          mkdir -p key
+          echo "$KEYSTORE_B64" | base64 -d > key/ratatoskr-release.jks
+          {
+            echo "ratatoskr.keystore=key/ratatoskr-release.jks"
+            echo "ratatoskr.keystorePassword=$KEYSTORE_PASSWORD"
+            echo "ratatoskr.keyAlias=$KEY_ALIAS"
+            echo "ratatoskr.keyPassword=$KEY_PASSWORD"
+          } > local.properties
+
+      - name: Unit tests
+        run: ./gradlew --no-daemon :app:testNonRoot_gameDebugUnitTest
+
+      - name: Release build
+        run: ./gradlew --no-daemon :app:assembleNonRoot_gameRelease
+
+      - name: Check the signature
+        run: |
+          apk=ratatoskr-nonRoot_game-release.apk
+          cp app/build/outputs/apk/nonRoot_game/release/app-nonRoot_game-universal-release.apk "$apk"
+          apksigner=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner
+          actual=$("$apksigner" verify --print-certs "$apk" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1)
+          expected=$(echo "$EXPECTED_CERT_SHA256" | tr -d ':' | tr 'A-F' 'a-f')
+          if [ "$actual" != "$expected" ]; then
+            echo "::error::APK signed with $actual, expected $expected"
+            exit 1
+          fi
+
+      - name: Keep the dry-run APK
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ratatoskr-dry-run
+          path: ratatoskr-nonRoot_game-release.apk
+          retention-days: 3
+
+      - name: Publish
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes="release_notes/$VERSION.md"
+          if [ -f "$notes" ]; then
+            notes_args=(--notes-file "$notes")
+          else
+            notes_args=(--generate-notes)
+          fi
+          gh release create "$GITHUB_REF_NAME" ratatoskr-nonRoot_game-release.apk \
+            --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --latest "${notes_args[@]}"
+
+      - name: Remove the keystore
+        if: always()
+        run: rm -f key/ratatoskr-release.jks local.properties
