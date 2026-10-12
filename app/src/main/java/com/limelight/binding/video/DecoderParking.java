@@ -21,14 +21,17 @@ import com.limelight.LimeLog;
  * attempt then releases its codec the usual way.
  */
 public class DecoderParking {
-    // A codec handed back to a renderer, with the format it was configured with
+    // A codec handed back to a renderer, with the format and the HDR metadata it was configured
+    // with (null when it had none)
     static final class Taken {
         final MediaCodec codec;
         final MediaFormat configuredFormat;
+        final byte[] hdrMetadata;
 
-        Taken(MediaCodec codec, MediaFormat configuredFormat) {
+        Taken(MediaCodec codec, MediaFormat configuredFormat, byte[] hdrMetadata) {
             this.codec = codec;
             this.configuredFormat = configuredFormat;
+            this.hdrMetadata = hdrMetadata;
         }
     }
 
@@ -37,6 +40,7 @@ public class DecoderParking {
     private int width, height, videoFormat;
     private Surface surface;
     private MediaFormat configuredFormat;
+    private byte[] hdrMetadata;
     private boolean open;
 
     // A reconnect begins: renderers may park their codec from now on
@@ -57,7 +61,7 @@ public class DecoderParking {
 
     // Returns false when the parking is closed, in which case the caller still owns the codec
     synchronized boolean park(MediaCodec codec, String codecName, int width, int height, int videoFormat,
-                              Surface surface, MediaFormat configuredFormat) {
+                              Surface surface, MediaFormat configuredFormat, byte[] hdrMetadata) {
         if (!open) {
             return false;
         }
@@ -72,6 +76,7 @@ public class DecoderParking {
         this.videoFormat = videoFormat;
         this.surface = surface;
         this.configuredFormat = configuredFormat;
+        this.hdrMetadata = hdrMetadata;
         LimeLog.info("Decoder kept for reconnect: " + codecName + " " + width + "x" + height);
         return true;
     }
@@ -87,7 +92,7 @@ public class DecoderParking {
             if (codecName.equals(this.codecName) && width == this.width && height == this.height &&
                     videoFormat == this.videoFormat && surface == this.surface) {
                 LimeLog.info("Decoder reused after reconnect: " + codecName + " " + width + "x" + height);
-                Taken taken = new Taken(codec, configuredFormat);
+                Taken taken = new Taken(codec, configuredFormat, hdrMetadata);
                 clearLocked();
                 return taken;
             }
@@ -102,6 +107,7 @@ public class DecoderParking {
         codecName = null;
         surface = null;
         configuredFormat = null;
+        hdrMetadata = null;
     }
 
     private static void release(MediaCodec codec, String why) {

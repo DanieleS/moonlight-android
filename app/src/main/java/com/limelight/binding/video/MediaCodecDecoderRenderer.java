@@ -680,6 +680,12 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                 videoDecoder = kept.codec;
                 configuredFormat = kept.configuredFormat;
                 configuredCodecName = selectedDecoderInfo.getName();
+                // The codec carries the HDR metadata it was configured with. Knowing it, the host
+                // sending the same metadata again on the new connection changes nothing, instead
+                // of restarting the codec (and blanking the screen) to apply it.
+                if (currentHdrMetadata == null) {
+                    currentHdrMetadata = kept.hdrMetadata;
+                }
                 submittedCsd = false;
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                     inputFormat = videoDecoder.getInputFormat();
@@ -1684,7 +1690,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             try {
                 videoDecoder.flush();
                 if (parking.park(videoDecoder, configuredCodecName, initialWidth, initialHeight, videoFormat,
-                        renderTarget, configuredFormat)) {
+                        renderTarget, configuredFormat, currentHdrMetadata)) {
                     videoDecoder = null;
                     return;
                 }
