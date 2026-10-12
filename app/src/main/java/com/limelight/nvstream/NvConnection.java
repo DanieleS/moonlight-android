@@ -356,7 +356,11 @@ public class NvConnection {
         boolean ourGameRunning = gameRunning && (h.getCurrentGame(serverInfo) == app.getAppId() || Objects.equals(h.getCurrentGameUUID(serverInfo), app.getAppUUID()));
 
         // A reconnect attempt resumes the game we were streaming or nothing: launching it again,
-        // or quitting whatever replaced it, is not ours to do behind the user's back
+        // or quitting whatever replaced it, is not ours to do behind the user's back.
+        // Vibepollo hides the running game from serverinfo in some states (input-only mode with
+        // another app, a remote monitor or input role owning the host), and then this gives up even
+        // though the game still runs. Trying /resume anyway is no way out: it resumes whatever app
+        // is running, whichever was asked for, so it could join a game that is not ours.
         if (context.reconnectAttempt && !ourGameRunning) {
             throw new HostHttpResponseException(RESUME_ERROR_NO_SESSION, "The game is no longer running on the host");
         }
