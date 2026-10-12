@@ -1162,6 +1162,18 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         });
     }
 
+    /** Current refresh rate of the display we render to, 60 Hz if unavailable. */
+    private float readDisplayRefreshRate() {
+        float hz = 0f;
+        try {
+            if (Build.VERSION.SDK_INT >= 17 && context != null) {
+                android.view.Display d = ((android.view.WindowManager) context.getSystemService(android.content.Context.WINDOW_SERVICE)).getDefaultDisplay();
+                if (d != null) hz = d.getRefreshRate();
+            }
+        } catch (Throwable ignored) {}
+        return hz > 0f ? hz : 60f;
+    }
+
     private void startRendererThread()
     {
         rendererThread = new Thread() {
@@ -1170,28 +1182,22 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                 // Boost thread priority to reduce decoding latency
                 android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_DISPLAY);
 
-                // Compute display refresh and vsync period once (fallback 60 Hz if unavailable)
-                long vsyncPeriodNs;
-                float displayHz = 60f;
-                try {
-                    if (Build.VERSION.SDK_INT >= 17 && context != null) {
-                        android.view.Display d = ((android.view.WindowManager) context.getSystemService(android.content.Context.WINDOW_SERVICE)).getDefaultDisplay();
-                        if (d != null) displayHz = d.getRefreshRate();
-                    }
-                } catch (Throwable ignored) {}
-                if (displayHz <= 0f) displayHz = 60f;
-                vsyncPeriodNs = (long) (1_000_000_000L / displayHz);
+                // Display refresh rate, re-read as we go. The mode switch requested by Game may not
+                // have settled when this thread starts, and the panel can change rate mid-stream
+                // (battery saver, thermal), so reading it once pinned the drop thresholds to
+                // whatever was active at startup.
+                float displayHz = readDisplayRefreshRate();
+                long vsyncPeriodNs = (long) (1_000_000_000L / displayHz);
+                long lastHzPollNs = System.nanoTime();
 
                 // Stream cadence (targetFps set in setup(...))
                 final int tfps = (targetFps > 0 ? targetFps : 60);
                 final long streamPeriodNs = (long) (1_000_000_000L / Math.max(1, tfps));
 
 
-                // Adaptive period selection to avoid added latency on high-refresh devices
-                final boolean highRefresh = displayHz >= 90f;
-                final boolean managedMode = (prefs != null && prefs.framePacing == PreferenceConfiguration.FRAME_PACING_BALANCED);
-                // Use stream-aligned thresholds only on lower-refresh screens while in Balanced.
-                final long periodNs = (preferLowerDelays ? vsyncPeriodNs : Math.max(vsyncPeriodNs, streamPeriodNs));
+                // Adaptive period selection to avoid added latency on high-refresh devices.
+                // Recomputed with vsyncPeriodNs whenever the display rate changes.
+                long periodNs = (preferLowerDelays ? vsyncPeriodNs : Math.max(vsyncPeriodNs, streamPeriodNs));
                 boolean isC2Decoder = false;
                 try {
                     String decName = videoDecoder.getName();
@@ -1219,6 +1225,20 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                 BufferInfo info = new BufferInfo();
                 long lastOutputNs = System.nanoTime();
                 while (!stopping) {
+                    // Once a second is cheap, and keeps the thresholds right if the panel changes
+                    // rate after this thread started.
+                    long nowPollNs = System.nanoTime();
+                    if (nowPollNs - lastHzPollNs >= 1_000_000_000L) {
+                        lastHzPollNs = nowPollNs;
+                        float currentHz = readDisplayRefreshRate();
+                        if (Math.abs(currentHz - displayHz) > 1f) {
+                            LimeLog.info("Display refresh rate changed: " + displayHz + " -> " + currentHz + " Hz");
+                            displayHz = currentHz;
+                            vsyncPeriodNs = (long) (1_000_000_000L / displayHz);
+                            periodNs = (preferLowerDelays ? vsyncPeriodNs : Math.max(vsyncPeriodNs, streamPeriodNs));
+                        }
+                    }
+
                     // NB: no "latest-only" drain here. Draining every ready output buffer and
                     // presenting only the newest bypassed the pacing mode entirely, and turned any
                     // momentary hiccup into a self-sustaining ~50% frame loss: once two buffers were
