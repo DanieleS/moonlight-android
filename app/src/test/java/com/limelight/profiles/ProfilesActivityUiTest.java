@@ -1,6 +1,6 @@
 package com.limelight.profiles;
 
-import android.app.AlertDialog;
+import androidx.appcompat.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Looper;
@@ -24,7 +24,7 @@ import org.robolectric.RobolectricTestRunner;
 import org.robolectric.Shadows;
 import org.robolectric.android.controller.ActivityController;
 import org.robolectric.annotation.Config;
-import org.robolectric.shadows.ShadowAlertDialog;
+import org.robolectric.shadows.ShadowDialog;
 
 import java.util.UUID;
 
@@ -106,7 +106,7 @@ public class ProfilesActivityUiTest {
         deleteBtn.performClick();
 
         // Confirm the dialog
-        AlertDialog dialog = ShadowAlertDialog.getLatestAlertDialog();
+        AlertDialog dialog = (AlertDialog) ShadowDialog.getLatestDialog();
         assertNotNull(dialog);
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
 
