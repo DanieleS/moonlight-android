@@ -101,6 +101,8 @@ public class LiveBitrate {
     private int adaptiveFailures;
     /** The host's own bitrate limit, once a request has run into it; 0 until then. */
     private int hostCapKbps;
+    /** How the host sized the encoder when the stream started; set once, before start(). */
+    BitrateSteps.HostBudget hostBudget = BitrateSteps.HostBudget.FIXED_FEC;
 
     /**
      * @param warpFactor the frame-pacing warp factor the stream asked for, 0 for none: the host
@@ -108,6 +110,17 @@ public class LiveBitrate {
      */
     public static LiveBitrate create(NvHTTP http, Listener listener, AdaptiveBitrateController.Mode mode,
                                      int fps, int audioChannels, int startKbps, int warpFactor) {
+        return create(http, listener, mode, fps, audioChannels, startKbps, warpFactor,
+                BitrateSteps.HostBudget.FIXED_FEC);
+    }
+
+    /**
+     * @param hostBudget how the host turned the starting bitrate into an encoder bitrate (PyroWave,
+     *                   dynamic FEC, or the stock fixed FEC share), so live changes match it
+     */
+    public static LiveBitrate create(NvHTTP http, Listener listener, AdaptiveBitrateController.Mode mode,
+                                     int fps, int audioChannels, int startKbps, int warpFactor,
+                                     BitrateSteps.HostBudget hostBudget) {
         Host host = new Host() {
             @Override
             public boolean supportsRuntimeBitrate() {
@@ -125,8 +138,10 @@ public class LiveBitrate {
             return thread;
         });
         Handler mainHandler = new Handler(Looper.getMainLooper());
-        return new LiveBitrate(host, listener, mode, fps, audioChannels, startKbps, warpFactor,
+        LiveBitrate bitrate = new LiveBitrate(host, listener, mode, fps, audioChannels, startKbps, warpFactor,
                 worker, mainHandler::post, SystemClock::uptimeMillis);
+        bitrate.hostBudget = hostBudget;
+        return bitrate;
     }
 
     LiveBitrate(Host host, Listener listener, AdaptiveBitrateController.Mode mode, int fps,
@@ -344,7 +359,7 @@ public class LiveBitrate {
     }
 
     private int toEncoder(int kbps) {
-        return BitrateSteps.toEncoderKbps(kbps, audioChannels, startKbps, warpFactor);
+        return BitrateSteps.toEncoderKbps(kbps, audioChannels, startKbps, warpFactor, hostBudget);
     }
 
     /** @return the encoder bitrate the host applied, or null when it could not be set */

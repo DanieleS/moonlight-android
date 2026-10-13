@@ -368,8 +368,16 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private AchievementWatcher achievementWatcher;
     private HostSession achievementSession;
 
-    /** The bitrate the stream was started with: the settings', or the metered one. */
+    /**
+     * The bitrate the stream was started with: the settings', or the metered one, or the PyroWave
+     * budget when PyroWave was offered.
+     */
     private int streamBitrateKbps;
+    /**
+     * The bitrate moonlight-common-c switches to when PyroWave was offered but not negotiated
+     * (the settings' or the metered one), or 0 when PyroWave was not offered.
+     */
+    private int pyroWaveFallbackBitrateKbps;
     /** Changes the bitrate mid-stream, by hand or adaptively, on hosts that allow it. Null when not streaming. */
     private LiveBitrate liveBitrate;
 
@@ -974,8 +982,10 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         measureRefreshRate = !onExternelDisplay &&
                 DisplayRefreshMeter.clientRefreshRateX100(desiredRefreshRate, requestedFps) > 0;
 
-        // The bitrate the stream starts with: the PyroWave budget when PyroWave is offered
+        // The bitrate the stream starts with: the PyroWave budget when PyroWave is offered, and
+        // the one it falls back to otherwise
         streamBitrateKbps = bitrate;
+        pyroWaveFallbackBitrateKbps = pyroWaveFallbackBitrate;
         StreamConfiguration config = new StreamConfiguration.Builder()
                 .setResolution(
                         displayWidth,
@@ -4655,12 +4665,34 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 }
             }
         }, prefConfig.adaptiveBitrateMode, Math.round(prefConfig.fps),
-                prefConfig.audioConfiguration.channelCount, streamBitrateKbps,
-                prefConfig.framePacingWarpFactor);
+                prefConfig.audioConfiguration.channelCount, liveBitrateStartKbps(),
+                prefConfig.framePacingWarpFactor, liveBitrateHostBudget());
         if (decoderRenderer != null) {
             decoderRenderer.setBitrateSampleListener(liveBitrate::onSample);
         }
         liveBitrate.start(prefConfig.enableAdaptiveBitrate);
+    }
+
+    /** Whether the stream that started is PyroWave, rather than the codec it fell back to. */
+    private boolean streamIsPyroWave() {
+        return decoderRenderer != null && PyroWaveSupport.isPyroWave(decoderRenderer.getActiveVideoFormat());
+    }
+
+    /**
+     * The bitrate the host started the stream at. When PyroWave was offered but the host picked
+     * another codec, moonlight-common-c asked for the fallback bitrate instead of the PyroWave
+     * budget, so that is where the live bitrate starts and what it climbs back to.
+     */
+    private int liveBitrateStartKbps() {
+        if (pyroWaveFallbackBitrateKbps > 0 && !streamIsPyroWave()) {
+            return pyroWaveFallbackBitrateKbps;
+        }
+        return streamBitrateKbps;
+    }
+
+    /** How the host sized the encoder from the starting bitrate, which a live change repeats. */
+    private BitrateSteps.HostBudget liveBitrateHostBudget() {
+        return streamIsPyroWave() ? BitrateSteps.HostBudget.PYROWAVE : BitrateSteps.HostBudget.FIXED_FEC;
     }
 
     private void stopLiveBitrate() {

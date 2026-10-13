@@ -41,6 +41,38 @@ public class BitrateStepsTest {
     }
 
     @Test
+    public void pyroWaveKeepsNoFecShareButPaysForAudioAndOverheadInFull() {
+        // rtsp.cpp for a PyroWave session: no FEC share, audio with its 50% parity
+        // (512 * 3 / 2 = 768) and 500 kbps of overhead, neither capped.
+        assertEquals(400000 - 768 - 500,
+                BitrateSteps.toEncoderKbps(400000, 2, 400000, 0, BitrateSteps.HostBudget.PYROWAVE));
+        // Warp still multiplies first.
+        assertEquals(800000 - 768 - 500,
+                BitrateSteps.toEncoderKbps(400000, 2, 400000, 2, BitrateSteps.HostBudget.PYROWAVE));
+        // Never below 1.
+        assertEquals(1, BitrateSteps.toEncoderKbps(1000, 2, 400000, 0, BitrateSteps.HostBudget.PYROWAVE));
+    }
+
+    @Test
+    public void dynamicFecLeavesParityToTheHost() {
+        // With dynamic FEC the host takes no FEC share off the top: 50000, audio 512 -> 49488,
+        // overhead 500 -> 48988, which is the video budget it then splits with parity itself.
+        assertEquals(48988,
+                BitrateSteps.toEncoderKbps(50000, 2, 50000, 0, BitrateSteps.HostBudget.DYNAMIC_FEC));
+        // The overhead cap still bites at low bitrates: 1000, normal audio 192 -> 808, overhead
+        // capped at a tenth (80) -> 728.
+        assertEquals(728, BitrateSteps.toEncoderKbps(1000, 2, 1000, 0, BitrateSteps.HostBudget.DYNAMIC_FEC));
+    }
+
+    @Test
+    public void fixedFecIsTheDefault() {
+        for (int kbps = 1000; kbps <= 150000; kbps += 7000) {
+            assertEquals(BitrateSteps.toEncoderKbps(kbps, 2, 40000, 2),
+                    BitrateSteps.toEncoderKbps(kbps, 2, 40000, 2, BitrateSteps.HostBudget.FIXED_FEC));
+        }
+    }
+
+    @Test
     public void lowerBudgetMeansLowerEncoderBitrate() {
         int previous = 0;
         for (int kbps = 500; kbps <= 300000; kbps += 500) {

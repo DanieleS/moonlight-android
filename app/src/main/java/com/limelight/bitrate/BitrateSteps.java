@@ -34,6 +34,25 @@ public final class BitrateSteps {
     }
 
     /**
+     * How the host turned the stream's bitrate into an encoder bitrate when the stream started
+     * (rtsp.cpp), which a live change has to repeat.
+     */
+    public enum HostBudget {
+        /** The host's fixed error-correction share comes off the top, as for any stock stream. */
+        FIXED_FEC,
+        /**
+         * Dynamic FEC was negotiated: no share comes off the top. What is left after audio and
+         * overhead is the video budget, and the host takes parity out of it, for a live change too.
+         */
+        DYNAMIC_FEC,
+        /**
+         * A PyroWave stream: no FEC share (PyroWave protects only its critical packets), audio
+         * with its 50% parity and the 500 kbps of overhead come off in full, uncapped.
+         */
+        PYROWAVE
+    }
+
+    /**
      * The encoder bitrate to ask the host for, given a bitrate as the settings mean it: the whole
      * stream, video, error correction, audio and overhead together.
      *
@@ -56,13 +75,31 @@ public final class BitrateSteps {
      * @param warpFactor the frame-pacing warp factor the stream asked for, 0 or 1 for none
      */
     public static int toEncoderKbps(int wireKbps, int audioChannels, int startKbps, int warpFactor) {
+        return toEncoderKbps(wireKbps, audioChannels, startKbps, warpFactor, HostBudget.FIXED_FEC);
+    }
+
+    /**
+     * {@link #toEncoderKbps(int, int, int, int)} for a stream whose host budget is not the stock
+     * one: with dynamic FEC the number sent is the video budget the host splits between encoder
+     * and parity itself, and PyroWave keeps no FEC share but pays for audio and overhead in full.
+     */
+    public static int toEncoderKbps(int wireKbps, int audioChannels, int startKbps, int warpFactor,
+                                    HostBudget hostBudget) {
         long budget = (long) wireKbps * Math.max(1, warpFactor);
-        // Written as the host writes it, so the truncation lands the same way.
-        long kbps = (long) (budget / (100f / (100 - HOST_FEC_PERCENT)));
         boolean highQualityAudio = startKbps >= HIGH_QUALITY_AUDIO_THRESHOLD_KBPS;
         long audioKbps = (long) (highQualityAudio ? 256 : 96) * audioChannels;
-        kbps -= Math.min(audioKbps, kbps / 5);
-        kbps -= Math.min(500, kbps / 10);
+        long kbps;
+        if (hostBudget == HostBudget.PYROWAVE) {
+            // Audio sends two parity packets for every four, and PyroWave's budget pays for them.
+            kbps = budget - (audioKbps * 3 + 1) / 2 - 500;
+        }
+        else {
+            // Written as the host writes it, so the truncation lands the same way.
+            kbps = hostBudget == HostBudget.DYNAMIC_FEC ? budget
+                    : (long) (budget / (100f / (100 - HOST_FEC_PERCENT)));
+            kbps -= Math.min(audioKbps, kbps / 5);
+            kbps -= Math.min(500, kbps / 10);
+        }
         return (int) Math.max(1, kbps);
     }
 
