@@ -856,7 +856,9 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         if (PyroWaveSupport.isPyroWave(format)) {
             pyroWave = true;
             LimeLog.info("Starting the PyroWave renderer: " + width + "x" + height);
-            try { applySurfaceFrameRate(renderTarget, targetFps); } catch (Throwable ignored) {}
+            // NB: no frame rate hint here. Game.surfaceCreated() issues the one for this surface
+            // (FRAME_RATE_COMPATIBILITY_FIXED_SOURCE + CHANGE_FRAME_RATE_ALWAYS), and a second,
+            // weaker one would replace it and can keep the panel at 60 Hz (see fix/frame-pacing).
             int err = MoonBridge.pyroWaveStart(renderTarget, format, width, height,
                     getPreferredColorSpace(), getPreferredColorRange());
             if (err != 0) {
