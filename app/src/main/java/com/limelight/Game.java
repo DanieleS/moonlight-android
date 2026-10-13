@@ -4034,6 +4034,14 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         showReconnectStatus(getString(R.string.reconnect_reconnecting_msg, (int) ((now - outageStartMs) / 1000)));
         timerHandler.post(reconnectTick);
 
+        // The host session is gone, so no bitrate request can reach it, and the session a
+        // reconnect brings back starts at the configured bitrate again. The live bitrate starts
+        // over with it in connectionStarted(), feeding on the new attempt's decoder renderer.
+        stopLiveBitrate();
+        // Nor will the dead connection send the report that takes down a keyboard the host
+        // raised. The host reports a focused field again when the stream comes back.
+        dismissHostTextFocus();
+
         // The dead connection's decoder cleanup parks the codec instead of releasing it, so the
         // last frame stays on screen and the next connection carries on with it
         if (decoderParking == null) {
@@ -4207,13 +4215,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             // The host is about to drop the session; a bitrate change now would only fail.
             stopLiveBitrate();
 
-            // A connection that drops never sends the closing "no text field" report
-            textFocusHandler.removeCallbacks(dismissTextFocusKeyboard);
-            pendingTextFocus = TextFocusKeyboard.FOCUS_NONE;
-            if (textFocusKeyboard != null) {
-                textFocusKeyboard.dismiss();
-                applyTextFocusInputType(TextFocusKeyboard.FOCUS_NONE);
-            }
+            dismissHostTextFocus();
 
             // Update GameManager state to indicate we're no longer in game
             UiHelper.notifyStreamEnded(this);
@@ -4846,6 +4848,17 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 textFocusHandler.postDelayed(dismissTextFocusKeyboard, TEXT_FOCUS_DISMISS_DELAY_MS);
             }
         });
+    }
+
+    /** Takes down a keyboard the host raised, for a connection that is going away. */
+    private void dismissHostTextFocus() {
+        // A connection that drops never sends the closing "no text field" report
+        textFocusHandler.removeCallbacks(dismissTextFocusKeyboard);
+        pendingTextFocus = TextFocusKeyboard.FOCUS_NONE;
+        if (textFocusKeyboard != null) {
+            textFocusKeyboard.dismiss();
+            applyTextFocusInputType(TextFocusKeyboard.FOCUS_NONE);
+        }
     }
 
     /**
