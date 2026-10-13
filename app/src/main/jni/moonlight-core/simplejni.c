@@ -233,6 +233,11 @@ Java_com_limelight_nvstream_jni_MoonBridge_getControlStreamSilenceMs(JNIEnv *env
     return LiGetControlStreamSilenceMs();
 }
 
+JNIEXPORT jboolean JNICALL
+Java_com_limelight_nvstream_jni_MoonBridge_isDynamicFecNegotiated(JNIEnv *env, jclass clazz) {
+    return LiIsDynamicFecNegotiated() ? JNI_TRUE : JNI_FALSE;
+}
+
 JNIEXPORT jstring JNICALL
 Java_com_limelight_nvstream_jni_MoonBridge_getLaunchUrlQueryParameters(JNIEnv *env, jclass clazz) {
     return (*env)->NewStringUTF(env, LiGetLaunchUrlQueryParameters());

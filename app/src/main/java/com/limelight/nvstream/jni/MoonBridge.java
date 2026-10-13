@@ -440,6 +440,10 @@ public class MoonBridge {
     // the control stream is not connected
     public static native int getControlStreamSilenceMs();
 
+    // Whether this stream negotiated dynamic FEC (see LiIsDynamicFecNegotiated()). Valid once the
+    // connection has started.
+    public static native boolean isDynamicFecNegotiated();
+
     public static native String getLaunchUrlQueryParameters();
 
     public static native byte guessControllerType(int vendorId, int productId);

@@ -4692,7 +4692,15 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     /** How the host sized the encoder from the starting bitrate, which a live change repeats. */
     private BitrateSteps.HostBudget liveBitrateHostBudget() {
-        return streamIsPyroWave() ? BitrateSteps.HostBudget.PYROWAVE : BitrateSteps.HostBudget.FIXED_FEC;
+        if (streamIsPyroWave()) {
+            return BitrateSteps.HostBudget.PYROWAVE;
+        }
+        // With dynamic FEC (other than "host default", which keeps the host's fixed share) the
+        // host takes parity out of the video budget, for a live change as for the start
+        if (prefConfig.videoFecMode != MoonBridge.FEC_HOST_DEFAULT && MoonBridge.isDynamicFecNegotiated()) {
+            return BitrateSteps.HostBudget.DYNAMIC_FEC;
+        }
+        return BitrateSteps.HostBudget.FIXED_FEC;
     }
 
     private void stopLiveBitrate() {
