@@ -20,4 +20,8 @@ public interface NvConnectionListener {
     void setMotionEventState(short controllerNumber, byte motionType, short reportRateHz);
 
     void setControllerLED(short controllerNumber, byte r, byte g, byte b);
+
+    // The host reported what kind of text field has focus, one of TextFocusKeyboard.FOCUS_*.
+    // Only called when the stream was started with text focus hints enabled.
+    void setTextFocus(byte focusType);
 }

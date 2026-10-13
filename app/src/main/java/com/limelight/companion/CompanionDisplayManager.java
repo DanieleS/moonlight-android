@@ -62,6 +62,14 @@ public class CompanionDisplayManager implements Application.ActivityLifecycleCal
     private Runnable menuOpenedListener;
     private Runnable menuClosedListener;
 
+    // Whether the keyboard for a text field focused on the host belongs on the panel. Kept here
+    // rather than on the panel itself so a re-hosted panel brings it back up.
+    private boolean textKeyboardRequested;
+
+    // Invoked when the user closes that keyboard from the panel; the stream activity registers it
+    // so a later "focus left the field" does not count on a keyboard that is already gone.
+    private Runnable textKeyboardDismissedListener;
+
     private final DisplayManager.DisplayListener displayListener = new DisplayManager.DisplayListener() {
         @Override
         public void onDisplayAdded(int displayId) {
@@ -218,6 +226,50 @@ public class CompanionDisplayManager implements Application.ActivityLifecycleCal
         }
     }
 
+    // --- The keyboard for a text field focused on the host ---
+
+    /**
+     * Raise the panel's keyboard.
+     *
+     * @return whether this call raised it: false when it was already up, or there is no panel.
+     */
+    public static boolean showTextKeyboard() {
+        if (instance == null || instance.presentation == null) {
+            return false;
+        }
+        boolean wasVisible = instance.presentation.isTextKeyboardVisible();
+        instance.textKeyboardRequested = true;
+        instance.presentation.setTextKeyboardVisible(true);
+        return !wasVisible && instance.presentation.isTextKeyboardVisible();
+    }
+
+    public static void hideTextKeyboard() {
+        if (instance == null) {
+            return;
+        }
+        instance.textKeyboardRequested = false;
+        if (instance.presentation != null) {
+            instance.presentation.setTextKeyboardVisible(false);
+        }
+    }
+
+    public static void setTextKeyboardDismissedListener(Runnable listener) {
+        if (instance != null) {
+            instance.textKeyboardDismissedListener = listener;
+        }
+    }
+
+    /** The user closed the keyboard from the panel. */
+    static void onTextKeyboardDismissed() {
+        if (instance == null) {
+            return;
+        }
+        instance.textKeyboardRequested = false;
+        if (instance.textKeyboardDismissedListener != null) {
+            instance.textKeyboardDismissedListener.run();
+        }
+    }
+
     public static boolean isMenuOpen() {
         return instance != null && instance.presentation != null && instance.presentation.isMenuOpen();
     }
@@ -353,6 +405,10 @@ public class CompanionDisplayManager implements Application.ActivityLifecycleCal
             LimeLog.warning("CompanionDisplay: display " + display.getDisplayId()
                     + " vanished: " + e.getMessage());
             return null;
+        }
+        if (textKeyboardRequested) {
+            // A text field on the host still has focus: the new panel keeps its keyboard
+            newPresentation.setTextKeyboardVisible(true);
         }
         return newPresentation;
     }

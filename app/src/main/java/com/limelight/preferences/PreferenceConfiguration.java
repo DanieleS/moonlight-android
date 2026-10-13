@@ -145,6 +145,7 @@ public class PreferenceConfiguration {
     private static final String CHECKBOX_TRACKPAD_SWAP_AXIS = "checkbox_trackpad_swap_axis";
 
     private static final String CHECKBOX_ENABLE_COMMIT_TEXT = "checkbox_enable_commit_text";
+    private static final String CHECKBOX_TEXT_FOCUS_KEYBOARD = "checkbox_text_focus_keyboard";
 
     static final String DEFAULT_RESOLUTION = "1280x720";
     static final String DEFAULT_FPS = "60";
@@ -226,6 +227,8 @@ public class PreferenceConfiguration {
     private static final int DEFAULT_TRACKPAD_DRAG_DROP_THRESHOLD = 250;
     private static final boolean DEFAULT_TRACKPAD_SWAP_AXIS = false;
     private static final boolean DEFAULT_ENABLE_COMMIT_TEXT = false;
+    // Off by default: turning it on is what makes the client ask the host to watch focus
+    private static final boolean DEFAULT_TEXT_FOCUS_KEYBOARD = false;
     private static final String DEFAULT_ONSCREEN_KEYBOARD_ALIGN_MODE = "center";
     private static final boolean DEFAULT_SHOW_OVERLAY_TOGGLE_BUTTON = false;
 
@@ -365,6 +368,9 @@ public class PreferenceConfiguration {
 
     // Enable forwarding of commitText from soft keyboard
     public boolean enableCommitText;
+
+    // Open a keyboard when the host reports that a text field took focus
+    public boolean textFocusKeyboard;
 
     public boolean enableKeyboardVibrate;
 
@@ -1029,6 +1035,7 @@ private static int getFramePacingValue(Context context) {
         config.enableDeviceRumble=prefs.getBoolean("checkbox_enable_device_rumble", false);
 
         config.enableCommitText = prefs.getBoolean(CHECKBOX_ENABLE_COMMIT_TEXT, DEFAULT_ENABLE_COMMIT_TEXT);
+        config.textFocusKeyboard = prefs.getBoolean(CHECKBOX_TEXT_FOCUS_KEYBOARD, DEFAULT_TEXT_FOCUS_KEYBOARD);
 
         config.enableKeyboardSquare=prefs.getBoolean("checkbox_enable_keyboard_square",false);
 

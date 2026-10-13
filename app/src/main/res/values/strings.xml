@@ -736,6 +736,8 @@
 
     <string name="title_enable_commit_text">Enable commit-text input (swipe/voice)</string>
     <string name="summary_enable_commit_text">Forward multi-character text from soft keyboards (gesture typing, predictions, voice dictation). May break games that rely on key-by-key input.</string>
+    <string name="title_text_focus_keyboard">Keyboard when a text field is focused</string>
+    <string name="summary_text_focus_keyboard">Open a keyboard by itself when you select a text field on the PC: on the second screen when the companion panel or the external display controls are there, otherwise over the stream. Needs a Vibepollo host with text field focus hints on; other hosts are unaffected.</string>
     <string name="title_checkbox_remember_zoom_pan">Remember Zoom&amp;Pan</string>
     <string name="summary_checkbox_remember_zoom_pan">Save changes to zoom and pan position between sessions</string>
     <string name="title_checkbox_enable_perf_overlay_bottom">Move overlay to bottom</string>

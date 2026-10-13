@@ -508,6 +508,12 @@
             android:summary="@string/summary_enable_commit_text"
             android:title="@string/title_enable_commit_text"
             app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="checkbox_text_focus_keyboard"
+            android:summary="@string/summary_text_focus_keyboard"
+            android:title="@string/title_text_focus_keyboard"
+            app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
     <PreferenceCategory
