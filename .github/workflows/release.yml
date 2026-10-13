@@ -1,6 +1,7 @@
 name: Release
 
-# Pushing a vX.Y.Z tag builds, signs and publishes the release. The tag must match versionName in
+# Pushing a vX.Y.Z tag builds, signs and publishes the release; a suffixed one (vX.Y.Z-beta.N)
+# publishes a pre-release. The tag must match versionName in
 # app/build.gradle, so the release commit bumps the version and the tag only points at it.
 #
 # Secrets: RATATOSKR_KEYSTORE_B64 (the .jks, base64), RATATOSKR_KEYSTORE_PASSWORD,
@@ -107,8 +108,15 @@ jobs:
           else
             notes_args=(--generate-notes)
           fi
+          # A suffixed tag (v20.2.10-beta.1) is a nightly beta: a pre-release, which Obtainium skips
+          # unless asked to and which never becomes "latest". Plain vX.Y.Z tags are the stable ones.
+          if [[ "$VERSION" == *-* ]]; then
+            channel_args=(--prerelease --latest=false)
+          else
+            channel_args=(--latest)
+          fi
           gh release create "$GITHUB_REF_NAME" ratatoskr-nonRoot_game-release.apk \
-            --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --latest "${notes_args[@]}"
+            --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" "${channel_args[@]}" "${notes_args[@]}"
 
       - name: Remove the keystore
         if: always()
