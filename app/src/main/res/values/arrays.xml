@@ -136,6 +136,23 @@
         <item>smoothness</item>
     </string-array>
 
+    <string-array name="video_fec_names">
+        <item>@string/video_fec_off</item>
+        <item>@string/video_fec_auto</item>
+        <item>@string/video_fec_fixed_10</item>
+        <item>@string/video_fec_fixed_20</item>
+        <item>@string/video_fec_fixed_30</item>
+        <item>@string/video_fec_fixed_50</item>
+    </string-array>
+    <string-array name="video_fec_values" translatable="false">
+        <item>off</item>
+        <item>auto</item>
+        <item>10</item>
+        <item>20</item>
+        <item>30</item>
+        <item>50</item>
+    </string-array>
+
     <string-array name="analog_scrolling_names">
         <item>@string/analogscroll_none</item>
         <item>@string/analogscroll_right</item>

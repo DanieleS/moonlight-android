@@ -49,6 +49,14 @@
             seekbar:keyStep="1000"
             seekbar:min="0"
             seekbar:step="500" />
+        <ListPreference
+            android:defaultValue="off"
+            android:entries="@array/video_fec_names"
+            android:entryValues="@array/video_fec_values"
+            android:key="list_video_fec"
+            android:summary="@string/summary_video_fec"
+            android:title="@string/title_video_fec"
+            app:iconSpaceReserved="false" />
 
         <ListPreference
             android:defaultValue="latency"

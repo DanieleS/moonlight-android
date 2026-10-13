@@ -91,6 +91,7 @@ public class PreferenceConfiguration {
 //    static final String TOUCHSCREEN_TRACKPAD_PREF_STRING = "checkbox_touchscreen_trackpad";
     private static final String LATENCY_TOAST_PREF_STRING = "checkbox_enable_post_stream_toast";
     private static final String FRAME_PACING_PREF_STRING = "frame_pacing";
+    private static final String VIDEO_FEC_PREF_STRING = "list_video_fec";
     private static final String LOW_LATENCY_FRAME_BALANCE_PREF_STRING = "pref_low_latency_frame_balance";
     private static final String ABSOLUTE_MOUSE_MODE_PREF_STRING = "checkbox_absolute_mouse_mode";
     private static final String ENABLE_AUDIO_FX_PREF_STRING = "checkbox_enable_audiofx";
@@ -199,6 +200,7 @@ public class PreferenceConfiguration {
     private static final String DEFAULT_AUDIO_CONFIG = "2"; // Stereo
     private static final boolean DEFAULT_LATENCY_TOAST = false;
     private static final String DEFAULT_FRAME_PACING = "latency";
+    private static final String DEFAULT_VIDEO_FEC = "off";
     private static final boolean DEFAULT_ABSOLUTE_MOUSE_MODE = false;
     private static final boolean DEFAULT_ENABLE_AUDIO_FX = false;
     private static final boolean DEFAULT_REDUCE_REFRESH_RATE = false;
@@ -396,6 +398,9 @@ public class PreferenceConfiguration {
     public boolean touchscreenTrackpad;
     public MoonBridge.AudioConfiguration audioConfiguration;
     public int framePacing;
+    // Dynamic video FEC (MoonBridge.FEC_*). Hosts without support ignore it.
+    public int videoFecMode;
+    public int videoFecPercentage;
     public boolean absoluteMouseMode;
     public boolean enableAudioFx;
     public boolean reduceRefreshRate;
@@ -695,6 +700,27 @@ private static int getFramePacingValue(Context context) {
         }
     }
 
+    /**
+     * The dynamic FEC mode for a list_video_fec value: "off", "auto", or a fixed percentage.
+     * Anything unrecognised turns it off, which leaves the host's fixed FEC in charge.
+     */
+    static int videoFecMode(String value) {
+        if ("auto".equals(value)) {
+            return MoonBridge.FEC_AUTOMATIC;
+        }
+        return videoFecPercentage(value) >= 0 ? MoonBridge.FEC_FIXED : MoonBridge.FEC_DISABLED;
+    }
+
+    /** The fixed percentage (0-100) for a list_video_fec value, or -1 when it isn't one. */
+    static int videoFecPercentage(String value) {
+        try {
+            int percentage = Integer.parseInt(value);
+            return percentage >= 0 && percentage <= 100 ? percentage : -1;
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
     private static AnalogStickForScrolling getAnalogStickForScrollingValue(Context context) {
         SharedPreferences prefs = ProfilesManager.getInstance().getOverlayingSharedPreferences(context);
 
@@ -887,6 +913,9 @@ private static int getFramePacingValue(Context context) {
 
         config.videoFormat = getVideoFormatValue(context);
         config.framePacing = getFramePacingValue(context);
+        String videoFec = prefs.getString(VIDEO_FEC_PREF_STRING, DEFAULT_VIDEO_FEC);
+        config.videoFecMode = videoFecMode(videoFec);
+        config.videoFecPercentage = videoFecPercentage(videoFec);
         config.preferLowerDelays = getPreferLowerDelays(context);
 
 

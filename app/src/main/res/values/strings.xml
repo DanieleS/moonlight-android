@@ -226,6 +226,14 @@
     <string name="summary_seekbar_bitrate">Increase for better image quality. Decrease to improve performance on slower connections.</string>
     <string name="title_seekbar_metered_bitrate">Video bitrate on metered networks</string>
     <string name="summary_seekbar_metered_bitrate">High bitrates consume more data, lower bitrates improve smoothness in metered networks.\nSet 0 for ¼ of the above bitrate settings.</string>
+    <string name="title_video_fec">Video error correction</string>
+    <string name="summary_video_fec">How much error correction protects the video against lost packets. Automatic lets a host that supports it, such as Vibepollo, adjust it every second from the losses this device reports, spending the bitrate on picture quality when the network is clean. Other hosts use their own setting.</string>
+    <string name="video_fec_off">Host setting</string>
+    <string name="video_fec_auto">Automatic</string>
+    <string name="video_fec_fixed_10">Fixed 10%</string>
+    <string name="video_fec_fixed_20">Fixed 20%</string>
+    <string name="video_fec_fixed_30">Fixed 30%</string>
+    <string name="video_fec_fixed_50">Fixed 50%</string>
     <string name="suffix_seekbar_bitrate_mbps">Mbps</string>
     <string name="title_resolution_scale_factor">Resolution Scale Factor</string>
     <string name="summary_resolution_scale_factor">Server side requested virtual screen resolution will be multiplied by this factor. Streaming resolution are not affected.\ne.g. 120% will make 2000x1000 become 2400x1200.\nSetting a higher scale factor will improve image quality for some games.\nRequires Apollo to take effect.</string>
