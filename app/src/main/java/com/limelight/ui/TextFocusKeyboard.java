@@ -1,5 +1,7 @@
 package com.limelight.ui;
 
+import android.text.InputType;
+
 /**
  * Raises and dismisses an on-screen keyboard when the host reports that a text field took or
  * lost focus on its desktop.
@@ -56,6 +58,24 @@ public class TextFocusKeyboard {
 
     public static boolean isTextField(byte focusType) {
         return focusType == FOCUS_TEXT || focusType == FOCUS_NUMERIC || focusType == FOCUS_PASSWORD;
+    }
+
+    /**
+     * The input type a soft keyboard typing into the stream is told while the host reports this
+     * focus. It only reaches the keyboard when commit text is on, since only then is the stream
+     * an editor. A password field must not appear in the suggestion strip or be learned by the
+     * keyboard's dictionary; a numeric one gets a number pad.
+     */
+    public static int inputTypeFor(byte focusType) {
+        switch (focusType) {
+            case FOCUS_NUMERIC:
+                return InputType.TYPE_CLASS_NUMBER;
+            case FOCUS_PASSWORD:
+                return InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD
+                        | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
+            default:
+                return InputType.TYPE_CLASS_TEXT;
+        }
     }
 
     public static Target pickTarget(boolean companionShowing, boolean controlScreenShowing) {

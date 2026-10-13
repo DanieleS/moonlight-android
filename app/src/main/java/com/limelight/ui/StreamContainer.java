@@ -49,6 +49,8 @@ public class StreamContainer extends FrameLayout implements SurfaceHolder.Callba
     private StreamMode renderMode = null;
     private InputCallbacks mInputCallbacks;
     private boolean commitTextEnabled = false;
+    // What the soft keyboard is told the stream takes while commit text is on
+    private int imeInputType = android.text.InputType.TYPE_CLASS_TEXT;
 
     private double desiredAspectRatio;
     private boolean fillDisplay = false;
@@ -157,6 +159,20 @@ public class StreamContainer extends FrameLayout implements SurfaceHolder.Callba
         this.commitTextEnabled = enabled;
     }
 
+    /**
+     * Set what the soft keyboard is told the stream takes, following the field focused on the
+     * host. See {@link TextFocusKeyboard#inputTypeFor}.
+     *
+     * @return whether the keyboard has to be restarted to see it
+     */
+    public boolean setImeInputType(int inputType) {
+        if (imeInputType == inputType) {
+            return false;
+        }
+        imeInputType = inputType;
+        return commitTextEnabled;
+    }
+
     @Override
     public boolean onKeyPreIme(int keyCode, KeyEvent event) {
         if (mInputCallbacks != null) {
@@ -187,7 +203,7 @@ public class StreamContainer extends FrameLayout implements SurfaceHolder.Callba
         if (!commitTextEnabled) {
             return super.onCreateInputConnection(outAttrs);
         }
-        outAttrs.inputType = android.text.InputType.TYPE_CLASS_TEXT;
+        outAttrs.inputType = imeInputType;
         outAttrs.imeOptions = EditorInfo.IME_FLAG_NO_EXTRACT_UI;
         return new BaseInputConnection(this, false) {
             @Override

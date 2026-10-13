@@ -1,5 +1,7 @@
 package com.limelight.ui;
 
+import android.text.InputType;
+
 import org.junit.Before;
 import org.junit.Test;
 
@@ -172,5 +174,22 @@ public class TextFocusKeyboardTest {
         keyboard.dismiss();
         assertFalse(keyboards.isUp(TextFocusKeyboard.Target.CONTROL_SCREEN));
         assertNull(keyboard.getRaisedOn());
+    }
+
+    @Test
+    public void passwordFieldsKeepTheKeyboardFromSuggestingOrLearning() {
+        int inputType = TextFocusKeyboard.inputTypeFor(TextFocusKeyboard.FOCUS_PASSWORD);
+        assertEquals(InputType.TYPE_CLASS_TEXT, inputType & InputType.TYPE_MASK_CLASS);
+        assertEquals(InputType.TYPE_TEXT_VARIATION_PASSWORD, inputType & InputType.TYPE_MASK_VARIATION);
+        assertTrue((inputType & InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS) != 0);
+    }
+
+    @Test
+    public void inputTypeFollowsTheField() {
+        assertEquals(InputType.TYPE_CLASS_NUMBER, TextFocusKeyboard.inputTypeFor(TextFocusKeyboard.FOCUS_NUMERIC));
+        assertEquals(InputType.TYPE_CLASS_TEXT, TextFocusKeyboard.inputTypeFor(TextFocusKeyboard.FOCUS_TEXT));
+        // Focus leaving the field puts back what the stream always told the keyboard
+        assertEquals(InputType.TYPE_CLASS_TEXT, TextFocusKeyboard.inputTypeFor(TextFocusKeyboard.FOCUS_NONE));
+        assertEquals(InputType.TYPE_CLASS_TEXT, TextFocusKeyboard.inputTypeFor((byte) 42));
     }
 }

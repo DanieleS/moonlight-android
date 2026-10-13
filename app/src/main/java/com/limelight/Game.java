@@ -94,6 +94,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.PersistableBundle;
+import android.os.SystemClock;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.util.Rational;
@@ -382,8 +383,11 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     // The keyboard raised when the host reports a focused text field. Main thread only.
     private TextFocusKeyboard textFocusKeyboard;
     private final Handler textFocusHandler = new Handler(Looper.getMainLooper());
-    // Below API 30 the IME's visibility can't be read back, so remember whether we raised it
+    // Below API 30 the IME's visibility can't be read back, so remember whether it is up
     private boolean mainImeRaised;
+    // When we last toggled it up. Toggling again while it is still coming up would close it.
+    private long mainImeRaisedAt;
+    private static final long MAIN_IME_SETTLE_MS = 500;
     // The host reports focus as soon as its control stream is up, which can be before the
     // stream is; the last report is kept until then
     private byte pendingTextFocus = TextFocusKeyboard.FOCUS_NONE;
@@ -2615,6 +2619,8 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             ExternalDisplayControlActivity.toggleKeyboard();
         } else {
             LimeLog.info("Toggling keyboard overlay");
+            // Keep the guess used below API 30 in step with what the toggle does
+            mainImeRaised = !isMainImeVisible();
             InputMethodManager inputManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
             inputManager.toggleSoftInput(0, 0);
         }
@@ -3738,6 +3744,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             pendingTextFocus = TextFocusKeyboard.FOCUS_NONE;
             if (textFocusKeyboard != null) {
                 textFocusKeyboard.dismiss();
+                applyTextFocusInputType(TextFocusKeyboard.FOCUS_NONE);
             }
 
             // Update GameManager state to indicate we're no longer in game
@@ -3981,6 +3988,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
                 // A text field the host reported while the stream was still starting
                 if (textFocusKeyboard != null && TextFocusKeyboard.isTextField(pendingTextFocus)) {
+                    applyTextFocusInputType(pendingTextFocus);
                     textFocusKeyboard.onFocus(pendingTextFocus);
                 }
                 pendingTextFocus = TextFocusKeyboard.FOCUS_NONE;
@@ -4179,6 +4187,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 pendingTextFocus = focusType;
                 return;
             }
+            applyTextFocusInputType(focusType);
             textFocusHandler.removeCallbacks(dismissTextFocusKeyboard);
             if (TextFocusKeyboard.isTextField(focusType)) {
                 textFocusKeyboard.onFocus(focusType);
@@ -4196,6 +4205,23 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         if (textFocusKeyboard != null) {
             textFocusKeyboard.onManualKeyboardUse();
         }
+    }
+
+    /**
+     * Tell a soft keyboard typing into the stream what the host's field takes. It only matters
+     * with commit text on, when the stream is an editor whose text the keyboard sees: a password
+     * must not land in its suggestion strip or its dictionary. Applied on every report, not only
+     * to a keyboard raised here, since one the user opened by hand types into the field too.
+     */
+    private void applyTextFocusInputType(byte focusType) {
+        int inputType = TextFocusKeyboard.inputTypeFor(focusType);
+        if (streamContainer != null && streamContainer.setImeInputType(inputType)) {
+            InputMethodManager inputManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+            if (inputManager != null) {
+                inputManager.restartInput(streamContainer);
+            }
+        }
+        ExternalDisplayControlActivity.setImeInputType(inputType);
     }
 
     private boolean isMainImeVisible() {
@@ -4217,7 +4243,17 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             return false;
         }
         streamContainer.requestFocus();
-        inputManager.toggleSoftInput(0, 0);
+        // With commit text on the stream is an editor, so the keyboard can be asked for, which
+        // never closes one that is already coming up. Otherwise only a toggle raises it.
+        if (!prefConfig.enableCommitText || !inputManager.showSoftInput(streamContainer, 0)) {
+            long now = SystemClock.uptimeMillis();
+            if (mainImeRaised && now - mainImeRaisedAt < MAIN_IME_SETTLE_MS) {
+                // Still coming up from the last report, where the visibility check can't see it yet
+                return false;
+            }
+            inputManager.toggleSoftInput(0, 0);
+            mainImeRaisedAt = now;
+        }
         mainImeRaised = true;
         return true;
     }

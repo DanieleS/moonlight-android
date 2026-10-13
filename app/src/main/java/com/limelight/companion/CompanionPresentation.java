@@ -171,6 +171,7 @@ public class CompanionPresentation extends android.app.Presentation
                 textKeyboard = new KeyBoardLayoutController(container, getContext(),
                         PreferenceConfiguration.readPreferences(getContext()));
                 textKeyboard.setViewCallbacks(shown -> {
+                    liftMenuButton(shown ? container : null);
                     if (!shown && !hidingTextKeyboard) {
                         // Closed from its own hide key
                         CompanionDisplayManager.onTextKeyboardDismissed();
@@ -187,6 +188,23 @@ public class CompanionPresentation extends android.app.Presentation
                 hidingTextKeyboard = false;
             }
         }
+    }
+
+    /**
+     * Keep the menu button clear of the keyboard: both sit at the bottom of the panel, and the
+     * keyboard is drawn over the button.
+     *
+     * @param keyboardContainer the keyboard's container while it is up, or null once it is gone
+     */
+    private void liftMenuButton(FrameLayout keyboardContainer) {
+        if (menuButton == null) {
+            return;
+        }
+        int keyboardHeight = 0;
+        if (keyboardContainer != null && keyboardContainer.getChildCount() > 0) {
+            keyboardHeight = Math.max(0, keyboardContainer.getChildAt(0).getLayoutParams().height);
+        }
+        menuButton.setTranslationY(-keyboardHeight);
     }
 
     boolean isTextKeyboardVisible() {

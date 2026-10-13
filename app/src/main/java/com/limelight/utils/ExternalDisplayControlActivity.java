@@ -128,6 +128,22 @@ public class ExternalDisplayControlActivity extends AppCompatActivity implements
         }
     }
 
+    /**
+     * Tell the system keyboard on this screen, if the user raised it, what the field focused on
+     * the host takes, so a password isn't shown in its suggestions or learned.
+     */
+    public static void setImeInputType(int inputType) {
+        if (instance == null || instance.rootLayout == null) {
+            return;
+        }
+        if (instance.rootLayout.setImeInputType(inputType)) {
+            InputMethodManager inputManager = (InputMethodManager) instance.getSystemService(Context.INPUT_METHOD_SERVICE);
+            if (inputManager != null) {
+                inputManager.restartInput(instance.rootLayout);
+            }
+        }
+    }
+
     // --- Activity Lifecycle ---
 
     @Override
