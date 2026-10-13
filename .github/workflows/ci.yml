@@ -37,6 +37,15 @@ jobs:
       - name: Debug build
         run: ./gradlew --no-daemon :app:assembleNonRoot_gameDebug
 
+      # The live test installs this build on the emulator paired with the PC: the debug package
+      # is the one paired there, so it is the one the test needs.
+      - name: Keep the debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ratatoskr-debug-apk
+          path: app/build/outputs/apk/nonRoot_game/debug/app-nonRoot_game-universal-debug.apk
+          retention-days: 14
+
       - name: Test reports
         if: failure()
         uses: actions/upload-artifact@v4
