@@ -74,12 +74,21 @@ jobs:
       - name: Unit tests
         run: ./gradlew --no-daemon :app:testNonRoot_gameDebugUnitTest
 
+      # A suffixed tag (v20.2.10-beta.1) is a beta: it builds as its own app,
+      # dev.kylobyte.ratatoskr.beta, installed next to the stable one.
       - name: Release build
-        run: ./gradlew --no-daemon :app:assembleNonRoot_gameRelease
+        run: |
+          if [[ "$VERSION" == *-* ]]; then
+            ./gradlew --no-daemon :app:assembleNonRoot_gameRelease -PbetaChannel
+            echo "APK=ratatoskr-beta-nonRoot_game-release.apk" >> "$GITHUB_ENV"
+          else
+            ./gradlew --no-daemon :app:assembleNonRoot_gameRelease
+            echo "APK=ratatoskr-nonRoot_game-release.apk" >> "$GITHUB_ENV"
+          fi
 
       - name: Check the signature
         run: |
-          apk=ratatoskr-nonRoot_game-release.apk
+          apk="$APK"
           cp app/build/outputs/apk/nonRoot_game/release/app-nonRoot_game-universal-release.apk "$apk"
           apksigner=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner
           actual=$("$apksigner" verify --print-certs "$apk" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1)
@@ -94,7 +103,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ratatoskr-dry-run
-          path: ratatoskr-nonRoot_game-release.apk
+          path: ${{ env.APK }}
           retention-days: 3
 
       - name: Publish
@@ -115,7 +124,7 @@ jobs:
           else
             channel_args=(--latest)
           fi
-          gh release create "$GITHUB_REF_NAME" ratatoskr-nonRoot_game-release.apk \
+          gh release create "$GITHUB_REF_NAME" "$APK" \
             --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" "${channel_args[@]}" "${notes_args[@]}"
 
       - name: Remove the keystore

@@ -12,6 +12,10 @@ if (keystorePropsFile.exists()) {
 def releaseKeystorePath = keystoreProps["ratatoskr.keystore"]
 def releaseKeystore = releaseKeystorePath != null ? rootProject.file(releaseKeystorePath) : null
 def hasReleaseSigning = releaseKeystore != null && releaseKeystore.exists()
+// Betas ship as their own app (-PbetaChannel, set by the release workflow for suffixed tags), so
+// one can be tried next to the stable and dropped without a downgrade, which Android only allows
+// by uninstalling (losing the pairing and settings).
+def betaChannel = project.hasProperty('betaChannel')
 
 android {
     ndkVersion "27.0.12077973"
@@ -163,9 +167,16 @@ android {
             //
             // TL;DR: don't publish under someone else's applicationId.
             // Ours is set per flavor above: dev.kylobyte.ratatoskr.
-            resValue "string", "app_label", "Ratatoskr"
-            resValue "string", "app_label_root", "Ratatoskr (Root)"
-            resValue "string", "app_label_game", "Ratatoskr (Game)"
+            if (betaChannel) {
+                applicationIdSuffix ".beta"
+                resValue "string", "app_label", "Ratatoskr Beta"
+                resValue "string", "app_label_root", "Ratatoskr Beta (Root)"
+                resValue "string", "app_label_game", "Ratatoskr Beta (Game)"
+            } else {
+                resValue "string", "app_label", "Ratatoskr"
+                resValue "string", "app_label_root", "Ratatoskr (Root)"
+                resValue "string", "app_label_game", "Ratatoskr (Game)"
+            }
 
             if (hasReleaseSigning) {
                 signingConfig signingConfigs.release
