@@ -42,6 +42,11 @@ Ratatoskr's main addition over upstream Artemis is the library. When paired with
    and climbs back to the bitrate you chose once things are clean (stream setting "Adaptive
    bitrate"). Needs Vibepollo's `/bitrate`; the controller is ported from
    [Moonlight V+](https://github.com/qiin2333/moonlight-vplus).
+10. Reconnect after a network drop (advanced setting, off by default): the last frame stays on
+    screen while the Wi-Fi is gone, and the game comes back through the host's `/resume` once it
+    returns. A stock Sunshine/Vibepollo host lets go of a silent client after about 5 s (the ENet
+    timeout of its control server, which `ping_timeout` does not change), so the "hold" time
+    defaults to 5 s; holding longer only helps with a host changed to keep the session longer.
 
 Everything degrades gracefully on a stock Sunshine/Apollo host: with no metadata to rank by, the
 metadata-driven orders simply fall back to alphabetical, so the library still works — it just shows less.

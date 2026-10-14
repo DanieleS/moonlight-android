@@ -292,6 +292,29 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
         deviceVibrator.cancel();
     }
 
+    // After a reconnect the host is running a new session that has never heard of our
+    // controllers: tell it again about each one we had announced (type, buttons, motion sensors,
+    // touchpad, LED).
+    public void reannounceControllers() {
+        if (stopped) {
+            return;
+        }
+
+        for (int i = 0; i < inputDeviceContexts.size(); i++) {
+            InputDeviceContext deviceContext = inputDeviceContexts.valueAt(i);
+            if (deviceContext.assignedControllerNumber) {
+                deviceContext.sendControllerArrival();
+            }
+        }
+
+        for (int i = 0; i < usbDeviceContexts.size(); i++) {
+            UsbDeviceContext deviceContext = usbDeviceContexts.valueAt(i);
+            if (deviceContext.assignedControllerNumber) {
+                deviceContext.sendControllerArrival();
+            }
+        }
+    }
+
     public void destroy() {
         if (!stopped) {
             stop();
@@ -3366,6 +3389,8 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
             // Might result in stutter in pointer device input. The problem happens within Android framework,
             // Here we can only provide a workaround by disabling this option if user wishes.
             if (prefConfig.enableBatteryReport) {
+                // The runnable reschedules itself, so never queue it twice when re-announcing
+                backgroundThreadHandler.removeCallbacks(batteryStateUpdateRunnable);
                 backgroundThreadHandler.post(batteryStateUpdateRunnable);
             }
         }

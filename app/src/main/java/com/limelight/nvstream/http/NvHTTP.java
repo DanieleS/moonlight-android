@@ -78,6 +78,9 @@ public class NvHTTP {
     public static final int SHORT_CONNECTION_TIMEOUT = 3000;
     public static final int LONG_CONNECTION_TIMEOUT = 5000;
     public static final int READ_TIMEOUT = 7000;
+    // How long a reconnect attempt waits for the host to answer /resume. A host that accepted the
+    // request and never answers would otherwise hold the attempt until the reconnect window ends.
+    public static final int RECONNECT_RESUME_READ_TIMEOUT = 20000;
 
     // Print URL and content to logcat on debug builds
     private static boolean verbose = BuildConfig.DEBUG;
@@ -88,6 +91,7 @@ public class NvHTTP {
     
     private OkHttpClient httpClientLongConnectTimeout;
     private OkHttpClient httpClientLongConnectNoReadTimeout;
+    private OkHttpClient httpClientLongConnectReconnectReadTimeout;
     private OkHttpClient httpClientShortConnectTimeout;
 
     private X509TrustManager defaultTrustManager;
@@ -196,6 +200,16 @@ public class NvHTTP {
         httpClientLongConnectNoReadTimeout = httpClientLongConnectTimeout.newBuilder()
                 .readTimeout(0, TimeUnit.MILLISECONDS)
                 .build();
+
+        httpClientLongConnectReconnectReadTimeout = httpClientLongConnectTimeout.newBuilder()
+                .readTimeout(RECONNECT_RESUME_READ_TIMEOUT, TimeUnit.MILLISECONDS)
+                .build();
+    }
+
+    // Cancels the requests of this NvHTTP that are in progress; each fails with an IOException.
+    // All its clients are built from httpClientLongConnectTimeout, so they share its dispatcher.
+    public void cancelRequests() {
+        httpClientLongConnectTimeout.dispatcher().cancelAll();
     }
 
     public HttpUrl getHttpsUrl(boolean likelyOnline) throws IOException {
@@ -1121,7 +1135,11 @@ public class NvHTTP {
             }
         }
 
-        String xmlStr = openHttpConnectionToString(httpClientLongConnectNoReadTimeout, getHttpsUrl(true), verb,
+        // Launching or resuming a game can legitimately take a long time, so there is no read
+        // timeout, except for the /resume of a reconnect attempt
+        OkHttpClient client = context.reconnectAttempt ?
+                httpClientLongConnectReconnectReadTimeout : httpClientLongConnectNoReadTimeout;
+        String xmlStr = openHttpConnectionToString(client, getHttpsUrl(true), verb,
             "appid=" + appId +
             (appUUID == null ? "" : ("&appuuid=" + appUUID)) +
             "&mode=" + context.negotiatedWidth + "x" + context.negotiatedHeight + "x" + fpsInt +

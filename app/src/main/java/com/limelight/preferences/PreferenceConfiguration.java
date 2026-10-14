@@ -110,6 +110,9 @@ public class PreferenceConfiguration {
 
     private static final String ENABLE_RUMBLE_PREF_STRING = "checkbox_enable_rumble";
     private static final String PREVENT_PACKET_LOSS_PREF_STRING = "checkbox_prevent_packet_loss";
+    private static final String AUTO_RECONNECT_PREF_STRING = "checkbox_auto_reconnect";
+    private static final String NETWORK_TIMEOUT_PREF_STRING = "seekbar_network_timeout_seconds";
+    private static final String RECONNECT_WINDOW_PREF_STRING = "seekbar_reconnect_window_seconds";
 
     private static final String LIST_ONSCREEN_KEYBOARD_ALIGN_MODE = "list_onscreen_keyboard_align_mode";
 
@@ -216,6 +219,12 @@ public class PreferenceConfiguration {
     private static final boolean DEFAULT_FORCE_MOTION_SENSORS_FALLBACK = false;
     private static final boolean DEFAULT_ENABLE_RUMBLE = true;
     private static final boolean DEFAULT_PREVENT_PACKET_LOSS = false;
+    private static final boolean DEFAULT_AUTO_RECONNECT = false;
+    // About when a stock Sunshine/Vibepollo host lets go of a silent client: its control server
+    // keeps ENet's default peer timeout, which ping_timeout does not change. Holding the
+    // connection longer than the host does only delays the reconnect.
+    public static final int DEFAULT_NETWORK_TIMEOUT_SECONDS = 5;
+    private static final int DEFAULT_RECONNECT_WINDOW_SECONDS = 60;
     private static final boolean DEFAULT_GAMEPAD_ENABLE_BATTERY_REPORT = true;
     private static final boolean DEFAULT_FORCE_QWERTY = true;
     private static final boolean DEFAULT_SEND_META_ON_PHYSICAL_BACK = false;
@@ -418,6 +427,12 @@ public class PreferenceConfiguration {
     public boolean forceMotionSensorsFallbackToDevice;
     public boolean enableRumble;
     public boolean preventPacketLoss;
+    // Reconnect after a network drop, keeping the last frame on screen (off by default)
+    public boolean autoReconnect;
+    // How long a silent connection is held before it counts as lost
+    public int networkTimeoutSeconds;
+    // How long to keep trying to reconnect once it is lost
+    public int reconnectWindowSeconds;
 
     public boolean rememberZoomPan;
     public float zoomScale;
@@ -1087,6 +1102,9 @@ private static int getFramePacingValue(Context context) {
         config.forceMotionSensorsFallbackToDevice = prefs.getBoolean(FORCE_MOTION_SENSORS_FALLBACK_PREF_STRING, DEFAULT_FORCE_MOTION_SENSORS_FALLBACK);
         config.enableRumble = prefs.getBoolean(ENABLE_RUMBLE_PREF_STRING, DEFAULT_ENABLE_RUMBLE);
         config.preventPacketLoss = prefs.getBoolean(PREVENT_PACKET_LOSS_PREF_STRING, DEFAULT_PREVENT_PACKET_LOSS);
+        config.autoReconnect = prefs.getBoolean(AUTO_RECONNECT_PREF_STRING, DEFAULT_AUTO_RECONNECT);
+        config.networkTimeoutSeconds = prefs.getInt(NETWORK_TIMEOUT_PREF_STRING, DEFAULT_NETWORK_TIMEOUT_SECONDS);
+        config.reconnectWindowSeconds = prefs.getInt(RECONNECT_WINDOW_PREF_STRING, DEFAULT_RECONNECT_WINDOW_SECONDS);
 
         // Read custom values
         config.customResolution = prefs.getString(CUSTOM_RESOLUTION_PREF_STRING, null);

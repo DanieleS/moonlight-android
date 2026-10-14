@@ -15,6 +15,9 @@ public class ConnectionContext {
     public NvConnectionListener connListener;
     public SecretKey riKey;
     public int riKeyId;
+
+    // This start is a reconnect attempt (see NvConnection.setReconnectAttempt())
+    public boolean reconnectAttempt;
     
     // This is the version quad from the appversion tag of /serverinfo
     public String serverAppVersion;

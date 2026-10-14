@@ -139,6 +139,10 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     // Feeds the perf overlay for a PyroWave session, which submitDecodeUnit() never sees
     private Thread pyroWaveStatsThread;
     private volatile boolean stopping;
+    // While Game reconnects, cleanup() parks the codec here instead of releasing it, and setup()
+    // takes it back (see DecoderParking). Null outside a reconnect.
+    private volatile DecoderParking decoderParking;
+    private String configuredCodecName;
     private CrashListener crashListener;
     private boolean reportedCrash;
     private int consecutiveCrashCount;
@@ -369,6 +373,10 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         }
 
         return decoderInfo;
+    }
+
+    public void setDecoderParking(DecoderParking decoderParking) {
+        this.decoderParking = decoderParking;
     }
 
     public void setRenderTarget(Surface renderTarget) {
@@ -673,11 +681,36 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     }
 
     private boolean tryConfigureDecoder(MediaCodecInfo selectedDecoderInfo, MediaFormat format, boolean throwOnCodecError) {
+        // Reconnecting: carry on with the codec the previous connection left on the surface. It is
+        // already configured and started, only flushed, so it needs nothing but the new stream's
+        // parameter sets, which the first IDR frame brings.
+        DecoderParking parking = decoderParking;
+        if (parking != null) {
+            DecoderParking.Taken kept = parking.take(selectedDecoderInfo.getName(), initialWidth, initialHeight, videoFormat, renderTarget);
+            if (kept != null) {
+                videoDecoder = kept.codec;
+                configuredFormat = kept.configuredFormat;
+                configuredCodecName = selectedDecoderInfo.getName();
+                // The codec carries the HDR metadata it was configured with. Knowing it, the host
+                // sending the same metadata again on the new connection changes nothing, instead
+                // of restarting the codec (and blanking the screen) to apply it.
+                if (currentHdrMetadata == null) {
+                    currentHdrMetadata = kept.hdrMetadata;
+                }
+                submittedCsd = false;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    inputFormat = videoDecoder.getInputFormat();
+                }
+                return true;
+            }
+        }
+
         boolean configured = false;
         try {
             videoDecoder = MediaCodec.createByCodecName(selectedDecoderInfo.getName());
             configureAndStartDecoder(format);
             LimeLog.info("Using codec " + selectedDecoderInfo.getName() + " for hardware decoding " + format.getString(MediaFormat.KEY_MIME));
+            configuredCodecName = selectedDecoderInfo.getName();
             configured = true;
         } catch (IllegalArgumentException e) {
             e.printStackTrace();
@@ -1539,6 +1572,22 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             MoonBridge.pyroWaveStop();
             return;
         }
+        // Reconnecting: keep the codec, and with it the last frame on the surface, for the next
+        // connection. Its pending buffers belong to the dead stream, so flush them first.
+        DecoderParking parking = decoderParking;
+        if (parking != null && configuredCodecName != null) {
+            try {
+                videoDecoder.flush();
+                if (parking.park(videoDecoder, configuredCodecName, initialWidth, initialHeight, videoFormat,
+                        renderTarget, configuredFormat, currentHdrMetadata)) {
+                    videoDecoder = null;
+                    return;
+                }
+            } catch (RuntimeException e) {
+                LimeLog.warning("Decoder could not be kept for reconnect: " + e);
+            }
+        }
+
         videoDecoder.release();
     }
 

@@ -32,6 +32,7 @@ public class StreamConfiguration {
     private int colorSpace;
     private boolean persistGamepadsAfterDisconnect;
     private boolean enableUltraLowLatency;
+    private int controlPeerTimeoutMs;
 
     public static class Builder {
         private StreamConfiguration config = new StreamConfiguration();
@@ -151,6 +152,13 @@ public class StreamConfiguration {
 
         public StreamConfiguration.Builder setEnableUltraLowLatency(boolean enable) {
             config.enableUltraLowLatency = enable;
+            return this;
+        }
+
+        // How long the control stream may hear nothing from the host before the connection is
+        // declared dead. 0 keeps moonlight-common-c's default of 10 seconds.
+        public StreamConfiguration.Builder setControlPeerTimeoutMs(int timeoutMs) {
+            config.controlPeerTimeoutMs = timeoutMs;
             return this;
         }
 
@@ -274,5 +282,9 @@ public class StreamConfiguration {
 
     public boolean getEnableUltraLowLatency() {
         return enableUltraLowLatency;
+    }
+
+    public int getControlPeerTimeoutMs() {
+        return controlPeerTimeoutMs;
     }
 }

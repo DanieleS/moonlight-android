@@ -45,6 +45,10 @@ import com.limelight.nvstream.input.MouseButtonPacket;
 import com.limelight.nvstream.jni.MoonBridge;
 
 public class NvConnection {
+    // Reported to stageFailed() when a reconnect attempt finds the game no longer running on the
+    // host, so there is nothing left to resume
+    public static final int RESUME_ERROR_NO_SESSION = -600;
+
     // Context parameters
     private LimelightCryptoProvider cryptoProvider;
     private String uniqueId;
@@ -52,6 +56,12 @@ public class NvConnection {
     private static Semaphore connectionAllowed = new Semaphore(1);
     private final boolean isMonkey;
     private final Context appContext;
+
+    // Set by abortStart(): the start under way gives up at its next step instead of connecting.
+    // Cleared by each start().
+    private volatile boolean startAborted;
+    // The host requests of the start under way, so abortStart() can cancel one in progress
+    private volatile NvHTTP startHttp;
 
     public NvConnection(Context appContext, ComputerDetails.AddressTuple host, int httpsPort, String uniqueId, StreamConfiguration config, LimelightCryptoProvider cryptoProvider, X509Certificate serverCert)
     {
@@ -88,6 +98,28 @@ public class NvConnection {
     
     private static int generateRiKeyId() {
         return new SecureRandom().nextInt();
+    }
+
+    // Marks the following starts as reconnect attempts: they only ever /resume the game that is
+    // already running (never launch or quit one), give up sooner on a host that does not answer,
+    // and the stream gets a fresh remote input key.
+    public void setReconnectAttempt(boolean reconnectAttempt) {
+        context.reconnectAttempt = reconnectAttempt;
+    }
+
+    // Abandons a start() that has not connected yet, from any thread. Unlike stop(), it does not
+    // touch a connection that is up, and it leaves the connection semaphore alone: the start
+    // gives up at its next step (the request to the host in progress is cancelled, and it does
+    // not go on to take the semaphore), then reports to stageFailed(). A start that is already
+    // inside LiStartConnection() is interrupted, but one that gets past the last check just as
+    // this is called may still connect, so the caller must be ready for connectionStarted().
+    public void abortStart() {
+        startAborted = true;
+        NvHTTP h = startHttp;
+        if (h != null) {
+            h.cancelRequests();
+        }
+        MoonBridge.interruptConnection();
     }
 
     public void stop() {
@@ -223,11 +255,21 @@ public class NvConnection {
         return StreamConfiguration.STREAM_CFG_AUTO;
     }
     
+    private void throwIfStartAborted() throws IOException {
+        if (startAborted) {
+            throw new IOException("Connection start cancelled");
+        }
+    }
+
     private boolean startApp() throws XmlPullParserException, IOException
     {
         NvHTTP h = new NvHTTP(context.serverAddress, context.httpsPort, uniqueId, context.serverCert, cryptoProvider);
+        startHttp = h;
+        throwIfStartAborted();
 
-        String serverInfo = h.getServerInfo(true);
+        // A reconnect attempt probes the host with the short connect timeout, so an attempt made
+        // while the network is still down fails quickly and the next one starts sooner
+        String serverInfo = h.getServerInfo(!context.reconnectAttempt);
         
         context.serverAppVersion = h.getServerVersion(serverInfo);
         if (context.serverAppVersion == null) {
@@ -318,10 +360,26 @@ public class NvConnection {
             }
         }
         
+        boolean gameRunning = h.getCurrentGame(serverInfo) != 0 || (h.getCurrentGameUUID(serverInfo) != null && !h.getCurrentGameUUID(serverInfo).isEmpty());
+        boolean ourGameRunning = gameRunning && (h.getCurrentGame(serverInfo) == app.getAppId() || Objects.equals(h.getCurrentGameUUID(serverInfo), app.getAppUUID()));
+
+        // A reconnect attempt resumes the game we were streaming or nothing: launching it again,
+        // or quitting whatever replaced it, is not ours to do behind the user's back.
+        // Vibepollo hides the running game from serverinfo in some states (input-only mode with
+        // another app, a remote monitor or input role owning the host), and then this gives up even
+        // though the game still runs. Trying /resume anyway is no way out: it resumes whatever app
+        // is running, whichever was asked for, so it could join a game that is not ours.
+        if (context.reconnectAttempt && !ourGameRunning) {
+            throw new HostHttpResponseException(RESUME_ERROR_NO_SESSION, "The game is no longer running on the host");
+        }
+
+        // The /resume or /launch below can take a while; don't start one for a start nobody wants
+        throwIfStartAborted();
+
         // If there's a game running, resume it
-        if (h.getCurrentGame(serverInfo) != 0 || (h.getCurrentGameUUID(serverInfo) != null && !h.getCurrentGameUUID(serverInfo).isEmpty())) {
+        if (gameRunning) {
             try {
-                if (h.getCurrentGame(serverInfo) == app.getAppId() || Objects.equals(h.getCurrentGameUUID(serverInfo), app.getAppUUID())) {
+                if (ourGameRunning) {
                     if (!h.launchApp(context, "resume", app.getAppUUID(), app.getAppId(), context.negotiatedHdr)) {
                         context.connListener.displayMessage("Failed to resume existing session");
                         return false;
@@ -333,7 +391,11 @@ public class NvConnection {
                     return quitAndLaunch(h, context);
                 }
             } catch (HostHttpResponseException e) {
-                if (e.getErrorCode() == 470) {
+                if (context.reconnectAttempt) {
+                    // Let the reconnect logic see the host's answer rather than a message
+                    throw e;
+                }
+                else if (e.getErrorCode() == 470) {
                     // This is the error you get when you try to resume a session that's not yours.
                     // Because this is fairly common, we'll display a more detailed message.
                     context.connListener.displayMessage("This session wasn't started by this device," +
@@ -395,8 +457,16 @@ public class NvConnection {
 
     public void start(final AudioRenderer audioRenderer, final VideoDecoderRenderer videoDecoderRenderer, final NvConnectionListener connectionListener)
     {
+        // On the caller's thread, so an abortStart() made after this call is never lost
+        startAborted = false;
         new Thread(new Runnable() {
             public void run() {
+                if (context.reconnectAttempt) {
+                    // The core restarts its AES-GCM IV counter with every connection, so a new
+                    // connection must not reuse the previous one's remote input key
+                    context.riKey = generateRiAesKey();
+                    context.riKeyId = generateRiKeyId();
+                }
                 context.connListener = connectionListener;
                 context.videoCapabilities = videoDecoderRenderer.getCapabilities();
 
@@ -442,8 +512,15 @@ public class NvConnection {
                     }
                 } while (tryCount < 5);
 
+                startHttp = null;
+
                 if (tryCount >= 5) {
                     context.connListener.stageFailed(appName, 0, -408);
+                    return;
+                }
+
+                if (startAborted) {
+                    context.connListener.stageFailed(appName, 0, 0);
                     return;
                 }
 
@@ -456,6 +533,14 @@ public class NvConnection {
                     connectionAllowed.acquire();
                 } catch (InterruptedException e) {
                     context.connListener.displayMessage(e.getMessage());
+                    context.connListener.stageFailed(appName, 0, 0);
+                    return;
+                }
+
+                // Waiting for the semaphore can take a while (the previous connection is being
+                // stopped), so look again before connecting
+                if (startAborted) {
+                    connectionAllowed.release();
                     context.connListener.stageFailed(appName, 0, 0);
                     return;
                 }
@@ -477,7 +562,8 @@ public class NvConnection {
                             context.riKey.getEncoded(), ib.array(),
                             context.videoCapabilities,
                             context.streamConfig.getColorSpace(),
-                            context.streamConfig.getColorRange());
+                            context.streamConfig.getColorRange(),
+                            context.streamConfig.getControlPeerTimeoutMs());
                     if (ret != 0) {
                         // LiStartConnection() failed, so the caller is not expected
                         // to stop the connection themselves. We need to release their
