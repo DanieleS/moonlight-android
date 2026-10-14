@@ -73,7 +73,10 @@ namespace {
     X(GetPhysicalDeviceMemoryProperties) \
     X(EnumerateDeviceExtensionProperties) \
     X(CreateDevice) \
-    X(GetDeviceProcAddr) \
+    X(GetDeviceProcAddr)
+
+// Only there when the instance enabled the surface extensions: the support probe's doesn't.
+#define PW_VK_SURFACE(X) \
     X(CreateAndroidSurfaceKHR) \
     X(DestroySurfaceKHR) \
     X(GetPhysicalDeviceSurfaceSupportKHR) \
@@ -87,11 +90,6 @@ namespace {
     X(DeviceWaitIdle) \
     X(QueueSubmit) \
     X(QueueWaitIdle) \
-    X(CreateSwapchainKHR) \
-    X(DestroySwapchainKHR) \
-    X(GetSwapchainImagesKHR) \
-    X(AcquireNextImageKHR) \
-    X(QueuePresentKHR) \
     X(CreateImage) \
     X(DestroyImage) \
     X(GetImageMemoryRequirements) \
@@ -140,6 +138,14 @@ namespace {
     X(WaitForFences) \
     X(ResetFences)
 
+// Only there when the device enabled VK_KHR_swapchain, which the support probe's doesn't.
+#define PW_VK_SWAPCHAIN(X) \
+    X(CreateSwapchainKHR) \
+    X(DestroySwapchainKHR) \
+    X(GetSwapchainImagesKHR) \
+    X(AcquireNextImageKHR) \
+    X(QueuePresentKHR)
+
 struct Vk {
     void* library = nullptr;
     PFN_vkGetInstanceProcAddr GetInstanceProcAddr = nullptr;
@@ -147,7 +153,9 @@ struct Vk {
 #define PW_DECLARE(name) PFN_vk##name name = nullptr;
     PW_VK_GLOBAL(PW_DECLARE)
     PW_VK_INSTANCE(PW_DECLARE)
+    PW_VK_SURFACE(PW_DECLARE)
     PW_VK_DEVICE(PW_DECLARE)
+    PW_VK_SWAPCHAIN(PW_DECLARE)
 #undef PW_DECLARE
 
     bool loadGlobal()
@@ -170,22 +178,28 @@ struct Vk {
         return true;
     }
 
-    bool loadInstance(VkInstance instance)
+    bool loadInstance(VkInstance instance, bool withSurface)
     {
 #define PW_LOAD(name) \
         name = reinterpret_cast<PFN_vk##name>(GetInstanceProcAddr(instance, "vk" #name)); \
         if (name == nullptr) { LOGE("missing vk" #name); return false; }
         PW_VK_INSTANCE(PW_LOAD)
+        if (withSurface) {
+            PW_VK_SURFACE(PW_LOAD)
+        }
 #undef PW_LOAD
         return true;
     }
 
-    bool loadDevice(VkDevice device)
+    bool loadDevice(VkDevice device, bool withSwapchain)
     {
 #define PW_LOAD(name) \
         name = reinterpret_cast<PFN_vk##name>(GetDeviceProcAddr(device, "vk" #name)); \
         if (name == nullptr) { LOGE("missing vk" #name); return false; }
         PW_VK_DEVICE(PW_LOAD)
+        if (withSwapchain) {
+            PW_VK_SWAPCHAIN(PW_LOAD)
+        }
 #undef PW_LOAD
         return true;
     }
@@ -306,7 +320,7 @@ struct VulkanContext {
             LOGW("vkCreateInstance failed");
             return false;
         }
-        return vk.loadInstance(instance);
+        return vk.loadInstance(instance, forPresentation);
     }
 
     // Picks a Vulkan 1.3 GPU with a graphics+compute queue (that can present to
@@ -403,7 +417,7 @@ struct VulkanContext {
             LOGW("vkCreateDevice failed");
             return false;
         }
-        if (!vk.loadDevice(device)) {
+        if (!vk.loadDevice(device, surface != VK_NULL_HANDLE)) {
             return false;
         }
         vk.GetDeviceQueue(device, queueFamily, 0, &queue);
