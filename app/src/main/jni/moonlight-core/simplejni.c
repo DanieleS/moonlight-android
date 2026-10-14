@@ -309,3 +309,24 @@ Java_com_limelight_nvstream_jni_MoonBridge_pyroWaveStop(JNIEnv *env, jclass claz
     PyroWaveRendererStop();
 #endif
 }
+
+JNIEXPORT jstring JNICALL
+Java_com_limelight_nvstream_jni_MoonBridge_pyroWaveTakeStats(JNIEnv *env, jclass clazz, jdoubleArray out) {
+#ifdef HAVE_PYROWAVE
+    PYROWAVE_RENDERER_STATS stats;
+    if ((*env)->GetArrayLength(env, out) < 10 || PyroWaveRendererTakeStats(&stats) != 0) {
+        return NULL;
+    }
+    // Order documented in MoonBridge.pyroWaveTakeStats()
+    jdouble values[10] = {
+        (jdouble)stats.received, (jdouble)stats.presented, (jdouble)stats.dropped,
+        (jdouble)stats.partial, (jdouble)stats.lost, (jdouble)stats.hostLatencyFrames,
+        (jdouble)stats.hostLatencyTotal, (jdouble)stats.hostLatencyMin,
+        (jdouble)stats.hostLatencyMax, stats.gpuDecodeMs,
+    };
+    (*env)->SetDoubleArrayRegion(env, out, 0, 10, values);
+    return (*env)->NewStringUTF(env, stats.gpuName);
+#else
+    return NULL;
+#endif
+}

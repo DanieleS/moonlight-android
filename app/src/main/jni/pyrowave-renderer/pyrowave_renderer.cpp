@@ -39,6 +39,7 @@
 #include <chrono>
 #include <cmath>
 #include <condition_variable>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
@@ -245,6 +246,7 @@ struct VulkanContext {
     Vk vk;
     VkInstance instance = VK_NULL_HANDLE;
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+    std::string gpuName;
     VkDevice device = VK_NULL_HANDLE;
     VkQueue queue = VK_NULL_HANDLE;
     uint32_t queueFamily = 0;
@@ -367,6 +369,7 @@ struct VulkanContext {
                 }
                 physicalDevice = gpu;
                 queueFamily = family;
+                gpuName = props.deviceName;
                 LOGI("Using %s (Vulkan %u.%u) for PyroWave", props.deviceName,
                      VK_API_VERSION_MAJOR(props.apiVersion), VK_API_VERSION_MINOR(props.apiVersion));
                 break;
@@ -585,6 +588,20 @@ struct PendingFrame {
 
 class Renderer {
 public:
+    // What the stats overlay shows for the last window, handed over and reset by takeStats().
+    struct WindowStats {
+        uint64_t received = 0;
+        uint64_t presented = 0;
+        uint64_t dropped = 0;
+        uint64_t partial = 0;
+        // Frames the host sent that never arrived at all (gaps in the frame numbers)
+        uint64_t lost = 0;
+        uint64_t hostLatencyFrames = 0;
+        uint64_t hostLatencyTotal = 0;  // tenths of a ms, as the host reports them
+        uint32_t hostLatencyMin = 0;
+        uint32_t hostLatencyMax = 0;
+    };
+
     std::atomic<uint64_t> framesSubmitted {0};
     std::atomic<uint64_t> framesReplaced {0};
     std::atomic<uint64_t> framesRejected {0};
@@ -648,6 +665,23 @@ public:
     void submit(PDECODE_UNIT du)
     {
         framesSubmitted++;
+        {
+            std::lock_guard<std::mutex> lock(m_StatsLock);
+            m_StatsWindow.received++;
+            if (m_LastFrameNumber != 0 && du->frameNumber > m_LastFrameNumber + 1) {
+                m_StatsWindow.lost += uint64_t(du->frameNumber - m_LastFrameNumber - 1);
+            }
+            m_LastFrameNumber = du->frameNumber;
+            if (du->frameHostProcessingLatency != 0) {
+                const uint32_t latency = du->frameHostProcessingLatency;
+                if (m_StatsWindow.hostLatencyFrames == 0 || latency < m_StatsWindow.hostLatencyMin) {
+                    m_StatsWindow.hostLatencyMin = latency;
+                }
+                m_StatsWindow.hostLatencyMax = std::max(m_StatsWindow.hostLatencyMax, latency);
+                m_StatsWindow.hostLatencyTotal += latency;
+                m_StatsWindow.hostLatencyFrames++;
+            }
+        }
         std::lock_guard<std::mutex> lock(m_FrameLock);
         PendingFrame& frame = m_Incoming;
         if (frame.valid) {
@@ -1265,35 +1299,61 @@ private:
                 m_Incoming.valid = false;
             }
             decodeAndPresent(frame);
-            logStatsIfDue();
+            sampleGpuTimesIfDue();
         }
     }
 
-    // Every 5 s, the frame counters and PyroWave's own GPU timings per pass,
-    // which show how long a decode takes on this GPU.
-    void logStatsIfDue()
+    // Once a second, PyroWave's own GPU timings per pass: their sum is the decode
+    // time the stats overlay shows. Every 5 s, they go to the log too, with the
+    // frame counters, which show how long a decode takes on this GPU.
+    void sampleGpuTimesIfDue()
     {
         const auto now = std::chrono::steady_clock::now();
-        if (m_LastStatsLog.time_since_epoch().count() == 0) {
+        if (m_LastGpuSample.time_since_epoch().count() == 0) {
+            m_LastGpuSample = now;
             m_LastStatsLog = now;
             return;
         }
-        if (now - m_LastStatsLog < std::chrono::seconds(5)) {
+        if (now - m_LastGpuSample < std::chrono::seconds(1)) {
             return;
         }
-        m_LastStatsLog = now;
-        LOGI("PyroWave: %llu received, %llu presented, %llu replaced, %llu dropped, %llu partial",
-             static_cast<unsigned long long>(framesSubmitted.load()),
-             static_cast<unsigned long long>(framesPresented.load()),
-             static_cast<unsigned long long>(framesReplaced.load()),
-             static_cast<unsigned long long>(framesRejected.load()),
-             static_cast<unsigned long long>(framesPartial.load()));
-        pyrowave_device_report_performance_stats(m_Ctx.pwDevice, [](void*, const char* msg) {
+        m_LastGpuSample = now;
+        const bool log = now - m_LastStatsLog >= std::chrono::seconds(5);
+        if (log) {
+            m_LastStatsLog = now;
+            LOGI("PyroWave: %llu received, %llu presented, %llu replaced, %llu dropped, %llu partial",
+                 static_cast<unsigned long long>(framesSubmitted.load()),
+                 static_cast<unsigned long long>(framesPresented.load()),
+                 static_cast<unsigned long long>(framesReplaced.load()),
+                 static_cast<unsigned long long>(framesRejected.load()),
+                 static_cast<unsigned long long>(framesPartial.load()));
+        }
+
+        struct Sample {
+            bool log;
+            double totalMs;
+            bool any;
+        } sample = {log, 0, false};
+        pyrowave_device_report_performance_stats(m_Ctx.pwDevice, [](void* userdata, const char* msg) {
+            auto* sample = static_cast<Sample*>(userdata);
             // Skip the memory heap lines, which do not change during a session
-            if (strncmp(msg, "Memory Heap", 11) != 0) {
+            if (strncmp(msg, "Memory Heap", 11) == 0) {
+                return;
+            }
+            // "<pass>: <ms> ms per frame"
+            const char* colon = strrchr(msg, ':');
+            double ms = 0;
+            if (colon != nullptr && sscanf(colon + 1, "%lf ms per frame", &ms) == 1) {
+                sample->totalMs += ms;
+                sample->any = true;
+            }
+            if (sample->log) {
                 LOGI("PyroWave pass: %s", msg);
             }
-        }, nullptr, true);
+        }, &sample, true);
+        if (sample.any) {
+            m_GpuDecodeMs.store(sample.totalMs);
+        }
     }
 
     bool decodeFrame(const PendingFrame& frame)
@@ -1507,7 +1567,29 @@ private:
         }
 
         framesPresented++;
+        std::lock_guard<std::mutex> lock(m_StatsLock);
+        m_StatsWindow.presented++;
     }
+
+public:
+    // The last window's stats, and a fresh window from here. Decode time is PyroWave's
+    // GPU time per frame over the last second, or a negative value before the first sample.
+    WindowStats takeStats(double& gpuDecodeMs)
+    {
+        std::lock_guard<std::mutex> lock(m_StatsLock);
+        WindowStats taken = m_StatsWindow;
+        taken.dropped = framesRejected.load() - m_RejectedAtLastTake;
+        taken.partial = framesPartial.load() - m_PartialAtLastTake;
+        m_RejectedAtLastTake += taken.dropped;
+        m_PartialAtLastTake += taken.partial;
+        m_StatsWindow = {};
+        gpuDecodeMs = m_GpuDecodeMs.load();
+        return taken;
+    }
+
+    const std::string& gpuName() const { return m_Ctx.gpuName; }
+
+private:
 
     VulkanContext m_Ctx;
     ANativeWindow* m_Window = nullptr;
@@ -1563,6 +1645,14 @@ private:
     std::thread m_Thread;
     std::chrono::steady_clock::time_point m_LastDropLog;
     std::chrono::steady_clock::time_point m_LastStatsLog;
+    std::chrono::steady_clock::time_point m_LastGpuSample;
+
+    std::mutex m_StatsLock;
+    WindowStats m_StatsWindow;
+    int m_LastFrameNumber = 0;
+    uint64_t m_RejectedAtLastTake = 0;
+    uint64_t m_PartialAtLastTake = 0;
+    std::atomic<double> m_GpuDecodeMs {-1};
 };
 
 // The active renderer. submit() runs on moonlight-common-c's video thread;
@@ -1636,6 +1726,28 @@ int PyroWaveRendererStart(ANativeWindow* window, int videoFormat, int width, int
 
     std::lock_guard<std::mutex> lock(g_RendererLock);
     g_Renderer = std::move(renderer);
+    return 0;
+}
+
+int PyroWaveRendererTakeStats(PYROWAVE_RENDERER_STATS* stats)
+{
+    std::lock_guard<std::mutex> lock(g_RendererLock);
+    if (!g_Renderer) {
+        return -1;
+    }
+    double gpuDecodeMs = -1;
+    const Renderer::WindowStats window = g_Renderer->takeStats(gpuDecodeMs);
+    stats->received = window.received;
+    stats->presented = window.presented;
+    stats->dropped = window.dropped;
+    stats->partial = window.partial;
+    stats->lost = window.lost;
+    stats->hostLatencyFrames = window.hostLatencyFrames;
+    stats->hostLatencyTotal = window.hostLatencyTotal;
+    stats->hostLatencyMin = window.hostLatencyMin;
+    stats->hostLatencyMax = window.hostLatencyMax;
+    stats->gpuDecodeMs = gpuDecodeMs;
+    snprintf(stats->gpuName, sizeof(stats->gpuName), "%s", g_Renderer->gpuName().c_str());
     return 0;
 }
 

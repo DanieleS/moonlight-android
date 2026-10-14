@@ -29,6 +29,25 @@ int PyroWaveRendererStart(ANativeWindow* window, int videoFormat, int width, int
 // Stops and destroys the renderer, if any.
 void PyroWaveRendererStop(void);
 
+// One window of the running renderer's stats, for the stats overlay.
+typedef struct _PYROWAVE_RENDERER_STATS {
+    uint64_t received;          // frames that reached the renderer
+    uint64_t presented;         // frames decoded and presented
+    uint64_t dropped;           // frames that arrived but could not be decoded
+    uint64_t partial;           // frames decoded with packets missing
+    uint64_t lost;              // frames that never arrived (gaps in the frame numbers)
+    uint64_t hostLatencyFrames; // frames that carried a host processing latency
+    uint64_t hostLatencyTotal;  // their sum, in tenths of a ms
+    uint32_t hostLatencyMin;    // tenths of a ms
+    uint32_t hostLatencyMax;    // tenths of a ms
+    double gpuDecodeMs;         // PyroWave's GPU time per frame, negative before the first sample
+    char gpuName[256];
+} PYROWAVE_RENDERER_STATS;
+
+// The stats since the previous call (or the start), and a new window from here.
+// Returns 0, or -1 without a running renderer.
+int PyroWaveRendererTakeStats(PYROWAVE_RENDERER_STATS* stats);
+
 // Hands one frame to the renderer. Copies what it needs and returns at once:
 // decoding happens on the renderer's own thread, and a frame still waiting
 // when a newer one arrives is dropped (every PyroWave frame is independent).

@@ -438,4 +438,21 @@ public class MoonBridge {
     public static native int pyroWaveStart(Object surface, int videoFormat, int width, int height,
                                            int colorspace, int colorRange);
     public static native void pyroWaveStop();
+
+    // Indexes into the array pyroWaveTakeStats() fills
+    public static final int PYROWAVE_STATS_RECEIVED = 0;
+    public static final int PYROWAVE_STATS_PRESENTED = 1;
+    public static final int PYROWAVE_STATS_DROPPED = 2;
+    public static final int PYROWAVE_STATS_PARTIAL = 3;
+    public static final int PYROWAVE_STATS_LOST = 4;
+    public static final int PYROWAVE_STATS_HOST_LATENCY_FRAMES = 5;
+    public static final int PYROWAVE_STATS_HOST_LATENCY_TOTAL = 6; // tenths of a ms
+    public static final int PYROWAVE_STATS_HOST_LATENCY_MIN = 7;
+    public static final int PYROWAVE_STATS_HOST_LATENCY_MAX = 8;
+    public static final int PYROWAVE_STATS_GPU_DECODE_MS = 9; // negative before the first sample
+    public static final int PYROWAVE_STATS_COUNT = 10;
+
+    // The running PyroWave renderer's stats since the previous call, into out
+    // (PYROWAVE_STATS_COUNT long). Returns the GPU's name, or null without a renderer.
+    public static native String pyroWaveTakeStats(double[] out);
 }
