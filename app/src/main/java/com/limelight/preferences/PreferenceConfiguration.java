@@ -6,6 +6,7 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.view.Display;
 
+import com.limelight.bitrate.AdaptiveBitrateController;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.profiles.ProfilesManager;
 import com.limelight.utils.CaptureTool;
@@ -61,6 +62,9 @@ public class PreferenceConfiguration {
     private static final String HOST_AUDIO_PREF_STRING = "checkbox_host_audio";
     // The PC app the in-game menu's capture entries drive: gamebar, nvidia or off.
     private static final String CAPTURE_TOOL_PREF_STRING = "list_capture_tool";
+    // Lower the bitrate mid-stream when the network struggles, on hosts that allow it, and how eagerly.
+    private static final String ADAPTIVE_BITRATE_PREF_STRING = "checkbox_adaptive_bitrate";
+    private static final String ADAPTIVE_BITRATE_MODE_PREF_STRING = "list_adaptive_bitrate_mode";
     private static final String DEADZONE_PREF_STRING = "seekbar_deadzone";
     private static final String OSC_OPACITY_PREF_STRING = "seekbar_osc_opacity";
     private static final String LANGUAGE_PREF_STRING = "list_languages";
@@ -269,6 +273,8 @@ public class PreferenceConfiguration {
     public String onscreenKeyboardAlignMode;
     public boolean enforceDisplayMode, useVirtualDisplay, enableSops, playHostAudio, disableWarnings, fullScreen;
     public CaptureTool captureTool;
+    public boolean enableAdaptiveBitrate;
+    public AdaptiveBitrateController.Mode adaptiveBitrateMode;
     public ScaleMode videoScaleMode;
     public String language;
     public int renderMode;
@@ -927,6 +933,10 @@ private static int getFramePacingValue(Context context) {
         config.playHostAudio = prefs.getBoolean(HOST_AUDIO_PREF_STRING, DEFAULT_HOST_AUDIO);
         config.captureTool = CaptureTool.fromPreference(
                 prefs.getString(CAPTURE_TOOL_PREF_STRING, CaptureTool.GAME_BAR.getPreferenceValue()));
+        config.enableAdaptiveBitrate = prefs.getBoolean(ADAPTIVE_BITRATE_PREF_STRING, false);
+        config.adaptiveBitrateMode = AdaptiveBitrateController.Mode.fromPreference(
+                prefs.getString(ADAPTIVE_BITRATE_MODE_PREF_STRING,
+                        AdaptiveBitrateController.Mode.BALANCED.getPreferenceValue()));
         config.smallIconMode = prefs.getBoolean(SMALL_ICONS_PREF_STRING, getDefaultSmallMode(context));
         config.multiController = prefs.getBoolean(MULTI_CONTROLLER_PREF_STRING, DEFAULT_MULTI_CONTROLLER);
         config.usbDriver = prefs.getBoolean(USB_DRIVER_PREF_SRING, DEFAULT_USB_DRIVER);

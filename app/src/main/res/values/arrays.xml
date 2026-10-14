@@ -211,4 +211,14 @@
         <item>nvidia</item>
         <item>off</item>
     </string-array>
+    <string-array name="adaptive_bitrate_mode_names">
+        <item>@string/adaptive_bitrate_mode_quality</item>
+        <item>@string/adaptive_bitrate_mode_balanced</item>
+        <item>@string/adaptive_bitrate_mode_low_latency</item>
+    </string-array>
+    <string-array name="adaptive_bitrate_mode_values" translatable="false">
+        <item>quality</item>
+        <item>balanced</item>
+        <item>lowLatency</item>
+    </string-array>
 </resources>

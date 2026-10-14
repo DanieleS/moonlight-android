@@ -37,10 +37,15 @@ Ratatoskr's main addition over upstream Artemis is the library. When paired with
    statistics, and as a toast when one is unlocked during a stream or reported just after it.
 8. Screenshot, "Save last 30 s" and recording from the in-game menu, through the PC's Game Bar or
    NVIDIA overlay shortcuts (stream setting "Capture tool").
+9. The bitrate, changed mid-stream from the in-game menu, and optionally adapted on its own: it
+   steps down when the network loses frames, the round trip swells or the decoder falls behind,
+   and climbs back to the bitrate you chose once things are clean (stream setting "Adaptive
+   bitrate"). Needs Vibepollo's `/bitrate`; the controller is ported from
+   [Moonlight V+](https://github.com/qiin2333/moonlight-vplus).
 
 Everything degrades gracefully on a stock Sunshine/Apollo host: with no metadata to rank by, the
 metadata-driven orders simply fall back to alphabetical, so the library still works — it just shows less.
-Statistics and achievements only appear where the host answers for them.
+Statistics, achievements and the live bitrate only appear where the host answers for them.
 
 # PyroWave (experimental)
 

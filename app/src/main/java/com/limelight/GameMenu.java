@@ -12,6 +12,8 @@ import android.widget.Toast;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.limelight.binding.input.GameInputDevice;
 import com.limelight.binding.input.KeyboardTranslator;
+import com.limelight.bitrate.BitrateSteps;
+import com.limelight.bitrate.LiveBitrate;
 import com.limelight.companion.CompanionDisplayManager;
 import com.limelight.companion.CompanionMenuItem;
 import com.limelight.preferences.PreferenceConfiguration;
@@ -261,6 +263,43 @@ public class GameMenu implements Game.GameMenuCallbacks {
         showMenuDialog(getString(R.string.game_menu_advanced), options.toArray(new MenuOption[options.size()]));
     }
 
+    /**
+     * The stream's bitrate, changed on the spot: adaptation on or off, and a list of bitrates with
+     * the one chosen in the settings among them. A list rather than a slider, so it is driven with
+     * the d-pad like the rest of the menu and fits on the companion panel too.
+     */
+    private void showBitrateMenu(LiveBitrate bitrate) {
+        List<MenuOption> options = new ArrayList<>();
+
+        boolean adaptive = bitrate.isAdaptive();
+        options.add(new MenuOption(getString(adaptive
+                ? R.string.game_menu_bitrate_adaptive_on : R.string.game_menu_bitrate_adaptive_off),
+                () -> {
+                    bitrate.setAdaptive(!adaptive);
+                    Toast.makeText(game, getString(adaptive
+                            ? R.string.game_menu_bitrate_adaptive_off : R.string.game_menu_bitrate_adaptive_on),
+                            Toast.LENGTH_SHORT).show();
+                }));
+
+        int current = bitrate.getCurrentKbps();
+        for (int kbps : BitrateSteps.menuChoices(bitrate.getChosenKbps(), current)) {
+            String mbps = game.formatMbps(kbps);
+            String label = kbps == current
+                    ? game.getString(R.string.game_menu_bitrate_choice_current, mbps)
+                    : game.getString(R.string.game_menu_bitrate_choice, mbps);
+            options.add(new MenuOption(label, () -> bitrate.setManual(kbps)));
+        }
+
+        options.add(new MenuOption(getString(R.string.game_menu_cancel), null));
+
+        showMenuDialog(bitrateLabel(bitrate), options.toArray(new MenuOption[options.size()]));
+    }
+
+    private String bitrateLabel(LiveBitrate bitrate) {
+        return game.getString(bitrate.isAdaptive() ? R.string.game_menu_bitrate_adaptive : R.string.game_menu_bitrate,
+                game.formatMbps(bitrate.getCurrentKbps()));
+    }
+
     private void showServerCmd(ArrayList<String> serverCmds) {
         List<MenuOption> options = new ArrayList<>();
 
@@ -334,6 +373,15 @@ public class GameMenu implements Game.GameMenuCallbacks {
                     () -> sendCapture(captureTool, CaptureTool.Action.SAVE_REPLAY)));
             options.add(new MenuOption(getString(R.string.game_menu_capture_record), true,
                     () -> sendCapture(captureTool, CaptureTool.Action.TOGGLE_RECORDING)));
+        }
+
+        // Only on hosts that can change it mid-stream; the entry shows where it stands now.
+        LiveBitrate bitrate = game.getLiveBitrate();
+        if (bitrate != null) {
+            options.add(new MenuOption(bitrateLabel(bitrate), () -> {
+                hideMenu();
+                showBitrateMenu(bitrate);
+            }));
         }
 
         options.add(new MenuOption(getString(R.string.game_menu_advanced), true,

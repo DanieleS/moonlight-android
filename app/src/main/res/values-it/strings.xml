@@ -443,4 +443,21 @@
     <string name="game_menu_capture_screenshot">Screenshot</string>
     <string name="game_menu_capture_replay">Salva gli ultimi 30 s</string>
     <string name="game_menu_capture_record">Avvia/ferma registrazione</string>
+    <string name="title_adaptive_bitrate">Bitrate adattivo</string>
+    <string name="summary_adaptive_bitrate">Abbassa il bitrate quando la rete perde fotogrammi o rallenta, e lo riporta al bitrate impostato sopra quando si riprende. Serve un host che possa cambiare il bitrate durante lo stream, come Vibepollo; con gli altri non cambia nulla.</string>
+    <string name="title_adaptive_bitrate_mode">Modalità del bitrate adattivo</string>
+    <string name="summary_adaptive_bitrate_mode">Quanto facilmente si rinuncia a qualità d\'immagine per uno stream fluido</string>
+    <string name="adaptive_bitrate_mode_quality">Prima la qualità</string>
+    <string name="adaptive_bitrate_mode_balanced">Bilanciata</string>
+    <string name="adaptive_bitrate_mode_low_latency">Prima la fluidità</string>
+    <string name="game_menu_bitrate">Bitrate: %1$s Mbps</string>
+    <string name="game_menu_bitrate_adaptive">Bitrate: %1$s Mbps (adattivo)</string>
+    <string name="game_menu_bitrate_choice">%1$s Mbps</string>
+    <string name="game_menu_bitrate_choice_current">%1$s Mbps (attuale)</string>
+    <string name="game_menu_bitrate_adaptive_on">Bitrate adattivo: attivo</string>
+    <string name="game_menu_bitrate_adaptive_off">Bitrate adattivo: disattivato</string>
+    <string name="toast_bitrate_set">Bitrate impostato a %1$s Mbps</string>
+    <string name="toast_bitrate_failed">Impossibile cambiare il bitrate a %1$s Mbps</string>
+    <string name="toast_adaptive_bitrate_stopped">Bitrate adattivo disattivato: l\'host non accetta più modifiche. Ripristinato il bitrate scelto.</string>
+    <string name="toast_adaptive_bitrate_stopped_stuck">Bitrate adattivo disattivato: l\'host non accetta più modifiche. Il bitrate potrebbe restare più basso finché non ne scegli uno dal menu.</string>
 </resources>
