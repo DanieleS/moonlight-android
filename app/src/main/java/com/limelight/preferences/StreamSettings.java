@@ -414,6 +414,8 @@ public class StreamSettings extends AppCompatActivity {
                         (PreferenceCategory) findPreference("category_advanced_settings");
                 category.removePreference(findPreference("checkbox_enable_pyrowave"));
                 category.removePreference(findPreference("seekbar_pyrowave_bitrate_kbps"));
+                // Without them, the codec setting alone is shown before "more", as before PyroWave
+                category.setInitialExpandedChildrenCount(1);
             }
             else {
                 // Probe now, off the UI thread, rather than when the first stream starts

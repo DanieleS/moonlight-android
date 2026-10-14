@@ -982,7 +982,7 @@
     <PreferenceCategory
         android:key="category_advanced_settings"
         android:title="@string/category_advanced_settings"
-        app:initialExpandedChildrenCount="1"
+        app:initialExpandedChildrenCount="3"
         app:iconSpaceReserved="false">
         <ListPreference
             android:defaultValue="auto"
@@ -992,6 +992,8 @@
             android:summary="@string/summary_video_format"
             android:title="@string/title_video_format"
             app:iconSpaceReserved="false" />
+        <!-- Shown without expanding the category (initialExpandedChildrenCount counts the codec
+             setting and these two): an experimental codec nobody can find is never tried. -->
         <SwitchPreferenceCompat
             android:defaultValue="false"
             android:key="checkbox_enable_pyrowave"
