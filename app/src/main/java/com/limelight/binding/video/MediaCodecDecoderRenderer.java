@@ -1779,7 +1779,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     @Override
     public int submitDecodeUnit(byte[] decodeUnitData, int decodeUnitLength, int decodeUnitType,
                                 int frameNumber, int frameType, char frameHostProcessingLatency,
-                                long receiveTimeMs, long enqueueTimeMs) {
+                                long receiveTimeUs, long enqueueTimeUs) {
         if (stopping) {
             // Don't bother if we're stopping
             return MoonBridge.DR_OK;
@@ -1787,6 +1787,10 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
         if (lastFrameNumber == 0) {
             activeWindowVideoStats.measurementStartTimestamp = SystemClock.uptimeMillis();
+
+            if (!VideoStats.isOnMonotonicClock(enqueueTimeUs, System.nanoTime() / 1000)) {
+                LimeLog.severe("Decode unit timestamp " + enqueueTimeUs + " us is not on CLOCK_MONOTONIC; frame pacing will misjudge frame age");
+            }
         } else if (frameNumber != lastFrameNumber && frameNumber != lastFrameNumber + 1) {
             // We can receive the same "frame" multiple times if it's an IDR frame.
             // In that case, each frame start NALU is submitted independently.
@@ -2160,7 +2164,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             // Count time from first packet received to enqueue time as receive time
             // We will count DU queue time as part of decoding, because it is directly
             // caused by a slow decoder.
-            activeWindowVideoStats.totalTimeMs += enqueueTimeMs - receiveTimeMs;
+            activeWindowVideoStats.totalTimeMs += VideoStats.receiveTimeMs(receiveTimeUs, enqueueTimeUs);
         }
 
         if (!fetchNextInputBuffer()) {
@@ -2186,7 +2190,9 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             }
         }
 
-        long timestampUs = enqueueTimeMs * 1000;
+        // The JNI glue rebases enqueue times onto CLOCK_MONOTONIC, so the timestamp stays
+        // comparable with System.nanoTime() in the frame pacing code.
+        long timestampUs = enqueueTimeUs;
         if (timestampUs <= lastTimestampUs) {
             // We can't submit multiple buffers with the same timestamp
             // so bump it up by one before queuing
