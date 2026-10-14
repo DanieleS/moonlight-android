@@ -27,6 +27,10 @@ android {
         versionName "20.2.9"
         versionCode = 60
 
+        // English only. The translations come from upstream and cover well under half of the
+        // strings, and none of Ratatoskr's own, so a translated device saw a mix of languages.
+        resourceConfigurations += ['en']
+
         // Generate native debug symbols to allow Google Play to symbolicate our native crashes
         ndk.debugSymbolLevel = 'FULL'
     }
