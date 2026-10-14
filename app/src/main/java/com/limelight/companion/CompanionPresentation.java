@@ -86,6 +86,12 @@ public class CompanionPresentation extends android.app.Presentation
     /** The strip's line of stream stats. */
     private TextView telemetryStatsView;
     /**
+     * Whether the full stats are showing in place of the game's telemetry view: the strip under a
+     * view only fits frame rate and latency, so a tap on it swaps the view for the full stats, and
+     * a tap on those swaps back. Lasts until the stream ends.
+     */
+    private boolean statsOverTelemetry;
+    /**
      * The telemetry view, or null when none is on screen. Created only when a game has a view and
      * destroyed as soon as it is not needed: a WebView is a renderer process and a Chromium
      * instance, and the panel is re-hosted on every activity change, most of which have no view.
@@ -255,6 +261,21 @@ public class CompanionPresentation extends android.app.Presentation
         menuScrollView.setMaxHeightPx((int) (getContext().getResources().getDisplayMetrics().heightPixels * 0.8f));
         // The panel's own button raises the menu, the same as the gamepad's does.
         menuButton.setOnClickListener(v -> CompanionDisplayManager.requestOpenMenu());
+        // The strip under a telemetry view has room for two numbers; a tap brings up all of them,
+        // and a tap on the stats goes back to the view.
+        telemetryStatsView.setOnClickListener(v -> {
+            if (state.getStats() != null) {
+                statsOverTelemetry = true;
+                render();
+            }
+        });
+        statsView.setOnClickListener(v -> {
+            if (statsOverTelemetry) {
+                statsOverTelemetry = false;
+                render();
+            }
+        });
+        statsView.setClickable(false);
         // Under a telemetry view the button lives in the panel's strip instead, off the view.
         findViewById(R.id.companionTelemetryMenuButton)
                 .setOnClickListener(v -> CompanionDisplayManager.requestOpenMenu());
@@ -323,6 +344,7 @@ public class CompanionPresentation extends android.app.Presentation
         menuButton.setVisibility(streaming ? View.VISIBLE : View.GONE);
         if (!streaming) {
             hideMenu();
+            statsOverTelemetry = false;
         }
 
         switch (content) {
@@ -334,12 +356,16 @@ public class CompanionPresentation extends android.app.Presentation
                 // A game that has a view: that view is what the panel is for, and the stats are what
                 // it falls back to when there is none.
                 String view = state.getTelemetryView();
-                if (view != null && !view.equals(crashedTelemetryHtml)) {
+                PerfStats streamStats = state.getStats();
+                boolean hasView = view != null && !view.equals(crashedTelemetryHtml);
+                if (hasView && !(statsOverTelemetry && streamStats != null)) {
                     showTelemetryView(view);
-                    showTelemetryStrip(state.getStats());
+                    showTelemetryStrip(streamStats);
                     return;
                 }
-                PerfStats streamStats = state.getStats();
+                // With a view behind them, the stats are there because they were asked for: a tap
+                // anywhere on them goes back to the view.
+                statsView.setClickable(hasView);
                 if (streamStats != null) {
                     showStats(streamStats);
                 } else {

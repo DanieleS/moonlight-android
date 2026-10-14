@@ -346,7 +346,9 @@
             <TextView
                 android:id="@+id/companionTelemetryStats"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
+                android:background="?android:attr/selectableItemBackground"
+                android:gravity="center_vertical"
                 android:layout_weight="1"
                 android:ellipsize="end"
                 android:fontFamily="monospace"
