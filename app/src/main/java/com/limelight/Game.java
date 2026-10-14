@@ -25,6 +25,7 @@ import com.limelight.binding.input.virtual_controller.VirtualController;
 import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardController;
 import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardLayoutController;
 import com.limelight.binding.video.CrashListener;
+import com.limelight.binding.video.DisplayRefreshMeter;
 import com.limelight.binding.video.MediaCodecDecoderRenderer;
 import com.limelight.binding.video.MediaCodecHelper;
 import com.limelight.binding.video.PerfOverlayListener;
@@ -216,6 +217,9 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private String appName;
     private NvApp app;
     private float desiredRefreshRate;
+    private StreamConfiguration streamConfig;
+    private DisplayRefreshMeter refreshMeter;
+    private boolean measureRefreshRate;
 
     private InputCaptureProvider inputCaptureProvider;
     private int modifierFlags = 0;
@@ -775,19 +779,20 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         } catch (Throwable ignored) {}
 
 // --- latency profile selection ---
+        // NB: this must not touch prefConfig.framePacing. Forcing BALANCED sent every stream
+        // through the Choreographer path, which renders at most one frame per vsync callback
+        // (some devices deliver those at 60 Hz on a 120 Hz panel), and made the frame pacing
+        // setting a no-op. "Prefer lower delays" tunes the mode the user picked instead.
         try {
             if (prefConfig != null && prefConfig.preferLowerDelays) {
                 // Intermediate: more responsive than Balanced but not 0 µs
                 decoderRenderer.setPreferLowerDelays(true);
                 decoderRenderer.setPreferLowerDelaysTimeoutUs(500);  // 0.5 ms
-                prefConfig.framePacing = PreferenceConfiguration.FRAME_PACING_BALANCED;
-                LimeLog.info("PreferLowerDelays: preferLowerDelays=true, timeout=500us, pacing=BALANCED");
+                LimeLog.info("PreferLowerDelays: preferLowerDelays=true, timeout=500us, pacing=" + prefConfig.framePacing);
             } else {
-                // Balanced default
                 decoderRenderer.setPreferLowerDelays(false);
                 decoderRenderer.setPreferLowerDelaysTimeoutUs(2000); // 2 ms
-                prefConfig.framePacing = PreferenceConfiguration.FRAME_PACING_BALANCED;
-                LimeLog.info("Balanced: preferLowerDelays=false, timeout=2000us, pacing=BALANCED");
+                LimeLog.info("PreferLowerDelays: preferLowerDelays=false, timeout=2000us, pacing=" + prefConfig.framePacing);
             }
         } catch (Throwable ignored) {}
 
@@ -863,6 +868,17 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             chosenFrameRate *= prefConfig.framePacingWarpFactor;
         }
 
+        // Vibepollo captures and encodes at exactly clientRefreshRateX100 when it rounds to the
+        // requested FPS, so send the rate that lines up with our vsyncs, or none. This uses the
+        // nominal refresh rate; it's replaced by a measured one before the connection starts.
+        int requestedFps = chosenFrameRate == (int) chosenFrameRate ? (int) chosenFrameRate : 0;
+        int clientRefreshRateX100 = DisplayRefreshMeter.clientRefreshRateX100(displayRefreshRate, requestedFps);
+        // Worth measuring when the refresh rate we asked for (the panel may not be there yet)
+        // lines up with the stream. The main thread's vsyncs are the primary display's, so a
+        // stream on an external display keeps the nominal rate.
+        measureRefreshRate = !onExternelDisplay &&
+                DisplayRefreshMeter.clientRefreshRateX100(desiredRefreshRate, requestedFps) > 0;
+
         StreamConfiguration config = new StreamConfiguration.Builder()
                 .setResolution(
                         displayWidth,
@@ -881,12 +897,13 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 .setRemoteConfiguration(StreamConfiguration.STREAM_CFG_AUTO) // NvConnection will perform LAN and VPN detection
                 .setSupportedVideoFormats(supportedVideoFormats)
                 .setAttachedGamepadMask(gamepadMask)
-                .setClientRefreshRateX100((int)(displayRefreshRate * 100))
+                .setClientRefreshRateX100(clientRefreshRateX100)
                 .setAudioConfiguration(prefConfig.audioConfiguration)
                 .setColorSpace(decoderRenderer.getPreferredColorSpace())
                 .setColorRange(decoderRenderer.getPreferredColorRange())
                 .setPersistGamepadsAfterDisconnect(!prefConfig.multiController)
                 .build();
+        streamConfig = config;
 
         // Initialize the connection
         conn = new NvConnection(getApplicationContext(),
@@ -951,19 +968,30 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         // The connection will be started when the surface gets created
         //streamContainer.getHolder().addCallback(this);
 
-        streamContainer.setOnSurfaceAvailable(() -> {
-            if (!attemptedConnection) {
-                LimeLog.info("Surface is available, starting connection...");
+        final Display streamDisplay = currentDisplay;
+        // In the AI 3D render modes this is called on the GLSurfaceView's GL thread, which has no
+        // Looper for the refresh meter's Choreographer. Hop to the main thread, which also keeps
+        // attemptedConnection and refreshMeter in step with surfaceDestroyed().
+        streamContainer.setOnSurfaceAvailable(() -> runOnUiThread(() -> {
+            // The surface may have gone again before we got here (only 2D clears it). It calls
+            // back when it's back.
+            if (!attemptedConnection && streamContainer.getSurface() != null) {
                 attemptedConnection = true;
 
-                // Der Decoder erhält die jeweils aktive Oberfläche vom Container
-                decoderRenderer.setRenderTarget(streamContainer.getSurface());
-
-                // Starten Sie die NvConnection
-                conn.start(new AndroidAudioRenderer(Game.this, prefConfig.playHostAudio),
-                        decoderRenderer, Game.this);
+                // Measure the display's actual refresh rate first, now that its mode is set, so the
+                // host can be asked for a frame rate that lines up with our vsyncs
+                if (measureRefreshRate) {
+                    LimeLog.info("Surface is available, measuring the display refresh rate...");
+                    refreshMeter = DisplayRefreshMeter.measure(streamDisplay, desiredRefreshRate, refreshHz -> {
+                        refreshMeter = null;
+                        startConnection(refreshHz);
+                    });
+                }
+                else {
+                    startConnection(0);
+                }
             }
-        });
+        }));
 
         gameMenuCallbacks = new GameMenu(this);
 
@@ -997,37 +1025,35 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 try { streamSurfaceView.setZOrderOnTop(false); } catch (Throwable ignored) {}
                 try { streamSurfaceView.setZOrderMediaOverlay(false); } catch (Throwable ignored) {}
 
-                // 2) setFrameRate via reflection (compat < 30)
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                    float displayHz = 60f;
-                    try {
-                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-                            displayHz = currentDisplay.getMode().getRefreshRate();
-                        } else {
-                            displayHz = currentDisplay.getRefreshRate();
-                        }
-                    } catch (Throwable ignored) {}
-
-                    float targetFps = (prefConfig != null && prefConfig.fps > 0) ? prefConfig.fps : displayHz;
-
-                    boolean isMTKDevice;
-                    try {
-                        String sum = (android.os.Build.MANUFACTURER + " " + android.os.Build.HARDWARE + " " + android.os.Build.BOARD)
-                                .toLowerCase(java.util.Locale.US);
-                        isMTKDevice = sum.contains("mtk") || sum.contains("mediatek");
-                    } catch (Throwable t) { isMTKDevice = false; }
-
-                    int compat = isMTKDevice
-                            ? Surface.FRAME_RATE_COMPATIBILITY_DEFAULT
-                            : Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE;
-
-                    try {
-                        java.lang.reflect.Method m = SurfaceView.class.getMethod("setFrameRate", float.class, int.class);
-                        m.invoke(streamSurfaceView, Math.min(targetFps, displayHz), compat);
-                    } catch (Throwable ignored) {}
-                }
+                // NB: no setFrameRate() here. SurfaceView has no such public method (the
+                // reflection lookup this used to do always threw), and the rate it passed was
+                // clamped to the refresh rate read before the mode switch settled, i.e. 60 Hz.
+                // The frame rate hint is issued once, from surfaceCreated().
             }
         } catch (Throwable ignored) {}
+    }
+
+    private void startConnection(double measuredRefreshHz) {
+        if (isFinishing() || conn == null) {
+            return;
+        }
+
+        if (measuredRefreshHz > 0) {
+            int requestedFps = streamConfig.getRefreshRate();
+            int measuredX100 = DisplayRefreshMeter.clientRefreshRateX100(measuredRefreshHz, requestedFps);
+            if (measuredX100 > 0) {
+                streamConfig.setClientRefreshRateX100(measuredX100);
+            }
+        }
+        LimeLog.info("Surface is available, starting connection with clientRefreshRateX100=" +
+                streamConfig.getClientRefreshRateX100());
+
+        // Der Decoder erhält die jeweils aktive Oberfläche vom Container
+        decoderRenderer.setRenderTarget(streamContainer.getSurface());
+
+        // Starten Sie die NvConnection
+        conn.start(new AndroidAudioRenderer(Game.this, prefConfig.playHostAudio),
+                decoderRenderer, Game.this);
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -1800,6 +1826,11 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
         instance = null;
         timerHandler.removeCallbacksAndMessages(null);
+
+        if (refreshMeter != null) {
+            refreshMeter.cancel();
+            refreshMeter = null;
+        }
 
         // The stream is over: send the companion back to its idle surface, and stop routing our
         // menu button to a screen that is going away.
@@ -4141,6 +4172,13 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     public void surfaceDestroyed(SurfaceHolder holder) {
         if (!surfaceCreated) {
             throw new IllegalStateException("Surface destroyed before creation!");
+        }
+
+        if (refreshMeter != null) {
+            // The connection hadn't started yet. It starts when the surface is back.
+            refreshMeter.cancel();
+            refreshMeter = null;
+            attemptedConnection = false;
         }
 
         if (attemptedConnection) {
