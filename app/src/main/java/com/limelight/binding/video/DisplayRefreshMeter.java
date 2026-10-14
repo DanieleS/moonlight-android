@@ -212,14 +212,34 @@ public class DisplayRefreshMeter implements Choreographer.FrameCallback {
                 0 : fitRefreshHz(frameTimes, frameCount, nominalHz);
         if (hz > 0) {
             finish(hz);
+            return;
         }
-        else if (attempts < MAX_ATTEMPTS) {
+        logRejectedAttempt();
+        if (attempts < MAX_ATTEMPTS) {
             startAttempt();
         }
         else {
             LimeLog.warning("Display refresh rate didn't settle; not measured");
             finish(0);
         }
+    }
+
+    // Why an attempt didn't fit: the spread of vsync intervals, in whole nominal periods
+    private void logRejectedAttempt() {
+        double period = 1e9 / nominalHz;
+        double min = Double.MAX_VALUE, max = 0, worst = 0;
+        for (int i = 1; i < frameCount; i++) {
+            double delta = frameTimes[i] - frameTimes[i - 1];
+            double vsyncs = Math.max(1, Math.round(delta / period));
+            double per = delta / vsyncs;
+            min = Math.min(min, per);
+            max = Math.max(max, per);
+            worst = Math.max(worst, Math.abs(delta - vsyncs * period));
+        }
+        LimeLog.warning(String.format(Locale.ROOT,
+                "Refresh attempt %d rejected: %d vsyncs over %.1f ms, nominal %.3f Hz now %.3f Hz, interval %.3f-%.3f ms, worst off-grid %.3f ms",
+                attempts, frameCount, (frameTimes[Math.max(0, frameCount - 1)] - frameTimes[0]) / 1e6,
+                nominalHz, display.getRefreshRate(), min / 1e6, max / 1e6, worst / 1e6));
     }
 
     private void finish(double hz) {
