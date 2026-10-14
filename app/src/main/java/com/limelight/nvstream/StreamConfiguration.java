@@ -30,6 +30,8 @@ public class StreamConfiguration {
     private int encryptionFlags;
     private int colorRange;
     private int colorSpace;
+    private int videoFecMode;
+    private int videoFecPercentage;
     private boolean persistGamepadsAfterDisconnect;
     private boolean enableUltraLowLatency;
     private int controlPeerTimeoutMs;
@@ -151,6 +153,12 @@ public class StreamConfiguration {
             return this;
         }
 
+        public StreamConfiguration.Builder setVideoFec(int mode, int percentage) {
+            config.videoFecMode = mode;
+            config.videoFecPercentage = percentage;
+            return this;
+        }
+
         public StreamConfiguration.Builder setEnableUltraLowLatency(boolean enable) {
             config.enableUltraLowLatency = enable;
             return this;
@@ -192,6 +200,7 @@ public class StreamConfiguration {
         this.supportedVideoFormats = MoonBridge.VIDEO_FORMAT_H264;
         this.attachedGamepadMask = 0;
         this.enableUltraLowLatency = false;
+        this.videoFecMode = MoonBridge.FEC_DISABLED;
     }
     
     public int getWidth() {
@@ -297,5 +306,13 @@ public class StreamConfiguration {
 
     public boolean getEnableTextFocusHints() {
         return enableTextFocusHints;
+    }
+
+    public int getVideoFecMode() {
+        return videoFecMode;
+    }
+
+    public int getVideoFecPercentage() {
+        return videoFecPercentage;
     }
 }

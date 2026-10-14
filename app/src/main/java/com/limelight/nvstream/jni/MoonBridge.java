@@ -41,6 +41,12 @@ public class MoonBridge {
     public static final int COLOR_RANGE_LIMITED = 0;
     public static final int COLOR_RANGE_FULL = 1;
 
+    // Dynamic video FEC modes, mirroring LI_FEC_* in Limelight.h
+    public static final int FEC_DISABLED = 0;
+    public static final int FEC_HOST_DEFAULT = 1;
+    public static final int FEC_AUTOMATIC = 2;
+    public static final int FEC_FIXED = 3;
+
     public static final int CAPABILITY_DIRECT_SUBMIT = 1;
     public static final int CAPABILITY_REFERENCE_FRAME_INVALIDATION_AVC = 2;
     public static final int CAPABILITY_REFERENCE_FRAME_INVALIDATION_HEVC = 4;
@@ -363,7 +369,8 @@ public class MoonBridge {
                                               int videoCapabilities,
                                               int colorSpace, int colorRange,
                                               int controlPeerTimeoutMs,
-                                              boolean enableTextFocusHints);
+                                              boolean enableTextFocusHints,
+                                              int videoFecMode, int videoFecPercentage);
 
     public static native void stopConnection();
 

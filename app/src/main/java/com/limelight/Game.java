@@ -1000,6 +1000,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 .setAudioConfiguration(prefConfig.audioConfiguration)
                 .setColorSpace(decoderRenderer.getPreferredColorSpace())
                 .setColorRange(decoderRenderer.getPreferredColorRange())
+                .setVideoFec(prefConfig.videoFecMode, prefConfig.videoFecPercentage)
                 .setPersistGamepadsAfterDisconnect(!prefConfig.multiController)
                 // With auto-reconnect on, a silent connection is held as long as the user asked
                 // before it counts as lost (by default about as long as a stock host holds it, so

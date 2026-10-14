@@ -522,7 +522,8 @@ Java_com_limelight_nvstream_jni_MoonBridge_startConnection(JNIEnv *env, jclass c
                                                            jint videoCapabilities,
                                                            jint colorSpace, jint colorRange,
                                                            jint controlPeerTimeoutMs,
-                                                           jboolean enableTextFocusHints) {
+                                                           jboolean enableTextFocusHints,
+                                                           jint videoFecMode, jint videoFecPercentage) {
     SERVER_INFORMATION serverInfo = {
             .address = (*env)->GetStringUTFChars(env, address, 0),
             .serverInfoAppVersion = (*env)->GetStringUTFChars(env, appVersion, 0),
@@ -545,7 +546,9 @@ Java_com_limelight_nvstream_jni_MoonBridge_startConnection(JNIEnv *env, jclass c
             .colorSpace = colorSpace,
             .colorRange = colorRange,
             .controlPeerTimeoutMs = controlPeerTimeoutMs,
-            .enableTextFocusHints = enableTextFocusHints != JNI_FALSE
+            .enableTextFocusHints = enableTextFocusHints != JNI_FALSE,
+            .videoFecMode = videoFecMode,
+            .videoFecPercentage = videoFecPercentage
     };
 
     jbyte* riAesKeyBuf = (*env)->GetByteArrayElements(env, riAesKey, NULL);
