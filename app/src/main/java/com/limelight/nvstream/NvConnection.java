@@ -563,7 +563,8 @@ public class NvConnection {
                             context.videoCapabilities,
                             context.streamConfig.getColorSpace(),
                             context.streamConfig.getColorRange(),
-                            context.streamConfig.getControlPeerTimeoutMs());
+                            context.streamConfig.getControlPeerTimeoutMs(),
+                            context.streamConfig.getEnableTextFocusHints());
                     if (ret != 0) {
                         // LiStartConnection() failed, so the caller is not expected
                         // to stop the connection themselves. We need to release their

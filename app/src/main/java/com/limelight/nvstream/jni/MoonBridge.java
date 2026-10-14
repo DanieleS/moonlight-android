@@ -334,6 +334,12 @@ public class MoonBridge {
         }
     }
 
+    public static void bridgeClSetTextFocus(byte focusType) {
+        if (connectionListener != null) {
+            connectionListener.setTextFocus(focusType);
+        }
+    }
+
     public static void setupBridge(VideoDecoderRenderer videoRenderer, AudioRenderer audioRenderer, NvConnectionListener connectionListener) {
         MoonBridge.videoRenderer = videoRenderer;
         MoonBridge.audioRenderer = audioRenderer;
@@ -356,7 +362,8 @@ public class MoonBridge {
                                               byte[] riAesKey, byte[] riAesIv,
                                               int videoCapabilities,
                                               int colorSpace, int colorRange,
-                                              int controlPeerTimeoutMs);
+                                              int controlPeerTimeoutMs,
+                                              boolean enableTextFocusHints);
 
     public static native void stopConnection();
 

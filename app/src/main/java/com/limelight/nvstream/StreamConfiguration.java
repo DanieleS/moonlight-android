@@ -33,6 +33,7 @@ public class StreamConfiguration {
     private boolean persistGamepadsAfterDisconnect;
     private boolean enableUltraLowLatency;
     private int controlPeerTimeoutMs;
+    private boolean enableTextFocusHints;
 
     public static class Builder {
         private StreamConfiguration config = new StreamConfiguration();
@@ -162,6 +163,12 @@ public class StreamConfiguration {
             return this;
         }
 
+        // Ask the host to report text field focus. Only Vibepollo hosts with the option on do.
+        public StreamConfiguration.Builder setEnableTextFocusHints(boolean enable) {
+            config.enableTextFocusHints = enable;
+            return this;
+        }
+
         public StreamConfiguration build() {
             return config;
         }
@@ -286,5 +293,9 @@ public class StreamConfiguration {
 
     public int getControlPeerTimeoutMs() {
         return controlPeerTimeoutMs;
+    }
+
+    public boolean getEnableTextFocusHints() {
+        return enableTextFocusHints;
     }
 }

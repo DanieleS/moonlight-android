@@ -69,6 +69,10 @@ public class ExternalDisplayControlActivity extends AppCompatActivity implements
 
     private boolean isKeyboardVisible = false;
 
+    // Set while the full keyboard is hidden for a host focus change, so only the user closing it
+    // counts as taking the keyboard over
+    private boolean hidingTextKeyboard = false;
+
     private final Handler handler = new Handler(Looper.getMainLooper());
     private int failCount = 0;
     private Runnable dimScreenRunnable;
@@ -105,6 +109,38 @@ public class ExternalDisplayControlActivity extends AppCompatActivity implements
     public static void toggleGameMenu() {
         if (instance != null) {
             instance.showGameMenu();
+        }
+    }
+
+    /**
+     * Raise the full keyboard for a text field focused on the host. It types by touch, so it
+     * works whichever window holds focus.
+     *
+     * @return whether this call raised it: false when it was already up or the screen isn't ready
+     */
+    public static boolean showTextKeyboard() {
+        return instance != null && instance._showTextKeyboard();
+    }
+
+    public static void hideTextKeyboard() {
+        if (instance != null) {
+            instance._hideTextKeyboard();
+        }
+    }
+
+    /**
+     * Tell the system keyboard on this screen, if the user raised it, what the field focused on
+     * the host takes, so a password isn't shown in its suggestions or learned.
+     */
+    public static void setImeInputType(int inputType) {
+        if (instance == null || instance.rootLayout == null) {
+            return;
+        }
+        if (instance.rootLayout.setImeInputType(inputType)) {
+            InputMethodManager inputManager = (InputMethodManager) instance.getSystemService(Context.INPUT_METHOD_SERVICE);
+            if (inputManager != null) {
+                inputManager.restartInput(instance.rootLayout);
+            }
         }
     }
 
@@ -220,6 +256,15 @@ public class ExternalDisplayControlActivity extends AppCompatActivity implements
     @Override
     public void onKeyboardControllerVisibilityChange(boolean visible) {
         updateKeyboardVisibility(visible);
+        if (!visible && !hidingTextKeyboard) {
+            notifyManualKeyboardUse();
+        }
+    }
+
+    private void notifyManualKeyboardUse() {
+        if (Game.instance != null) {
+            Game.instance.onManualKeyboardUse();
+        }
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -427,7 +472,10 @@ public class ExternalDisplayControlActivity extends AppCompatActivity implements
         // Bottom-left button: Android keyboard toggle
         LinearLayout bottomLeftButton = createButtonContainer(Gravity.BOTTOM | Gravity.START);
         bottomLeftButton.setFocusable(false);
-        bottomLeftButton.addView(createImageButton(R.drawable.ic_android_keyboard, v -> _toggleKeyboard()));
+        bottomLeftButton.addView(createImageButton(R.drawable.ic_android_keyboard, v -> {
+            notifyManualKeyboardUse();
+            _toggleKeyboard();
+        }));
         rootLayout.addView(bottomLeftButton);
 
         // Bottom-center buttons
@@ -438,7 +486,10 @@ public class ExternalDisplayControlActivity extends AppCompatActivity implements
         // Bottom-right button: Custom keyboard toggle
         LinearLayout bottomRightButton = createButtonContainer(Gravity.BOTTOM | Gravity.END);
         bottomRightButton.setFocusable(false);
-        bottomRightButton.addView(createImageButton(R.drawable.ic_fullscreen_keyboard, v -> _toggleFullKeyboard()));
+        bottomRightButton.addView(createImageButton(R.drawable.ic_fullscreen_keyboard, v -> {
+            notifyManualKeyboardUse();
+            _toggleFullKeyboard();
+        }));
         rootLayout.addView(bottomRightButton);
     }
 
@@ -456,6 +507,34 @@ public class ExternalDisplayControlActivity extends AppCompatActivity implements
         keyBoardLayoutController.setViewCallbacks(this);
         keyBoardLayoutController.refreshLayout();
         keyBoardLayoutController.show();
+    }
+
+    private boolean _showTextKeyboard() {
+        if (rootLayout == null) {
+            // Still waiting for the stream to come up
+            return false;
+        }
+        if (keyBoardLayoutController == null) {
+            initFullKeyboard(prefConfig);
+            return true;
+        }
+        if (keyBoardLayoutController.isKeyboardVisible()) {
+            return false;
+        }
+        keyBoardLayoutController.show();
+        return true;
+    }
+
+    private void _hideTextKeyboard() {
+        if (keyBoardLayoutController == null || !keyBoardLayoutController.isKeyboardVisible()) {
+            return;
+        }
+        hidingTextKeyboard = true;
+        try {
+            keyBoardLayoutController.hide();
+        } finally {
+            hidingTextKeyboard = false;
+        }
     }
 
     /**

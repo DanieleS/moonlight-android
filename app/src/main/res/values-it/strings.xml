@@ -316,6 +316,8 @@
     <string name="analogscroll_left">Stick analogico sinistro</string>
     <string name="title_enable_commit_text">Abilita input commit-text (swipe/voce)</string>
     <string name="summary_enable_commit_text">Invia al PC testi multi-carattere provenienti dalle tastiere software (scrittura a gesto, suggerimenti, dettatura vocale). Può causare problemi ai giochi che richiedono la pressione singola dei tasti.</string>
+    <string name="title_text_focus_keyboard">Tastiera quando un campo di testo è selezionato</string>
+    <string name="summary_text_focus_keyboard">Apre da sola una tastiera quando selezioni un campo di testo sul PC: sul secondo schermo se c\'è il pannello companion o il controller del display esterno, altrimenti sopra lo stream. Richiede un host Vibepollo con i suggerimenti di focus attivi; con gli altri host non cambia nulla.</string>
 
     <string name="action_stats">Statistiche</string>
     <string name="stats_title">Statistiche</string>

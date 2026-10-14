@@ -59,6 +59,7 @@ import com.limelight.ui.ConnectionOverlay;
 import com.limelight.ui.ExternalControllerView;
 import com.limelight.ui.GameGestures;
 import com.limelight.ui.StreamContainer;
+import com.limelight.ui.TextFocusKeyboard;
 import com.limelight.utils.CacheHelper;
 import com.limelight.utils.Dialog;
 import com.limelight.utils.ExternalDisplayControlActivity;
@@ -119,6 +120,7 @@ import android.view.View.OnTouchListener;
 import android.view.ViewOutlineProvider;
 import android.view.ViewParent;
 import android.view.Window;
+import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.view.inputmethod.InputMethodManager;
@@ -398,6 +400,27 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private static final int UTF8_CHUNK_SIZE = 512;
     private final Queue<String> commitTextQueue = new ArrayDeque<>();
     private final Handler commitTextHandler = new Handler(Looper.getMainLooper());
+
+    // The keyboard raised when the host reports a focused text field. Main thread only.
+    private TextFocusKeyboard textFocusKeyboard;
+    private final Handler textFocusHandler = new Handler(Looper.getMainLooper());
+    // Below API 30 the IME's visibility can't be read back, so remember whether it is up
+    private boolean mainImeRaised;
+    // When we last toggled it up. Toggling again while it is still coming up would close it.
+    private long mainImeRaisedAt;
+    private static final long MAIN_IME_SETTLE_MS = 500;
+    // The host reports focus as soon as its control stream is up, which can be before the
+    // stream is; the last report is kept until then
+    private byte pendingTextFocus = TextFocusKeyboard.FOCUS_NONE;
+
+    // Focus passes through a non-text element when clicking from one field to the next, so the
+    // keyboard waits a moment before going away rather than dropping and coming straight back.
+    private static final long TEXT_FOCUS_DISMISS_DELAY_MS = 150;
+    private final Runnable dismissTextFocusKeyboard = () -> {
+        if (textFocusKeyboard != null) {
+            textFocusKeyboard.onFocus(TextFocusKeyboard.FOCUS_NONE);
+        }
+    };
 
     private final Runnable flushCommitTextQueue = new Runnable() {
         @Override
@@ -964,6 +987,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 .setResolutionScaleFactor(prefConfig.resolutionScaleFactor)
                 .setApp(app)
                 .setEnableUltraLowLatency(prefConfig.enableUltraLowLatency)
+                .setEnableTextFocusHints(prefConfig.textFocusKeyboard)
                 .setBitrate(bitrate)
                 .setPyroWaveFallbackBitrate(pyroWaveFallbackBitrate)
                 .setEnableSops(prefConfig.enableSops)
@@ -1083,6 +1107,49 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             reclaimGamepadFocus();
         });
         CompanionDisplayManager.setMenuClosedListener(() -> companionMenuActive = false);
+
+        textFocusKeyboard = new TextFocusKeyboard(new TextFocusKeyboard.Keyboards() {
+            @Override
+            public boolean isCompanionShowing() {
+                return CompanionDisplayManager.isShowing();
+            }
+
+            @Override
+            public boolean isControlScreenShowing() {
+                return isOnExternalDisplay() && ExternalDisplayControlActivity.instance != null;
+            }
+
+            @Override
+            public boolean show(TextFocusKeyboard.Target target, byte focusType) {
+                switch (target) {
+                    case COMPANION:
+                        return CompanionDisplayManager.showTextKeyboard();
+                    case CONTROL_SCREEN:
+                        return ExternalDisplayControlActivity.showTextKeyboard();
+                    case MAIN:
+                    default:
+                        return showMainSoftKeyboard();
+                }
+            }
+
+            @Override
+            public void hide(TextFocusKeyboard.Target target) {
+                switch (target) {
+                    case COMPANION:
+                        CompanionDisplayManager.hideTextKeyboard();
+                        break;
+                    case CONTROL_SCREEN:
+                        ExternalDisplayControlActivity.hideTextKeyboard();
+                        break;
+                    case MAIN:
+                    default:
+                        hideMainSoftKeyboard();
+                        break;
+                }
+            }
+        });
+        // Closing the panel's keyboard by hand hands it to the user, like any other manual use
+        CompanionDisplayManager.setTextKeyboardDismissedListener(this::onManualKeyboardUse);
 
         floatingMenuButton = findViewById(R.id.floatingMenuButton);
         updateFloatingButtonVisibility(prefConfig.enableBackMenu && prefConfig.enableFloatingButton);
@@ -1322,6 +1389,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     }
 
     public void toggleFullKeyboard() {
+        onManualKeyboardUse();
         if (isOnExternalDisplay()) {
             ExternalDisplayControlActivity.toggleFullKeyboard();
             return;
@@ -1925,6 +1993,10 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         CompanionDisplayManager.setMenuClosedListener(null);
         companionMenuActive = false;
         CompanionDisplayManager.hideMenu();
+        // No keyboard of ours may outlive the stream it was raised for
+        textFocusHandler.removeCallbacksAndMessages(null);
+        CompanionDisplayManager.setTextKeyboardDismissedListener(null);
+        CompanionDisplayManager.hideTextKeyboard();
         // Whatever companion app we opened was for this stream; the panel owns the screen again.
         CompanionDisplayManager.yieldToApp(false);
         if (telemetryController != null) {
@@ -2661,10 +2733,13 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
 
     @Override
     public void toggleKeyboard() {
+        onManualKeyboardUse();
         if (isOnExternalDisplay()) {
             ExternalDisplayControlActivity.toggleKeyboard();
         } else {
             LimeLog.info("Toggling keyboard overlay");
+            // Keep the guess used below API 30 in step with what the toggle does
+            mainImeRaised = !isMainImeVisible();
             InputMethodManager inputManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
             inputManager.toggleSoftInput(0, 0);
         }
@@ -4121,6 +4196,14 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             // The host is about to drop the session; a bitrate change now would only fail.
             stopLiveBitrate();
 
+            // A connection that drops never sends the closing "no text field" report
+            textFocusHandler.removeCallbacks(dismissTextFocusKeyboard);
+            pendingTextFocus = TextFocusKeyboard.FOCUS_NONE;
+            if (textFocusKeyboard != null) {
+                textFocusKeyboard.dismiss();
+                applyTextFocusInputType(TextFocusKeyboard.FOCUS_NONE);
+            }
+
             // Update GameManager state to indicate we're no longer in game
             UiHelper.notifyStreamEnded(this);
 
@@ -4420,6 +4503,13 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 connecting = false;
                 updatePipAutoEnter();
 
+                // A text field the host reported while the stream was still starting
+                if (textFocusKeyboard != null && TextFocusKeyboard.isTextField(pendingTextFocus)) {
+                    applyTextFocusInputType(pendingTextFocus);
+                    textFocusKeyboard.onFocus(pendingTextFocus);
+                }
+                pendingTextFocus = TextFocusKeyboard.FOCUS_NONE;
+
                 // Hide the mouse cursor now after a short delay.
                 // Doing it before dismissing the spinner seems to be undone
                 // when the spinner gets displayed. On Android Q, even now
@@ -4693,6 +4783,97 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     @Override
     public void setControllerLED(short controllerNumber, byte r, byte g, byte b) {
         controllerHandler.handleSetControllerLED(controllerNumber, r, g, b);
+    }
+
+    @Override
+    public void setTextFocus(final byte focusType) {
+        // Called on moonlight-common-c's callback thread; everything below runs on the main one
+        textFocusHandler.post(() -> {
+            if (textFocusKeyboard == null) {
+                return;
+            }
+            LimeLog.info("Host text focus: " + focusType);
+            if (!connected) {
+                pendingTextFocus = focusType;
+                return;
+            }
+            applyTextFocusInputType(focusType);
+            textFocusHandler.removeCallbacks(dismissTextFocusKeyboard);
+            if (TextFocusKeyboard.isTextField(focusType)) {
+                textFocusKeyboard.onFocus(focusType);
+            } else {
+                textFocusHandler.postDelayed(dismissTextFocusKeyboard, TEXT_FOCUS_DISMISS_DELAY_MS);
+            }
+        });
+    }
+
+    /**
+     * The user opened, closed or toggled a keyboard by hand. A host report that focus left the
+     * field must not take that keyboard away.
+     */
+    public void onManualKeyboardUse() {
+        if (textFocusKeyboard != null) {
+            textFocusKeyboard.onManualKeyboardUse();
+        }
+    }
+
+    /**
+     * Tell a soft keyboard typing into the stream what the host's field takes. It only matters
+     * with commit text on, when the stream is an editor whose text the keyboard sees: a password
+     * must not land in its suggestion strip or its dictionary. Applied on every report, not only
+     * to a keyboard raised here, since one the user opened by hand types into the field too.
+     */
+    private void applyTextFocusInputType(byte focusType) {
+        int inputType = TextFocusKeyboard.inputTypeFor(focusType);
+        if (streamContainer != null && streamContainer.setImeInputType(inputType)) {
+            InputMethodManager inputManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+            if (inputManager != null) {
+                inputManager.restartInput(streamContainer);
+            }
+        }
+        ExternalDisplayControlActivity.setImeInputType(inputType);
+    }
+
+    private boolean isMainImeVisible() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            WindowInsets insets = getWindow().getDecorView().getRootWindowInsets();
+            return insets != null && insets.isVisible(WindowInsets.Type.ime());
+        }
+        return mainImeRaised;
+    }
+
+    // The system keyboard on the stream's own screen, raised the same way as the three-finger
+    // tap does. Returns whether this call raised it.
+    private boolean showMainSoftKeyboard() {
+        if (isMainImeVisible()) {
+            return false;
+        }
+        InputMethodManager inputManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (inputManager == null) {
+            return false;
+        }
+        streamContainer.requestFocus();
+        // With commit text on the stream is an editor, so the keyboard can be asked for, which
+        // never closes one that is already coming up. Otherwise only a toggle raises it.
+        if (!prefConfig.enableCommitText || !inputManager.showSoftInput(streamContainer, 0)) {
+            long now = SystemClock.uptimeMillis();
+            if (mainImeRaised && now - mainImeRaisedAt < MAIN_IME_SETTLE_MS) {
+                // Still coming up from the last report, where the visibility check can't see it yet
+                return false;
+            }
+            inputManager.toggleSoftInput(0, 0);
+            mainImeRaisedAt = now;
+        }
+        mainImeRaised = true;
+        return true;
+    }
+
+    private void hideMainSoftKeyboard() {
+        mainImeRaised = false;
+        InputMethodManager inputManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (inputManager != null) {
+            inputManager.hideSoftInputFromWindow(streamContainer.getWindowToken(), 0);
+        }
     }
 
     @Override

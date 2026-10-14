@@ -31,9 +31,11 @@ import android.widget.TextView;
 
 import com.limelight.LimeLog;
 import com.limelight.R;
+import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardLayoutController;
 import com.limelight.binding.video.PerfStats;
 import com.limelight.nvstream.http.Achievement;
 import com.limelight.nvstream.http.AppMetadata;
+import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.stats.AchievementToast;
 import com.limelight.stats.HostSession;
 import com.limelight.ui.MaxHeightScrollView;
@@ -145,9 +147,68 @@ public class CompanionPresentation extends android.app.Presentation
     private final List<Runnable> menuActions = new ArrayList<>();
     private int menuSelectedIndex = -1;
 
+    // The keyboard for a text field focused on the host, created the first time one is needed.
+    // It is the same on-screen PC keyboard the full-keyboard button raises over the stream, and
+    // it types by touch alone: this window never takes input focus, so the system keyboard,
+    // which needs a focused editor, cannot be raised here without pulling the gamepad over too.
+    private KeyBoardLayoutController textKeyboard;
+    // Set while we hide the keyboard ourselves, so only the user closing it is reported
+    private boolean hidingTextKeyboard;
+
     public CompanionPresentation(Context outerContext, Display display, CompanionState state) {
         super(outerContext, display);
         this.state = state;
+    }
+
+    /** Raise or dismiss the keyboard for a text field focused on the host. */
+    void setTextKeyboardVisible(boolean visible) {
+        if (visible) {
+            if (textKeyboard == null) {
+                FrameLayout container = findViewById(R.id.companionKeyboard);
+                if (container == null) {
+                    return;
+                }
+                textKeyboard = new KeyBoardLayoutController(container, getContext(),
+                        PreferenceConfiguration.readPreferences(getContext()));
+                textKeyboard.setViewCallbacks(shown -> {
+                    liftMenuButton(shown ? container : null);
+                    if (!shown && !hidingTextKeyboard) {
+                        // Closed from its own hide key
+                        CompanionDisplayManager.onTextKeyboardDismissed();
+                    }
+                });
+                textKeyboard.refreshLayout();
+            }
+            textKeyboard.show();
+        } else if (isTextKeyboardVisible()) {
+            hidingTextKeyboard = true;
+            try {
+                textKeyboard.hide();
+            } finally {
+                hidingTextKeyboard = false;
+            }
+        }
+    }
+
+    /**
+     * Keep the menu button clear of the keyboard: both sit at the bottom of the panel, and the
+     * keyboard is drawn over the button.
+     *
+     * @param keyboardContainer the keyboard's container while it is up, or null once it is gone
+     */
+    private void liftMenuButton(FrameLayout keyboardContainer) {
+        if (menuButton == null) {
+            return;
+        }
+        int keyboardHeight = 0;
+        if (keyboardContainer != null && keyboardContainer.getChildCount() > 0) {
+            keyboardHeight = Math.max(0, keyboardContainer.getChildAt(0).getLayoutParams().height);
+        }
+        menuButton.setTranslationY(-keyboardHeight);
+    }
+
+    boolean isTextKeyboardVisible() {
+        return textKeyboard != null && textKeyboard.isKeyboardVisible();
     }
 
     @Override

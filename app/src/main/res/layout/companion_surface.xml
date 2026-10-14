@@ -387,6 +387,13 @@
         android:src="@drawable/ic_menu"
         android:visibility="gone" />
 
+    <!-- The keyboard raised when the host reports a focused text field. Above the panel's
+         content, below the menu so the menu still opens over it. Empty until it is needed. -->
+    <FrameLayout
+        android:id="@+id/companionKeyboard"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
     <!--
         The in-game menu, drawn here so the game on the main screen stays whole while it is
         open. The rows are navigated by the gamepad, routed over from the Game activity, and

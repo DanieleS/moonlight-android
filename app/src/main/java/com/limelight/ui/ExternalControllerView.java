@@ -12,6 +12,8 @@ public class ExternalControllerView extends FrameLayout {
     // When enabled, we expose an InputConnection so that soft keyboards can send
     // commitText() events (e.g. swipe typing). Default disabled.
     private boolean commitTextEnabled = false;
+    // What the soft keyboard is told this view takes while commit text is on
+    private int imeInputType = android.text.InputType.TYPE_CLASS_TEXT;
 
     public void setInputCallbacks(InputCallbacks callbacks) {
         this.inputCallbacks = callbacks;
@@ -24,6 +26,20 @@ public class ExternalControllerView extends FrameLayout {
             setFocusableInTouchMode(true);
             requestFocus();
         }
+    }
+
+    /**
+     * Set what the soft keyboard is told this view takes, following the field focused on the
+     * host. See {@link TextFocusKeyboard#inputTypeFor}.
+     *
+     * @return whether the keyboard has to be restarted to see it
+     */
+    public boolean setImeInputType(int inputType) {
+        if (imeInputType == inputType) {
+            return false;
+        }
+        imeInputType = inputType;
+        return commitTextEnabled;
     }
 
     public ExternalControllerView(@NonNull Context context) {
@@ -62,7 +78,7 @@ public class ExternalControllerView extends FrameLayout {
         }
 
         // Basic text editor flags – we don't need extract UI or enter action
-        outAttrs.inputType = android.text.InputType.TYPE_CLASS_TEXT;
+        outAttrs.inputType = imeInputType;
         outAttrs.imeOptions = android.view.inputmethod.EditorInfo.IME_FLAG_NO_EXTRACT_UI;
 
         return new android.view.inputmethod.BaseInputConnection(this, false) {
