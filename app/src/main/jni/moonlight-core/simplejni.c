@@ -10,6 +10,11 @@
 #include "controller_type.h"
 #include "controller_list.h"
 
+#ifdef HAVE_PYROWAVE
+#include <android/native_window_jni.h>
+#include "pyrowave_renderer.h"
+#endif
+
 JNIEXPORT void JNICALL
 Java_com_limelight_nvstream_jni_MoonBridge_sendMouseMove(JNIEnv *env, jclass clazz, jshort deltaX, jshort deltaY) {
     LiSendMouseMoveEvent(deltaX, deltaY);
@@ -269,4 +274,59 @@ JNIEXPORT jboolean JNICALL
 Java_com_limelight_nvstream_jni_MoonBridge_guessControllerHasShareButton(JNIEnv *env, jclass clazz, jint vendorId, jint productId) {
     // Xbox Elite and DualSense Edge controllers have paddles
     return SDL_IsJoystickXboxSeriesX(vendorId, productId);
+}
+
+// PyroWave (arm64-v8a only, see ../pyrowave-renderer). These live here rather
+// than in the renderer because moonlight-core hides the symbols of the static
+// libraries it links, which would hide JNI entry points defined there.
+JNIEXPORT jboolean JNICALL
+Java_com_limelight_nvstream_jni_MoonBridge_pyroWaveIsSupported(JNIEnv *env, jclass clazz) {
+#ifdef HAVE_PYROWAVE
+    return PyroWaveRendererIsSupported() ? JNI_TRUE : JNI_FALSE;
+#else
+    return JNI_FALSE;
+#endif
+}
+
+JNIEXPORT jint JNICALL
+Java_com_limelight_nvstream_jni_MoonBridge_pyroWaveStart(JNIEnv *env, jclass clazz, jobject surface,
+                                                         jint videoFormat, jint width, jint height,
+                                                         jint colorspace, jint colorRange) {
+#ifdef HAVE_PYROWAVE
+    ANativeWindow* window = ANativeWindow_fromSurface(env, surface);
+    if (window == NULL) {
+        return -1;
+    }
+    return PyroWaveRendererStart(window, videoFormat, width, height, colorspace, colorRange);
+#else
+    return -1;
+#endif
+}
+
+JNIEXPORT void JNICALL
+Java_com_limelight_nvstream_jni_MoonBridge_pyroWaveStop(JNIEnv *env, jclass clazz) {
+#ifdef HAVE_PYROWAVE
+    PyroWaveRendererStop();
+#endif
+}
+
+JNIEXPORT jstring JNICALL
+Java_com_limelight_nvstream_jni_MoonBridge_pyroWaveTakeStats(JNIEnv *env, jclass clazz, jdoubleArray out) {
+#ifdef HAVE_PYROWAVE
+    PYROWAVE_RENDERER_STATS stats;
+    if ((*env)->GetArrayLength(env, out) < 10 || PyroWaveRendererTakeStats(&stats) != 0) {
+        return NULL;
+    }
+    // Order documented in MoonBridge.pyroWaveTakeStats()
+    jdouble values[10] = {
+        (jdouble)stats.received, (jdouble)stats.presented, (jdouble)stats.dropped,
+        (jdouble)stats.partial, (jdouble)stats.lost, (jdouble)stats.hostLatencyFrames,
+        (jdouble)stats.hostLatencyTotal, (jdouble)stats.hostLatencyMin,
+        (jdouble)stats.hostLatencyMax, stats.gpuDecodeMs,
+    };
+    (*env)->SetDoubleArrayRegion(env, out, 0, 10, values);
+    return (*env)->NewStringUTF(env, stats.gpuName);
+#else
+    return NULL;
+#endif
 }

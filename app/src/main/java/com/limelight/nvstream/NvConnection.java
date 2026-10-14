@@ -32,6 +32,7 @@ import javax.crypto.SecretKey;
 import org.xmlpull.v1.XmlPullParserException;
 
 import com.limelight.LimeLog;
+import com.limelight.binding.video.PyroWaveSupport;
 import com.limelight.nvstream.av.audio.AudioRenderer;
 import com.limelight.nvstream.av.video.VideoDecoderRenderer;
 import com.limelight.nvstream.http.ComputerDetails;
@@ -247,7 +248,14 @@ public class NvConnection {
 
         context.serverCodecModeSupport = (int)h.getServerCodecModeSupport(serverInfo);
 
-        context.negotiatedHdr = (context.streamConfig.getSupportedVideoFormats() & MoonBridge.VIDEO_FORMAT_MASK_10BIT) != 0;
+        // A PyroWave host gets no HDR request: PyroWave streams are 8-bit SDR here
+        context.supportedVideoFormats = PyroWaveSupport.formatsForHost(
+                context.streamConfig.getSupportedVideoFormats(), context.serverCodecModeSupport);
+        if (context.supportedVideoFormats != context.streamConfig.getSupportedVideoFormats()) {
+            context.connListener.displayTransientMessage("HDR is off: the host can stream PyroWave, which is SDR only.");
+        }
+
+        context.negotiatedHdr = (context.supportedVideoFormats & MoonBridge.VIDEO_FORMAT_MASK_10BIT) != 0;
         if ((context.serverCodecModeSupport & 0x20200) == 0 && context.negotiatedHdr) {
             context.connListener.displayTransientMessage("Your PC GPU does not support streaming HDR. The stream will be SDR.");
             context.negotiatedHdr = false;
@@ -461,9 +469,10 @@ public class NvConnection {
                             context.serverCodecModeSupport,
                             context.negotiatedWidth, context.negotiatedHeight,
                             context.streamConfig.getRefreshRate(), context.streamConfig.getBitrate(),
+                            context.streamConfig.getPyroWaveFallbackBitrate(),
                             context.negotiatedPacketSize, context.negotiatedRemoteStreaming,
                             context.streamConfig.getAudioConfiguration().toInt(),
-                            context.streamConfig.getSupportedVideoFormats(),
+                            context.supportedVideoFormats,
                             context.streamConfig.getClientRefreshRateX100(),
                             context.riKey.getEncoded(), ib.array(),
                             context.videoCapabilities,

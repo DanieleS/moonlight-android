@@ -11,6 +11,14 @@
 
 #include <cpu-features.h>
 
+#ifdef HAVE_PYROWAVE
+#include "pyrowave_renderer.h"
+
+// Whether the session negotiated PyroWave: its decode units go to the native
+// renderer, or are dropped once it has stopped, and never reach Java.
+static bool PyroWaveSession;
+#endif
+
 static OpusMSDecoder* Decoder;
 static OPUS_MULTISTREAM_CONFIGURATION OpusConfig;
 
@@ -118,6 +126,10 @@ int BridgeDrSetup(int videoFormat, int width, int height, int redrawRate, void* 
         return err;
     }
 
+#ifdef HAVE_PYROWAVE
+    PyroWaveSession = (videoFormat & VIDEO_FORMAT_MASK_PYROWAVE) != 0;
+#endif
+
     // Use a 32K frame buffer that will increase if needed
     DecodedFrameBuffer = (*env)->NewGlobalRef(env, (*env)->NewByteArray(env, 32768));
 
@@ -161,6 +173,16 @@ static uint64_t GetMonotonicMicroseconds(void) {
 }
 
 int BridgeDrSubmitDecodeUnit(PDECODE_UNIT decodeUnit) {
+#ifdef HAVE_PYROWAVE
+    // PyroWave frames never cross into Java: copying megabytes per frame into a
+    // byte[] would cost more than decoding them. The native renderer takes them.
+    // It may already be stopped (surfaceDestroyed stops it before moonlight-common-c
+    // stops the video threads), and the frames that still arrive are then dropped.
+    if (PyroWaveSession) {
+        return PyroWaveRendererSubmitDecodeUnit(decodeUnit);
+    }
+#endif
+
     JNIEnv* env = GetThreadEnv();
     int ret;
 
@@ -478,7 +500,8 @@ Java_com_limelight_nvstream_jni_MoonBridge_startConnection(JNIEnv *env, jclass c
                                                            jstring address, jstring appVersion, jstring gfeVersion,
                                                            jstring rtspSessionUrl, jint serverCodecModeSupport,
                                                            jint width, jint height, jint fps,
-                                                           jint bitrate, jint packetSize, jint streamingRemotely,
+                                                           jint bitrate, jint pyroWaveFallbackBitrate,
+                                                           jint packetSize, jint streamingRemotely,
                                                            jint audioConfiguration, jint supportedVideoFormats,
                                                            jint clientRefreshRateX100,
                                                            jbyteArray riAesKey, jbyteArray riAesIv,
@@ -496,6 +519,7 @@ Java_com_limelight_nvstream_jni_MoonBridge_startConnection(JNIEnv *env, jclass c
             .height = height,
             .fps = fps,
             .bitrate = bitrate,
+            .pyroWaveFallbackBitrate = pyroWaveFallbackBitrate,
             .packetSize = packetSize,
             .streamingRemotely = streamingRemotely,
             .audioConfiguration = audioConfiguration,

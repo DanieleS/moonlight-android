@@ -18,6 +18,7 @@ public class StreamConfiguration {
     private int resolutionScaleFactor;
     private int clientRefreshRateX100;
     private int bitrate;
+    private int pyroWaveFallbackBitrate;
     private boolean sops;
     private boolean enableAdaptiveResolution;
     private boolean playLocalAudio;
@@ -73,6 +74,13 @@ public class StreamConfiguration {
         
         public StreamConfiguration.Builder setBitrate(int bitrate) {
             config.bitrate = bitrate;
+            return this;
+        }
+
+        // When PyroWave is offered, the bitrate above is its budget and this one is what the
+        // AV1/HEVC/H.264 fallback asks for instead (0 keeps the bitrate above)
+        public StreamConfiguration.Builder setPyroWaveFallbackBitrate(int bitrate) {
+            config.pyroWaveFallbackBitrate = bitrate;
             return this;
         }
         
@@ -201,6 +209,10 @@ public class StreamConfiguration {
     
     public int getBitrate() {
         return bitrate;
+    }
+
+    public int getPyroWaveFallbackBitrate() {
+        return pyroWaveFallbackBitrate;
     }
     
     public int getMaxPacketSize() {

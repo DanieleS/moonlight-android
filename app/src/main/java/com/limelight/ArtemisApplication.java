@@ -3,7 +3,9 @@ package com.limelight;
 import android.app.Application;
 import android.widget.Toast;
 
+import com.limelight.binding.video.PyroWaveSupport;
 import com.limelight.companion.CompanionDisplayManager;
+import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.profiles.ProfilesManager;
 
 public class ArtemisApplication extends Application {
@@ -16,5 +18,11 @@ public class ArtemisApplication extends Application {
         }
 
         CompanionDisplayManager.install(this);
+
+        // The PyroWave probe creates a Vulkan device: run it now, off the UI thread, so that
+        // starting a stream finds the result cached
+        if (PreferenceConfiguration.isPyroWaveEnabled(this)) {
+            PyroWaveSupport.probeInBackground(this);
+        }
     }
 }

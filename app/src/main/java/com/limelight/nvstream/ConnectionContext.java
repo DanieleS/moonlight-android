@@ -21,6 +21,9 @@ public class ConnectionContext {
     public String serverGfeVersion;
     public int serverCodecModeSupport;
 
+    // The video formats offered to this host: the stream's, minus any it must not get
+    public int supportedVideoFormats;
+
     // This is the sessionUrl0 tag from /resume and /launch
     public String rtspSessionUrl;
     

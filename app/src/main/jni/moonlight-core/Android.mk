@@ -59,6 +59,13 @@ endif
 LOCAL_LDLIBS := -llog
 
 LOCAL_STATIC_LIBRARIES := libopus libssl libcrypto cpufeatures
+
+# PyroWave decoding (../pyrowave-renderer), 64-bit only
+ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
+LOCAL_CFLAGS += -DHAVE_PYROWAVE
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/../pyrowave-renderer
+LOCAL_STATIC_LIBRARIES += pyrowave-renderer
+endif
 LOCAL_LDFLAGS += -Wl,--exclude-libs,ALL
 
 LOCAL_BRANCH_PROTECTION := standard

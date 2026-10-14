@@ -30,6 +30,7 @@ import com.limelight.binding.video.MediaCodecDecoderRenderer;
 import com.limelight.binding.video.MediaCodecHelper;
 import com.limelight.binding.video.PerfOverlayListener;
 import com.limelight.binding.video.PerfStats;
+import com.limelight.binding.video.PyroWaveSupport;
 import com.limelight.companion.CompanionAppLauncher;
 import com.limelight.companion.CompanionDisplayManager;
 import com.limelight.companion.CompanionState;
@@ -826,6 +827,47 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             }
         }
 
+        int bitrate = isMetered ? prefConfig.meteredBitrate : prefConfig.bitrate;
+        int pyroWaveFallbackBitrate = 0;
+
+        // PyroWave is opt-in: it trades hundreds of Mbps for its latency. It goes on top of the
+        // formats above, which stay as the fallback for hosts without it (or with another
+        // PyroWave revision). The Vulkan probe only runs when it is enabled.
+        if (prefConfig.enablePyroWave) {
+            boolean pyroWaveSupported = false;
+            if (prefConfig.renderMode != 0) {
+                // The 3D modes render through a GL SurfaceTexture, not a Surface Vulkan can own
+                LimeLog.info("PyroWave is not offered in the 3D render modes");
+            }
+            else if (isMetered) {
+                LimeLog.info("PyroWave is not offered on a metered network");
+            }
+            else if (PyroWaveSupport.hasStartFailed()) {
+                Toast.makeText(this, getString(R.string.toast_pyrowave_start_failed), Toast.LENGTH_LONG).show();
+            }
+            else {
+                // Normally cached already: the app probes in the background at start and when
+                // the setting is switched on
+                pyroWaveSupported = PyroWaveSupport.isCandidateDevice(this) &&
+                        MoonBridge.pyroWaveIsSupported();
+                if (!pyroWaveSupported) {
+                    Toast.makeText(this, getString(R.string.toast_pyrowave_unsupported), Toast.LENGTH_LONG).show();
+                }
+            }
+            supportedVideoFormats = PyroWaveSupport.addPyroWave(supportedVideoFormats, true, pyroWaveSupported);
+            if (pyroWaveSupported) {
+                // The PyroWave budget is far above a sensible AV1/HEVC/H.264 bitrate, so
+                // moonlight-common-c switches back to the regular one if PyroWave is not negotiated
+                pyroWaveFallbackBitrate = bitrate;
+                bitrate = PyroWaveSupport.bitrateKbps(prefConfig.pyroWaveBitrate,
+                        displayWidth, displayHeight, prefConfig.fps);
+                LimeLog.info("Offering PyroWave at " + bitrate / 1000 + " Mbps (it looks clean from " +
+                        PyroWaveSupport.cleanBitrateKbps(displayWidth, displayHeight, prefConfig.fps) / 1000 +
+                        " Mbps at this resolution and frame rate), or " + pyroWaveFallbackBitrate / 1000 +
+                        " Mbps for another codec");
+            }
+        }
+
         int gamepadMask = ControllerHandler.getAttachedControllerMask(this);
         if (!prefConfig.multiController) {
             // Always set gamepad 1 present for when multi-controller is
@@ -890,7 +932,8 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 .setResolutionScaleFactor(prefConfig.resolutionScaleFactor)
                 .setApp(app)
                 .setEnableUltraLowLatency(prefConfig.enableUltraLowLatency)
-                .setBitrate(isMetered ? prefConfig.meteredBitrate: prefConfig.bitrate)
+                .setBitrate(bitrate)
+                .setPyroWaveFallbackBitrate(pyroWaveFallbackBitrate)
                 .setEnableSops(prefConfig.enableSops)
                 .enableLocalAudioPlayback(prefConfig.playHostAudio)
                 .setMaxPacketSize(1392)
@@ -1950,6 +1993,8 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 selectedVideoFormat += "HEVC";
             } else if ((videoFormat & MoonBridge.VIDEO_FORMAT_MASK_AV1) != 0) {
                 selectedVideoFormat += "AV1";
+            } else if (PyroWaveSupport.isPyroWave(videoFormat)) {
+                selectedVideoFormat += "PyroWave";
             }
             else {
                 selectedVideoFormat += "UNKNOWN";
