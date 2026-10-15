@@ -27,6 +27,7 @@ import com.limelight.ui.AdapterFragment;
 import com.limelight.ui.AdapterFragmentCallbacks;
 import com.limelight.utils.CacheHelper;
 import com.limelight.utils.Dialog;
+import com.limelight.utils.FrontendExporter;
 import com.limelight.utils.HelpLauncher;
 import com.limelight.utils.ServerHelper;
 import com.limelight.utils.ShortcutHelper;
@@ -34,6 +35,7 @@ import com.limelight.utils.UiHelper;
 
 import android.app.ActivityManager;
 import android.app.Service;
+import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -56,6 +58,8 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ContextMenu.ContextMenuInfo;
 import android.view.View.OnClickListener;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -104,6 +108,12 @@ public class PcView extends AppCompatActivity implements AdapterFragmentCallback
     private RecyclerView pcRecyclerView;
     private PcCardAdapter pcCardAdapter;
     private ShortcutHelper shortcutHelper;
+    private ComputerDetails exportComputer;
+    private Uri exportRomsTree;
+    private final ActivityResultLauncher<Uri> pickRomsFolder =
+            registerForActivityResult(new ActivityResultContracts.OpenDocumentTree(), this::onRomsFolderPicked);
+    private final ActivityResultLauncher<Uri> pickEsdeFolder =
+            registerForActivityResult(new ActivityResultContracts.OpenDocumentTree(), this::runFrontendExport);
     private ComputerManagerService.ComputerManagerBinder managerBinder;
     private boolean freezeUpdates, runningPolling, inForeground, completeOnCreateCalled;
     private boolean autoEnterArmed;
@@ -167,6 +177,7 @@ public class PcView extends AppCompatActivity implements AdapterFragmentCallback
     private final static int GAMESTREAM_EOL_ID = 11;
     private final static int OPEN_MANAGEMENT_PAGE_ID = 20;
     private final static int PAIR_ID_OTP = 21;
+    private final static int FRONTEND_EXPORT_ID = 22;
 
     private void initializeViews() {
         setContentView(R.layout.activity_pc_view);
@@ -546,6 +557,7 @@ public class PcView extends AppCompatActivity implements AdapterFragmentCallback
             }
 
             menu.add(Menu.NONE, FULL_APP_LIST_ID, 4, getResources().getString(R.string.pcview_menu_app_list));
+            menu.add(Menu.NONE, FRONTEND_EXPORT_ID, 4, getResources().getString(R.string.frontend_export_menu));
         }
 
         menu.add(Menu.NONE, TEST_NETWORK_ID, 5, getResources().getString(R.string.pcview_menu_test_network));
@@ -908,6 +920,10 @@ public class PcView extends AppCompatActivity implements AdapterFragmentCallback
                 HelpLauncher.launchGameStreamEolFaq(PcView.this);
                 return true;
 
+            case FRONTEND_EXPORT_ID:
+                startFrontendExport(computer.details);
+                return true;
+
             case OPEN_MANAGEMENT_PAGE_ID:
                 String managementUrl = computer.guessManagementUrl();
                 if (managementUrl == null) {
@@ -919,6 +935,73 @@ public class PcView extends AppCompatActivity implements AdapterFragmentCallback
             default:
                 return super.onContextItemSelected(item);
         }
+    }
+
+    private void startFrontendExport(ComputerDetails computer) {
+        if (new FrontendExporter(this, computer).loadApps().isEmpty()) {
+            Toast.makeText(this, R.string.frontend_export_no_apps, Toast.LENGTH_LONG).show();
+            return;
+        }
+        exportComputer = computer;
+        exportRomsTree = null;
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.frontend_export_roms_title)
+                .setMessage(R.string.frontend_export_roms_message)
+                .setPositiveButton(R.string.frontend_export_pick, (dialog, which) -> pickFolder(pickRomsFolder))
+                .setNegativeButton(android.R.string.cancel, (dialog, which) -> exportComputer = null)
+                .setOnCancelListener(dialog -> exportComputer = null)
+                .show();
+    }
+
+    private void pickFolder(ActivityResultLauncher<Uri> launcher) {
+        try {
+            launcher.launch(null);
+        } catch (ActivityNotFoundException e) {
+            exportComputer = null;
+            Toast.makeText(this, R.string.frontend_export_no_picker, Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void onRomsFolderPicked(Uri romsTree) {
+        if (exportComputer == null) {
+            return;
+        }
+        if (romsTree == null) {
+            exportComputer = null;
+            return;
+        }
+        exportRomsTree = romsTree;
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.frontend_export_esde_title)
+                .setMessage(R.string.frontend_export_esde_message)
+                .setPositiveButton(R.string.frontend_export_pick, (dialog, which) -> pickFolder(pickEsdeFolder))
+                .setNegativeButton(R.string.frontend_export_skip, (dialog, which) -> runFrontendExport(null))
+                .setOnCancelListener(dialog -> runFrontendExport(null))
+                .show();
+    }
+
+    private void runFrontendExport(final Uri esdeTree) {
+        final ComputerDetails computer = exportComputer;
+        final Uri romsTree = exportRomsTree;
+        exportComputer = null;
+        exportRomsTree = null;
+        if (computer == null || romsTree == null) {
+            return;
+        }
+        Toast.makeText(this, R.string.frontend_export_working, Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            String message;
+            try {
+                FrontendExporter exporter = new FrontendExporter(PcView.this, computer);
+                int count = exporter.export(exporter.loadApps(), romsTree, esdeTree);
+                message = getResources().getQuantityString(R.plurals.frontend_export_done, count, count);
+            } catch (IOException | RuntimeException e) {
+                LimeLog.warning("Frontend export failed: " + e);
+                message = getString(R.string.frontend_export_failed);
+            }
+            final String result = message;
+            runOnUiThread(() -> Toast.makeText(PcView.this, result, Toast.LENGTH_LONG).show());
+        }, "Frontend export").start();
     }
 
     private void removeComputer(ComputerDetails details) {
