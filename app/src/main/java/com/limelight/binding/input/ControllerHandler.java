@@ -608,6 +608,30 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
         return context;
     }
 
+    /**
+     * Last-resort controller type guess from the device name, used only when the vendor and product id tell us nothing.
+     * The name is the one thing a re-emitting virtual input device usually preserves. "Wireless Controller" alone is
+     * deliberately not matched: it is too generic.
+     */
+    private static byte guessControllerTypeFromName(String name) {
+        if (name == null) {
+            return MoonBridge.LI_CTYPE_UNKNOWN;
+        }
+
+        String n = name.toLowerCase(java.util.Locale.ROOT);
+        if (n.contains("xbox")) {
+            return MoonBridge.LI_CTYPE_XBOX;
+        }
+        if (n.contains("dualsense") || n.contains("dualshock") || n.contains("playstation") ||
+                n.contains("sony interactive") || n.contains("ps5 controller") || n.contains("ps4 controller")) {
+            return MoonBridge.LI_CTYPE_PS;
+        }
+        if (n.contains("nintendo") || n.contains("pro controller") || n.contains("joy-con")) {
+            return MoonBridge.LI_CTYPE_NINTENDO;
+        }
+        return MoonBridge.LI_CTYPE_UNKNOWN;
+    }
+
     private static boolean hasButtonUnderTouchpad(InputDevice dev, byte type) {
         // It has to have a touchpad to have a button under it
         if ((dev.getSources() & InputDevice.SOURCE_TOUCHPAD) != InputDevice.SOURCE_TOUCHPAD) {
@@ -3279,6 +3303,11 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
                 default:
                     // Consult SDL's controller type list to see if it knows
                     type = MoonBridge.guessControllerType(inputDevice.getVendorId(), inputDevice.getProductId());
+                    if (type == MoonBridge.LI_CTYPE_UNKNOWN) {
+                        // Some Android builds (for example the AYN Odin) hand external gamepads to apps through a virtual
+                        // input device that keeps the controller's name but uses its own vendor and product id.
+                        type = guessControllerTypeFromName(inputDevice.getName());
+                    }
                     break;
             }
 
