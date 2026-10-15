@@ -67,7 +67,7 @@
 
     <!--
         The Material 3 shape ladder, in this app's terms. Material components read these
-        three off the theme; the sizes are Ratatoskr's own rounding rather than M3's
+        three off the theme; the sizes are Zefiro's own rounding rather than M3's
         defaults, so a themed dialog and a hand-drawn menu sheet round to the same eye.
     -->
     <dimen name="shape_corner_small">10dp</dimen>

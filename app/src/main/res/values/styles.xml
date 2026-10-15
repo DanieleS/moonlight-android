@@ -21,7 +21,7 @@
         <item name="android:windowBackground">@color/surface</item>
 
         <!--
-            Ratatoskr's palette, bound to the Material 3 colour roles. Every Material
+            Zefiro's palette, bound to the Material 3 colour roles. Every Material
             component the app inflates — dialogs, the top app bar, switches, preferences —
             reads its colours from these roles, so it is skinned from this one palette
             rather than from Material's lifted-grey defaults. Nothing here is a new colour;
@@ -63,17 +63,17 @@
         <item name="android:textColorHint">@color/content_faint</item>
 
         <!-- The shape ladder, so a themed Material surface rounds like a hand-drawn one. -->
-        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Ratatoskr.SmallComponent</item>
-        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Ratatoskr.MediumComponent</item>
-        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Ratatoskr.LargeComponent</item>
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Zefiro.SmallComponent</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Zefiro.MediumComponent</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Zefiro.LargeComponent</item>
 
         <!-- Component overlays: the palette reaches dialogs and preferences through these. -->
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Ratatoskr.MaterialAlertDialog</item>
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Zefiro.MaterialAlertDialog</item>
         <!-- androidx.preference raises its ListPreference/EditTextPreference dialogs
              through AppCompat's AlertDialog, which reads alertDialogTheme and never sees
              materialAlertDialogTheme; without this they stay on Material's stock grey. -->
-        <item name="alertDialogTheme">@style/ThemeOverlay.Ratatoskr.AlertDialog</item>
-        <item name="preferenceTheme">@style/PreferenceThemeOverlay.Ratatoskr</item>
+        <item name="alertDialogTheme">@style/ThemeOverlay.Zefiro.AlertDialog</item>
+        <item name="preferenceTheme">@style/PreferenceThemeOverlay.Zefiro</item>
     </style>
 
     <style name="StreamBaseTheme" parent="AppBaseTheme">
@@ -249,19 +249,19 @@
 
     <!-- ============================================================================
          Material 3 shape ladder. The three sizes Material reads off the theme, rounded
-         to Ratatoskr's own radii so a themed component and a hand-drawn one agree.
+         to Zefiro's own radii so a themed component and a hand-drawn one agree.
          ============================================================================ -->
-    <style name="ShapeAppearance.Ratatoskr.SmallComponent" parent="ShapeAppearance.Material3.SmallComponent">
+    <style name="ShapeAppearance.Zefiro.SmallComponent" parent="ShapeAppearance.Material3.SmallComponent">
         <item name="cornerFamily">rounded</item>
         <item name="cornerSize">@dimen/shape_corner_small</item>
     </style>
 
-    <style name="ShapeAppearance.Ratatoskr.MediumComponent" parent="ShapeAppearance.Material3.MediumComponent">
+    <style name="ShapeAppearance.Zefiro.MediumComponent" parent="ShapeAppearance.Material3.MediumComponent">
         <item name="cornerFamily">rounded</item>
         <item name="cornerSize">@dimen/shape_corner_medium</item>
     </style>
 
-    <style name="ShapeAppearance.Ratatoskr.LargeComponent" parent="ShapeAppearance.Material3.LargeComponent">
+    <style name="ShapeAppearance.Zefiro.LargeComponent" parent="ShapeAppearance.Material3.LargeComponent">
         <item name="cornerFamily">rounded</item>
         <item name="cornerSize">@dimen/shape_corner_large</item>
     </style>
@@ -274,7 +274,7 @@
          applied by hand where a dialog is raised from the stream (a context that does not
          descend from AppTheme).
          ============================================================================ -->
-    <style name="ThemeOverlay.Ratatoskr.MaterialAlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+    <style name="ThemeOverlay.Zefiro.MaterialAlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
         <!-- Raise the dialog off the ground, like the menu sheet, rather than sitting it
              flat on @color/surface. Both the old and new Material dialog backgrounds are
              covered: colorSurface for 1.x, colorSurfaceContainerHigh for the newer roles. -->
@@ -282,19 +282,19 @@
         <item name="colorSurfaceContainerHigh">@color/surface_raised</item>
         <item name="android:colorBackground">@color/surface_raised</item>
 
-        <item name="shapeAppearanceOverlay">@style/ShapeAppearanceOverlay.Ratatoskr.Dialog</item>
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearanceOverlay.Zefiro.Dialog</item>
 
-        <item name="buttonBarPositiveButtonStyle">@style/Widget.Ratatoskr.Button.Dialog</item>
-        <item name="buttonBarNegativeButtonStyle">@style/Widget.Ratatoskr.Button.Dialog</item>
-        <item name="buttonBarNeutralButtonStyle">@style/Widget.Ratatoskr.Button.Dialog</item>
+        <item name="buttonBarPositiveButtonStyle">@style/Widget.Zefiro.Button.Dialog</item>
+        <item name="buttonBarNegativeButtonStyle">@style/Widget.Zefiro.Button.Dialog</item>
+        <item name="buttonBarNeutralButtonStyle">@style/Widget.Zefiro.Button.Dialog</item>
 
-        <item name="materialAlertDialogTitleTextStyle">@style/MaterialAlertDialog.Ratatoskr.Title</item>
+        <item name="materialAlertDialogTitleTextStyle">@style/MaterialAlertDialog.Zefiro.Title</item>
 
         <item name="android:textColorPrimary">@color/content_primary</item>
         <item name="android:textColorSecondary">@color/content_secondary</item>
     </style>
 
-    <style name="ShapeAppearanceOverlay.Ratatoskr.Dialog" parent="">
+    <style name="ShapeAppearanceOverlay.Zefiro.Dialog" parent="">
         <item name="cornerFamily">rounded</item>
         <item name="cornerSize">@dimen/dialog_corner</item>
     </style>
@@ -306,11 +306,11 @@
          inflate into. Only colour, type and a rounded surface are set here; the dialog's
          structure is left to AppCompat.
          ============================================================================ -->
-    <style name="ThemeOverlay.Ratatoskr.AlertDialog" parent="ThemeOverlay.Material3.Dialog.Alert">
+    <style name="ThemeOverlay.Zefiro.AlertDialog" parent="ThemeOverlay.Material3.Dialog.Alert">
         <item name="colorSurface">@color/surface_raised</item>
         <item name="colorSurfaceContainerHigh">@color/surface_raised</item>
         <item name="android:colorBackground">@color/surface_raised</item>
-        <item name="android:windowBackground">@drawable/dialog_background_ratatoskr</item>
+        <item name="android:windowBackground">@drawable/dialog_background_zefiro</item>
 
         <item name="android:textColorPrimary">@color/content_primary</item>
         <item name="android:textColorSecondary">@color/content_secondary</item>
@@ -318,12 +318,12 @@
     </style>
 
     <!-- The dialog's buttons: text buttons carrying the signal, the wash on a press. -->
-    <style name="Widget.Ratatoskr.Button.Dialog" parent="Widget.Material3.Button.TextButton.Dialog">
+    <style name="Widget.Zefiro.Button.Dialog" parent="Widget.Material3.Button.TextButton.Dialog">
         <item name="android:textColor">@color/signal</item>
         <item name="rippleColor">@color/signal_wash</item>
     </style>
 
-    <style name="MaterialAlertDialog.Ratatoskr.Title" parent="MaterialAlertDialog.Material3.Title.Text">
+    <style name="MaterialAlertDialog.Zefiro.Title" parent="MaterialAlertDialog.Material3.Title.Text">
         <item name="android:textColor">@color/content_primary</item>
     </style>
 
@@ -332,32 +332,32 @@
          drawn in the app's quiet-label grammar (muted, tracked, upper case) rather than
          Material's coloured one.
          ============================================================================ -->
-    <style name="PreferenceThemeOverlay.Ratatoskr" parent="PreferenceThemeOverlay">
-        <item name="preferenceCategoryStyle">@style/Preference.Category.Ratatoskr</item>
+    <style name="PreferenceThemeOverlay.Zefiro" parent="PreferenceThemeOverlay">
+        <item name="preferenceCategoryStyle">@style/Preference.Category.Zefiro</item>
 
         <!-- Every row the settings screen actually uses. androidx picks the style per
              preference type, so the layout has to be hung on each one; the types not
              listed (checkBoxPreferenceStyle, which SmallIconCheckboxPreference rides on)
              keep their own layout on purpose. -->
-        <item name="preferenceStyle">@style/Preference.Ratatoskr</item>
-        <item name="switchPreferenceCompatStyle">@style/Preference.Ratatoskr.Switch</item>
-        <item name="dialogPreferenceStyle">@style/Preference.Ratatoskr.Dialog</item>
-        <item name="editTextPreferenceStyle">@style/Preference.Ratatoskr.EditText</item>
+        <item name="preferenceStyle">@style/Preference.Zefiro</item>
+        <item name="switchPreferenceCompatStyle">@style/Preference.Zefiro.Switch</item>
+        <item name="dialogPreferenceStyle">@style/Preference.Zefiro.Dialog</item>
+        <item name="editTextPreferenceStyle">@style/Preference.Zefiro.EditText</item>
     </style>
 
-    <style name="Preference.Category.Ratatoskr" parent="Preference.Category.Material">
-        <item name="android:layout">@layout/preference_category_ratatoskr</item>
+    <style name="Preference.Category.Zefiro" parent="Preference.Category.Material">
+        <item name="android:layout">@layout/preference_category_zefiro</item>
         <item name="iconSpaceReserved">false</item>
     </style>
 
-    <!-- The app's settings row: see @layout/preference_ratatoskr for the reasoning. -->
-    <style name="Preference.Ratatoskr" parent="Preference.Material">
-        <item name="android:layout">@layout/preference_ratatoskr</item>
+    <!-- The app's settings row: see @layout/preference_zefiro for the reasoning. -->
+    <style name="Preference.Zefiro" parent="Preference.Material">
+        <item name="android:layout">@layout/preference_zefiro</item>
         <item name="iconSpaceReserved">false</item>
     </style>
 
-    <style name="Preference.Ratatoskr.Switch" parent="Preference.SwitchPreferenceCompat.Material">
-        <item name="android:layout">@layout/preference_ratatoskr</item>
+    <style name="Preference.Zefiro.Switch" parent="Preference.SwitchPreferenceCompat.Material">
+        <item name="android:layout">@layout/preference_zefiro</item>
         <item name="iconSpaceReserved">false</item>
     </style>
 
@@ -367,30 +367,30 @@
         labels in the same style, so re-parenting these onto the plain Preference style
         drops the EditText out of the dialog and takes the button bar with it.
     -->
-    <style name="Preference.Ratatoskr.Dialog" parent="Preference.DialogPreference.Material">
-        <item name="android:layout">@layout/preference_ratatoskr</item>
+    <style name="Preference.Zefiro.Dialog" parent="Preference.DialogPreference.Material">
+        <item name="android:layout">@layout/preference_zefiro</item>
         <item name="iconSpaceReserved">false</item>
     </style>
 
-    <style name="Preference.Ratatoskr.EditText" parent="Preference.DialogPreference.EditTextPreference.Material">
-        <item name="android:layout">@layout/preference_ratatoskr</item>
+    <style name="Preference.Zefiro.EditText" parent="Preference.DialogPreference.EditTextPreference.Material">
+        <item name="android:layout">@layout/preference_zefiro</item>
         <item name="iconSpaceReserved">false</item>
     </style>
 
     <!-- Two steps of the prominence ladder, not one: the title carries the row, the
          explanation stays underneath it and out of the way. -->
-    <style name="TextAppearance.Ratatoskr.PreferenceTitle" parent="TextAppearance.Material3.BodyLarge">
+    <style name="TextAppearance.Zefiro.PreferenceTitle" parent="TextAppearance.Material3.BodyLarge">
         <item name="android:textColor">@color/content_primary</item>
         <item name="android:textSize">16sp</item>
     </style>
 
-    <style name="TextAppearance.Ratatoskr.PreferenceSummary" parent="TextAppearance.Material3.BodySmall">
+    <style name="TextAppearance.Zefiro.PreferenceSummary" parent="TextAppearance.Material3.BodySmall">
         <item name="android:textColor">@color/content_muted</item>
         <item name="android:textSize">13sp</item>
         <item name="android:lineSpacingMultiplier">1.15</item>
     </style>
 
-    <style name="TextAppearance.Ratatoskr.PreferenceCategory" parent="TextAppearance.Material3.LabelLarge">
+    <style name="TextAppearance.Zefiro.PreferenceCategory" parent="TextAppearance.Material3.LabelLarge">
         <item name="android:textColor">@color/content_muted</item>
         <item name="android:textAllCaps">true</item>
         <item name="android:letterSpacing">0.12</item>
@@ -400,15 +400,15 @@
 
     <!-- The settings top app bar: a plain surface bar, its title in content_primary, its
          back arrow and overflow in the secondary step. No lift, in keeping with the app. -->
-    <style name="Widget.Ratatoskr.Toolbar" parent="Widget.Material3.Toolbar.Surface">
+    <style name="Widget.Zefiro.Toolbar" parent="Widget.Material3.Toolbar.Surface">
         <item name="android:background">@color/surface_deep</item>
         <item name="android:elevation">0dp</item>
         <item name="titleTextColor">@color/content_primary</item>
-        <item name="titleTextAppearance">@style/TextAppearance.Ratatoskr.Toolbar.Title</item>
+        <item name="titleTextAppearance">@style/TextAppearance.Zefiro.Toolbar.Title</item>
         <item name="navigationIconTint">@color/content_secondary</item>
     </style>
 
-    <style name="TextAppearance.Ratatoskr.Toolbar.Title" parent="TextAppearance.Material3.TitleLarge">
+    <style name="TextAppearance.Zefiro.Toolbar.Title" parent="TextAppearance.Material3.TitleLarge">
         <item name="android:textColor">@color/content_primary</item>
         <item name="android:textSize">20sp</item>
     </style>

@@ -4,8 +4,8 @@ name: Release
 # publishes a pre-release. The tag must match versionName in
 # app/build.gradle, so the release commit bumps the version and the tag only points at it.
 #
-# Secrets: RATATOSKR_KEYSTORE_B64 (the .jks, base64), RATATOSKR_KEYSTORE_PASSWORD,
-# RATATOSKR_KEY_ALIAS, RATATOSKR_KEY_PASSWORD.
+# Secrets: ZEFIRO_KEYSTORE_B64 (the .jks, base64), ZEFIRO_KEYSTORE_PASSWORD,
+# ZEFIRO_KEY_ALIAS, ZEFIRO_KEY_PASSWORD.
 
 on:
   push:
@@ -17,7 +17,7 @@ on:
 permissions:
   contents: write
 
-# The certificate every Ratatoskr release so far was signed with. An APK signed with anything else
+# The certificate every Zefiro release so far was signed with. An APK signed with anything else
 # can't update an installed copy, so a mismatch fails the release instead of publishing it.
 env:
   EXPECTED_CERT_SHA256: F9:FE:86:6D:43:36:37:87:4E:8C:EC:D8:9D:1E:AA:FD:B8:BA:CD:44:72:1A:18:CC:83:5D:DB:1D:E9:F6:09:48
@@ -57,33 +57,33 @@ jobs:
 
       - name: Set up release signing
         env:
-          KEYSTORE_B64: ${{ secrets.RATATOSKR_KEYSTORE_B64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.RATATOSKR_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.RATATOSKR_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.RATATOSKR_KEY_PASSWORD }}
+          KEYSTORE_B64: ${{ secrets.ZEFIRO_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ZEFIRO_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ZEFIRO_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ZEFIRO_KEY_PASSWORD }}
         run: |
           mkdir -p key
-          echo "$KEYSTORE_B64" | base64 -d > key/ratatoskr-release.jks
+          echo "$KEYSTORE_B64" | base64 -d > key/zefiro-release.jks
           {
-            echo "ratatoskr.keystore=key/ratatoskr-release.jks"
-            echo "ratatoskr.keystorePassword=$KEYSTORE_PASSWORD"
-            echo "ratatoskr.keyAlias=$KEY_ALIAS"
-            echo "ratatoskr.keyPassword=$KEY_PASSWORD"
+            echo "zefiro.keystore=key/zefiro-release.jks"
+            echo "zefiro.keystorePassword=$KEYSTORE_PASSWORD"
+            echo "zefiro.keyAlias=$KEY_ALIAS"
+            echo "zefiro.keyPassword=$KEY_PASSWORD"
           } > local.properties
 
       - name: Unit tests
         run: ./gradlew --no-daemon :app:testNonRoot_gameDebugUnitTest
 
-      # A suffixed tag (v20.2.10-beta.1) is a beta: it builds as its own app,
-      # dev.kylobyte.ratatoskr.beta, installed next to the stable one.
+      # A suffixed tag (v1.0.1-beta.1) is a beta: it builds as its own app,
+      # dev.kylobyte.zefiro.beta, installed next to the stable one.
       - name: Release build
         run: |
           if [[ "$VERSION" == *-* ]]; then
             ./gradlew --no-daemon :app:assembleNonRoot_gameRelease -PbetaChannel
-            echo "APK=ratatoskr-beta-nonRoot_game-release.apk" >> "$GITHUB_ENV"
+            echo "APK=zefiro-beta-nonRoot_game-release.apk" >> "$GITHUB_ENV"
           else
             ./gradlew --no-daemon :app:assembleNonRoot_gameRelease
-            echo "APK=ratatoskr-nonRoot_game-release.apk" >> "$GITHUB_ENV"
+            echo "APK=zefiro-nonRoot_game-release.apk" >> "$GITHUB_ENV"
           fi
 
       - name: Check the signature
@@ -102,7 +102,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
-          name: ratatoskr-dry-run
+          name: zefiro-dry-run
           path: ${{ env.APK }}
           retention-days: 3
 
@@ -117,7 +117,7 @@ jobs:
           else
             notes_args=(--generate-notes)
           fi
-          # A suffixed tag (v20.2.10-beta.1) is a nightly beta: a pre-release, which Obtainium skips
+          # A suffixed tag (v1.0.1-beta.1) is a nightly beta: a pre-release, which Obtainium skips
           # unless asked to and which never becomes "latest". Plain vX.Y.Z tags are the stable ones.
           if [[ "$VERSION" == *-* ]]; then
             channel_args=(--prerelease --latest=false)
@@ -129,4 +129,4 @@ jobs:
 
       - name: Remove the keystore
         if: always()
-        run: rm -f key/ratatoskr-release.jks local.properties
+        run: rm -f key/zefiro-release.jks local.properties

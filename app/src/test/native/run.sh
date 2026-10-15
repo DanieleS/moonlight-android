@@ -6,7 +6,7 @@ set -eu
 
 here=$(cd "$(dirname "$0")" && pwd)
 jni="$here/../../main/jni"
-out="${TMPDIR:-/tmp}/ratatoskr-native-tests"
+out="${TMPDIR:-/tmp}/zefiro-native-tests"
 mkdir -p "$out"
 
 "${CXX:-c++}" -std=c++17 -O1 -g -Wall -Wextra -Wno-missing-field-initializers -Werror \

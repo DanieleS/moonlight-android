@@ -2,7 +2,7 @@ package com.limelight.utils;
 
 /**
  * The capture tool on the host PC that the in-game menu's Screenshot, "Save last 30 s" and
- * recording entries drive. Ratatoskr presses the tool's own keyboard shortcuts over the stream,
+ * recording entries drive. Zefiro presses the tool's own keyboard shortcuts over the stream,
  * as you would at the PC, the same way CouchPilot's CaptureService does:
  *
  * <pre>

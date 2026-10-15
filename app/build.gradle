@@ -2,14 +2,14 @@ apply plugin: 'com.android.application'
 
 // Release signing. The keystore lives in key/, and its credentials in local.properties; both are
 // gitignored, so a checkout without them still builds — it just produces an unsigned release.
-// Losing this keystore means no device can ever update an installed Ratatoskr again, only
+// Losing this keystore means no device can ever update an installed Zefiro again, only
 // reinstall it from scratch, so it wants a backup somewhere durable.
 def keystorePropsFile = rootProject.file("local.properties")
 def keystoreProps = new Properties()
 if (keystorePropsFile.exists()) {
     keystorePropsFile.withInputStream { keystoreProps.load(it) }
 }
-def releaseKeystorePath = keystoreProps["ratatoskr.keystore"]
+def releaseKeystorePath = keystoreProps["zefiro.keystore"]
 def releaseKeystore = releaseKeystorePath != null ? rootProject.file(releaseKeystorePath) : null
 def hasReleaseSigning = releaseKeystore != null && releaseKeystore.exists()
 // Betas ship as their own app (-PbetaChannel, set by the release workflow for suffixed tags), so
@@ -20,6 +20,12 @@ def betaChannel = project.hasProperty('betaChannel')
 android {
     ndkVersion "27.0.12077973"
 
+    // The Beta app's icon carries a BETA ribbon (tools/brand/make_icons.py): its resources sit on
+    // top of main's in the release build that becomes a beta.
+    if (betaChannel) {
+        sourceSets.release.res.srcDirs += 'src/beta/res'
+    }
+
     compileSdk = 36
 
     namespace 'com.limelight'
@@ -28,11 +34,11 @@ android {
         minSdk 21
         targetSdk 34
 
-        versionName "20.3.0-beta.1"
+        versionName "1.0.0"
         versionCode = 62
 
         // English only. The translations come from upstream and cover well under half of the
-        // strings, and none of Ratatoskr's own, so a translated device saw a mix of languages.
+        // strings, and none of Zefiro's own, so a translated device saw a mix of languages.
         resourceConfigurations += ['en']
 
         // Generate native debug symbols to allow Google Play to symbolicate our native crashes
@@ -43,9 +49,9 @@ android {
         if (hasReleaseSigning) {
             release {
                 storeFile releaseKeystore
-                storePassword keystoreProps["ratatoskr.keystorePassword"]
-                keyAlias keystoreProps["ratatoskr.keyAlias"]
-                keyPassword keystoreProps["ratatoskr.keyPassword"]
+                storePassword keystoreProps["zefiro.keystorePassword"]
+                keyAlias keystoreProps["zefiro.keyAlias"]
+                keyPassword keystoreProps["zefiro.keyPassword"]
             }
         }
     }
@@ -72,7 +78,7 @@ android {
                     "obtainium_app_url",
                     "data:text/html;base64,PGgxPlJvb3QgYnVpbGQgaXMgbm90IGF2YWlsYWJsZTwvaDE+"
 
-            applicationId "dev.kylobyte.ratatoskr.root"
+            applicationId "dev.kylobyte.zefiro.root"
             dimension "root"
             buildConfigField "boolean", "ROOT_BUILD", "true"
         }
@@ -86,9 +92,9 @@ android {
 
             resValue "string",
                     "obtainium_app_url",
-                    "https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22dev.kylobyte.ratatoskr%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FDanieleS%2Fmoonlight-android%22%2C%22author%22%3A%22DanieleS%22%2C%22name%22%3A%22Ratatoskr%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22nonRoot%5C%22%2C%5C%22matchGroutToUse%5C%22%3A%5C%22%241%5C%22%2C%5C%22versionExtractionRegEx%5C%22%3A%5C%22v%28.%2B%29%5C%22%7D%22%7D"
+                    "https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22dev.kylobyte.zefiro%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FDanieleS%2Fzefiro%22%2C%22author%22%3A%22DanieleS%22%2C%22name%22%3A%22Zefiro%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22nonRoot%5C%22%2C%5C%22matchGroutToUse%5C%22%3A%5C%22%241%5C%22%2C%5C%22versionExtractionRegEx%5C%22%3A%5C%22v%28.%2B%29%5C%22%7D%22%7D"
 
-            applicationId "dev.kylobyte.ratatoskr"
+            applicationId "dev.kylobyte.zefiro"
             dimension "root"
             buildConfigField "boolean", "ROOT_BUILD", "false"
         }
@@ -128,9 +134,9 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix ".debug"
-            resValue "string", "app_label", "Ratatoskr Debug"
-            resValue "string", "app_label_root", "Ratatoskr Debug (Root)"
-            resValue "string", "app_label_game", "Ratatoskr Debug (Game)"
+            resValue "string", "app_label", "Zefiro Debug"
+            resValue "string", "app_label_root", "Zefiro Debug (Root)"
+            resValue "string", "app_label_game", "Zefiro Debug (Game)"
 
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
@@ -166,16 +172,16 @@ android {
             // is to please change the applicationId before you publish.
             //
             // TL;DR: don't publish under someone else's applicationId.
-            // Ours is set per flavor above: dev.kylobyte.ratatoskr.
+            // Ours is set per flavor above: dev.kylobyte.zefiro.
             if (betaChannel) {
                 applicationIdSuffix ".beta"
-                resValue "string", "app_label", "Ratatoskr Beta"
-                resValue "string", "app_label_root", "Ratatoskr Beta (Root)"
-                resValue "string", "app_label_game", "Ratatoskr Beta (Game)"
+                resValue "string", "app_label", "Zefiro Beta"
+                resValue "string", "app_label_root", "Zefiro Beta (Root)"
+                resValue "string", "app_label_game", "Zefiro Beta (Game)"
             } else {
-                resValue "string", "app_label", "Ratatoskr"
-                resValue "string", "app_label_root", "Ratatoskr (Root)"
-                resValue "string", "app_label_game", "Ratatoskr (Game)"
+                resValue "string", "app_label", "Zefiro"
+                resValue "string", "app_label_root", "Zefiro (Root)"
+                resValue "string", "app_label_game", "Zefiro (Game)"
             }
 
             if (hasReleaseSigning) {

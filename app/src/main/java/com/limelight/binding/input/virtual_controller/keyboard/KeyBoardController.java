@@ -197,7 +197,7 @@ public class KeyBoardController {
         buttonClearAll.setAlpha(0.7f);
         buttonClearAll.setVisibility(View.GONE);
         buttonClearAll.setOnClickListener(v -> {
-            AlertDialog.Builder builder = new MaterialAlertDialogBuilder(context, R.style.ThemeOverlay_Ratatoskr_MaterialAlertDialog);
+            AlertDialog.Builder builder = new MaterialAlertDialogBuilder(context, R.style.ThemeOverlay_Zefiro_MaterialAlertDialog);
             builder.setTitle(context.getString(R.string.keyboard_clear_all_confirm_title));
             builder.setMessage(context.getString(R.string.keyboard_clear_all_confirm_message));
             builder.setPositiveButton(context.getString(R.string.yes), (dialog, which) -> {
@@ -504,7 +504,7 @@ public class KeyBoardController {
             String[] keyNames = keyNamesList.toArray(new String[0]);
             boolean[] checkedItems = new boolean[keyNames.length];
 
-            AlertDialog.Builder builder = new MaterialAlertDialogBuilder(context, R.style.ThemeOverlay_Ratatoskr_MaterialAlertDialog);
+            AlertDialog.Builder builder = new MaterialAlertDialogBuilder(context, R.style.ThemeOverlay_Zefiro_MaterialAlertDialog);
             builder.setTitle(context.getString(R.string.keyboard_select_keys));
             builder.setMultiChoiceItems(keyNames, checkedItems, (dialog, which, isChecked) -> {
                 checkedItems[which] = isChecked;

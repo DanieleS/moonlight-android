@@ -186,7 +186,7 @@ public abstract class VirtualControllerElement extends View {
     }
 
     protected void showConfigurationDialog() {
-        AlertDialog.Builder alertBuilder = new MaterialAlertDialogBuilder(getContext(), R.style.ThemeOverlay_Ratatoskr_MaterialAlertDialog);
+        AlertDialog.Builder alertBuilder = new MaterialAlertDialogBuilder(getContext(), R.style.ThemeOverlay_Zefiro_MaterialAlertDialog);
 
         alertBuilder.setTitle("Configuration");
 
