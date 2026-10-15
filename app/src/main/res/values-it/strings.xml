@@ -175,7 +175,7 @@
     <string name="title_auto_reconnect">Riconnetti dopo un calo di rete</string>
     <string name="summary_auto_reconnect">Quando il Wi-Fi cade, tiene l\'ultimo fotogramma sullo schermo e riprende il gioco appena torna la rete, invece di chiudere lo stream</string>
     <string name="title_network_timeout">Mantieni una connessione silenziosa per</string>
-    <string name="summary_network_timeout">Quanto lo stream aspetta di risentire il PC prima di considerare persa la connessione e riconnettersi. Un PC con Sunshine o Vibepollo standard lascia andare un client silenzioso dopo circa 5 s, qualunque sia il suo ping_timeout: un\'attesa più lunga ritarda solo la riconnessione, a meno che il PC non sia stato modificato per tenere la sessione più a lungo</string>
+    <string name="summary_network_timeout">Quanto lo stream aspetta di risentire il PC prima di considerare persa la connessione e riconnettersi. Un PC con Sunshine o Scirocco standard lascia andare un client silenzioso dopo circa 5 s, qualunque sia il suo ping_timeout: un\'attesa più lunga ritarda solo la riconnessione, a meno che il PC non sia stato modificato per tenere la sessione più a lungo</string>
     <string name="title_reconnect_window">Continua a tentare la riconnessione per</string>
     <string name="summary_reconnect_window">Per quanto tempo provare a riprendere il gioco una volta persa la connessione</string>
     <string name="applist_menu_hide_app">Nascondi App</string>
@@ -317,7 +317,7 @@
     <string name="title_enable_commit_text">Abilita input commit-text (swipe/voce)</string>
     <string name="summary_enable_commit_text">Invia al PC testi multi-carattere provenienti dalle tastiere software (scrittura a gesto, suggerimenti, dettatura vocale). Può causare problemi ai giochi che richiedono la pressione singola dei tasti.</string>
     <string name="title_text_focus_keyboard">Tastiera quando un campo di testo è selezionato</string>
-    <string name="summary_text_focus_keyboard">Apre da sola una tastiera quando selezioni un campo di testo sul PC: sul secondo schermo se c\'è il pannello companion o il controller del display esterno, altrimenti sopra lo stream. Richiede un host Vibepollo con i suggerimenti di focus attivi; con gli altri host non cambia nulla.</string>
+    <string name="summary_text_focus_keyboard">Apre da sola una tastiera quando selezioni un campo di testo sul PC: sul secondo schermo se c\'è il pannello companion o il controller del display esterno, altrimenti sopra lo stream. Richiede un host Scirocco con i suggerimenti di focus attivi; con gli altri host non cambia nulla.</string>
 
     <string name="action_stats">Statistiche</string>
     <string name="stats_title">Statistiche</string>
@@ -457,7 +457,7 @@
     <string name="game_menu_capture_replay">Salva gli ultimi 30 s</string>
     <string name="game_menu_capture_record">Avvia/ferma registrazione</string>
     <string name="title_adaptive_bitrate">Bitrate adattivo</string>
-    <string name="summary_adaptive_bitrate">Abbassa il bitrate quando la rete perde fotogrammi o rallenta, e lo riporta al bitrate impostato sopra quando si riprende. Serve un host che possa cambiare il bitrate durante lo stream, come Vibepollo; con gli altri non cambia nulla.</string>
+    <string name="summary_adaptive_bitrate">Abbassa il bitrate quando la rete perde fotogrammi o rallenta, e lo riporta al bitrate impostato sopra quando si riprende. Serve un host che possa cambiare il bitrate durante lo stream, come Scirocco; con gli altri non cambia nulla.</string>
     <string name="title_adaptive_bitrate_mode">Modalità del bitrate adattivo</string>
     <string name="summary_adaptive_bitrate_mode">Quanto facilmente si rinuncia a qualità d\'immagine per uno stream fluido</string>
     <string name="adaptive_bitrate_mode_quality">Prima la qualità</string>
