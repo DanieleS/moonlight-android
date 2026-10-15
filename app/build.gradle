@@ -20,6 +20,12 @@ def betaChannel = project.hasProperty('betaChannel')
 android {
     ndkVersion "27.0.12077973"
 
+    // The Beta app's icon carries a BETA ribbon (tools/brand/make_icons.py): its resources sit on
+    // top of main's in the release build that becomes a beta.
+    if (betaChannel) {
+        sourceSets.release.res.srcDirs += 'src/beta/res'
+    }
+
     compileSdk = 36
 
     namespace 'com.limelight'
