@@ -1,13 +1,13 @@
 # Zefiro
 
 An open source game streaming client for [Sunshine](https://github.com/LizardByte/Sunshine)/[Apollo](https://github.com/ClassicOldSong/Apollo)
-and the [Vibepollo](https://github.com/DanieleS/Vibepollo) fork. It started as a fork of
+and the [Scirocco](https://github.com/DanieleS/scirocco) host (our fork of Vibepollo). It started as a fork of
 [Artemis](https://github.com/ClassicOldSong/moonlight-android) (itself a fork of Moonlight) and now goes
 its own way: it no longer merges from Artemis, and its version numbers start again from 1.0.0.
 
 Zefiro streams your collection of games from your Windows PC to your Android device, at home or over
 the internet, and reworks how you *browse* that collection: a cover-flow library enriched with the
-Playnite metadata a Vibepollo host serves.
+Playnite metadata a Scirocco host serves.
 
 It is tailored specifically for the [Ayn Thor](https://www.ayntec.com/products/ayn-thor) handheld: the layout, controls and
 library presentation are built around that device. It still runs on other Android devices, but the Thor
@@ -16,7 +16,7 @@ is what it is designed for.
 # Library
 
 Zefiro's main addition over Artemis is the library. When paired with a
-[Vibepollo](https://github.com/DanieleS/Vibepollo) host — which exposes Playnite metadata over its
+[Scirocco](https://github.com/DanieleS/scirocco) host — which exposes Playnite metadata over its
 `/appmetadata` endpoint — the library becomes far richer than a plain grid of app names:
 
 1. A cover-flow presentation with hero backgrounds, alongside an "All games" grid.
@@ -27,7 +27,7 @@ Zefiro's main addition over Artemis is the library. When paired with a
 5. Library sync to a folder that external scanning frontends can read.
 6. Play statistics, from the app bar: a week, month or year at a time with a chart per day or month,
    the most played games, the library's totals and the games worth picking up again, as
-   [CouchPilot](https://github.com/DanieleS/couchpilot) shows them. Vibepollo serves them
+   [CouchPilot](https://github.com/DanieleS/couchpilot) shows them. Scirocco serves them
    (`/appstats`) from the sessions the
    [GameActivity](https://github.com/Lacro59/playnite-gameactivity-plugin) Playnite extension
    records; without it only Playnite's totals are there, and the screen says to install it. Fully
@@ -41,11 +41,11 @@ Zefiro's main addition over Artemis is the library. When paired with a
 9. The bitrate, changed mid-stream from the in-game menu, and optionally adapted on its own: it
    steps down when the network loses frames, the round trip swells or the decoder falls behind,
    and climbs back to the bitrate you chose once things are clean (stream setting "Adaptive
-   bitrate"). Needs Vibepollo's `/bitrate`; the controller is ported from
+   bitrate"). Needs Scirocco's `/bitrate`; the controller is ported from
    [Moonlight V+](https://github.com/qiin2333/moonlight-vplus).
 10. Reconnect after a network drop (advanced setting, off by default): the last frame stays on
     screen while the Wi-Fi is gone, and the game comes back through the host's `/resume` once it
-    returns. A stock Sunshine/Vibepollo host lets go of a silent client after about 5 s (the ENet
+    returns. A stock Sunshine/Vibepollo/Scirocco host lets go of a silent client after about 5 s (the ENet
     timeout of its control server, which `ping_timeout` does not change), so the "hold" time
     defaults to 5 s; holding longer only helps with a host changed to keep the session longer.
 
@@ -55,18 +55,18 @@ Statistics, achievements and the live bitrate only appear where the host answers
 
 # PyroWave (experimental)
 
-A [Vibepollo](https://github.com/DanieleS/Vibepollo) host can stream [PyroWave](https://github.com/Themaister/pyrowave),
+A [Scirocco](https://github.com/DanieleS/scirocco) host can stream [PyroWave](https://github.com/Themaister/pyrowave),
 an intra-only wavelet codec encoded and decoded on the GPU. Every frame stands alone, so a lost packet
 costs at most that frame (often only some detail in it), and encode and decode take a few milliseconds.
 The price is bandwidth: a clean picture needs hundreds of Mbps.
 
 Turn it on in the stream settings ("Use PyroWave when the host offers it", under the codec settings);
 it is off by default. It needs a 64-bit device with a Vulkan 1.3 GPU, which the Thor's Adreno 740 is.
-PyroWave streams have their own bitrate setting: at 0 it follows Vibepollo's guidance of 1.6 bits per
+PyroWave streams have their own bitrate setting: at 0 it follows Scirocco's guidance of 1.6 bits per
 pixel (about 400 Mbps at 1080p120), and the regular bitrate stays for the codecs PyroWave falls back to.
 MediaCodec cannot decode PyroWave: the frames go from moonlight-core to a native Vulkan renderer
 (`app/src/main/jni/pyrowave-renderer`), on the fragment decode path on Adreno. The codec is
-vendored at the exact commit Vibepollo encodes with (`app/src/main/jni/pyrowave/VENDOR.txt`), since the
+vendored at the exact commit Scirocco encodes with (`app/src/main/jni/pyrowave/VENDOR.txt`), since the
 bitstream has no version field; a host that advertises another revision, or no PyroWave at all, gets the
 usual codecs. 8-bit 4:2:0 SDR only for now: with a PyroWave host the app does not ask for HDR. PyroWave
 is not used on metered networks or in the 3D render modes.

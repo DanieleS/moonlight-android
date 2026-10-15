@@ -55,7 +55,7 @@
             android:src="@drawable/ic_remote_session"
             android:visibility="gone" />
 
-        <!-- Play statistics and achievements, CouchPilot's, served by Vibepollo. Only shown
+        <!-- Play statistics and achievements, CouchPilot's, served by Scirocco. Only shown
              when the host answers /appstats. -->
         <ImageButton
             android:id="@+id/statsButton"
