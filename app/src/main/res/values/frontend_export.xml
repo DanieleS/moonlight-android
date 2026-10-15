@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="frontend_export_menu">Add games to ES-DE</string>
+    <string name="frontend_export_roms_title">Pick your ROMs folder</string>
+    <string name="frontend_export_roms_message">Zefiro puts one file per game in a zefiro folder there. ES-DE, Daijisho and Pegasus start the stream from that file.</string>
+    <string name="frontend_export_esde_title">Pick your ES-DE folder</string>
+    <string name="frontend_export_esde_message">This adds the Zefiro system and the game covers to ES-DE. Skip it if you use another frontend.</string>
+    <string name="frontend_export_pick">Pick folder</string>
+    <string name="frontend_export_skip">Skip</string>
+    <string name="frontend_export_no_apps">Open this PC\'s games once, then try again.</string>
+    <string name="frontend_export_no_picker">No folder picker is available on this device.</string>
+    <string name="frontend_export_working">Adding games…</string>
+    <plurals name="frontend_export_done">
+        <item quantity="one">%1$d game added. Restart ES-DE to see it.</item>
+        <item quantity="other">%1$d games added. Restart ES-DE to see them.</item>
+    </plurals>
+    <string name="frontend_export_failed">Couldn\'t add the games. Pick a folder on your device or SD card.</string>
+</resources>
