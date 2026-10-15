@@ -110,7 +110,7 @@ Zefiro carries the Artemis feature set, as it stood when it forked, on top of up
 ## Downloads
 
 * [Download the APK directly](https://github.com/DanieleS/zefiro/releases) — grab the `nonRoot` APK from the latest release.
-* [Use Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22dev.kylobyte.zefiro%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FDanieleS%2Fzefiro%22%2C%22author%22%3A%22DanieleS%22%2C%22name%22%3A%22Zefiro%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22nonRoot%5C%22%2C%5C%22matchGroutToUse%5C%22%3A%5C%22%241%5C%22%2C%5C%22versionExtractionRegEx%5C%22%3A%5C%22v(.%2B)%5C%22%7D%22%7D) (recommended) — auto-updates from the GitHub releases.
+* [Use Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22dev.kylobyte.zefiro%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FDanieleS%2Fzefiro%22%2C%22author%22%3A%22DanieleS%22%2C%22name%22%3A%22Zefiro%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22%5Ezefiro-nonRoot%5C%22%2C%5C%22matchGroupToUse%5C%22%3A%5C%22%241%5C%22%2C%5C%22versionExtractionRegEx%5C%22%3A%5C%22v(.%2B)%5C%22%7D%22%7D) (recommended) — auto-updates from the GitHub releases.
 
 ## Building
 
