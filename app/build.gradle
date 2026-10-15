@@ -35,7 +35,7 @@ android {
         targetSdk 34
 
         versionName "1.0.0-beta.1"
-        versionCode = 63
+        versionCode = 64
 
         // English only. The translations come from upstream and cover well under half of the
         // strings, and none of Zefiro's own, so a translated device saw a mix of languages.
