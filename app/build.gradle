@@ -28,8 +28,8 @@ android {
         minSdk 21
         targetSdk 34
 
-        versionName "20.2.9"
-        versionCode = 60
+        versionName "20.3.0-beta.1"
+        versionCode = 61
 
         // English only. The translations come from upstream and cover well under half of the
         // strings, and none of Ratatoskr's own, so a translated device saw a mix of languages.
