@@ -39,7 +39,7 @@ import okhttp3.ResponseBody;
  *
  * <h3>Where views come from</h3>
  *
- * ratatoskr-telemetry-views builds each view into one HTML file and lists them in an
+ * zefiro-telemetry-views builds each view into one HTML file and lists them in an
  * {@code index.json}: the contract id, the caret range of versions the view reads, the file, and
  * its sha256. The same index is read from two places, in this order ({@link Chain}):
  * <ol>
@@ -281,7 +281,7 @@ public interface TelemetryViewStore {
     }
 
     /**
-     * The views published to GitHub Pages by ratatoskr-telemetry-views.
+     * The views published to GitHub Pages by zefiro-telemetry-views.
      *
      * <p>Only the index and the view for the contract actually announced are downloaded, never the
      * whole catalogue. Both are kept in the app's private files, so a view downloaded once keeps
@@ -292,7 +292,7 @@ public interface TelemetryViewStore {
      */
     final class Published implements TelemetryViewStore {
 
-        private static final String BASE_URL = "https://danieles.github.io/ratatoskr-telemetry-views/";
+        private static final String BASE_URL = "https://danieles.github.io/zefiro-telemetry-views/";
         private static final String DIRECTORY = "telemetry-views-published";
         private static final String INDEX = "index.json";
         private static final long INDEX_MAX_AGE_MS = TimeUnit.DAYS.toMillis(1);
