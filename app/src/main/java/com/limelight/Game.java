@@ -5301,7 +5301,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         }
         final MouseModeOption[] optionArray = options.toArray(new MouseModeOption[0]);
 
-        new MaterialAlertDialogBuilder(context, R.style.ThemeOverlay_Ratatoskr_MaterialAlertDialog)
+        new MaterialAlertDialogBuilder(context, R.style.ThemeOverlay_Zefiro_MaterialAlertDialog)
                 .setTitle(getString(R.string.game_menu_select_mouse_mode))
                 .setItems(labels, (dialog, which) -> {
                     dialog.dismiss();
@@ -5414,7 +5414,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
         } else {
             context = this;
         }
-        AlertDialog.Builder builder = new MaterialAlertDialogBuilder(context, R.style.ThemeOverlay_Ratatoskr_MaterialAlertDialog);
+        AlertDialog.Builder builder = new MaterialAlertDialogBuilder(context, R.style.ThemeOverlay_Zefiro_MaterialAlertDialog);
         builder.setTitle(R.string.game_dialog_title_quit_confirm);
         builder.setMessage(R.string.game_dialog_message_quit_confirm);
 

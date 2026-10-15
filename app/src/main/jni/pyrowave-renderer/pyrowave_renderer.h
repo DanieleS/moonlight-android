@@ -1,4 +1,4 @@
-// PyroWave renderer for Ratatoskr (arm64-v8a only).
+// PyroWave renderer for Zefiro (arm64-v8a only).
 //
 // PyroWave (docs/pyrowave-protocol.md in Vibepollo) is an intra-only GPU
 // wavelet codec. MediaCodec cannot decode it, so this module

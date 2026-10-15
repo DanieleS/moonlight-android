@@ -1,4 +1,4 @@
-// PyroWave renderer for Ratatoskr: decodes each frame with PyroWave on Vulkan
+// PyroWave renderer for Zefiro: decodes each frame with PyroWave on Vulkan
 // and presents it in a swapchain on the stream's Surface.
 //
 // Ported from LavArtemis (Lavagnou/LavArtemis 34e3daa6, GPLv3), with the
@@ -309,8 +309,8 @@ struct VulkanContext {
         }
 
         appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-        appInfo.pApplicationName = "Ratatoskr";
-        appInfo.pEngineName = "Ratatoskr PyroWave";
+        appInfo.pApplicationName = "Zefiro";
+        appInfo.pEngineName = "Zefiro PyroWave";
         appInfo.apiVersion = VK_API_VERSION_1_3;
 
         instanceInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;

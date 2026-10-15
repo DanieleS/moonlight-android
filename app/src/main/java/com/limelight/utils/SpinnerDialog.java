@@ -128,7 +128,7 @@ public class SpinnerDialog implements Runnable,OnCancelListener {
         if (dialog == null)
         {
             MaterialAlertDialogBuilder builder =
-                    new MaterialAlertDialogBuilder(activity, R.style.ThemeOverlay_Ratatoskr_MaterialAlertDialog);
+                    new MaterialAlertDialogBuilder(activity, R.style.ThemeOverlay_Zefiro_MaterialAlertDialog);
 
             if (!TextUtils.isEmpty(title)) {
                 builder.setTitle(title);

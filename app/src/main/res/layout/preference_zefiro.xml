@@ -53,14 +53,14 @@
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:singleLine="true"
-            android:textAppearance="@style/TextAppearance.Ratatoskr.PreferenceTitle" />
+            android:textAppearance="@style/TextAppearance.Zefiro.PreferenceTitle" />
 
         <TextView
             android:id="@android:id/summary"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="3dp"
-            android:textAppearance="@style/TextAppearance.Ratatoskr.PreferenceSummary" />
+            android:textAppearance="@style/TextAppearance.Zefiro.PreferenceSummary" />
 
     </LinearLayout>
 

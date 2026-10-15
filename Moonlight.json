@@ -42,21 +42,21 @@
       "extra": ""
     },
     {
-      "name": "Ratatoskr",
-      "uniqueId": "moonlight.dev.kylobyte.ratatoskr",
-      "description": "Supported extensions: ratatoskr",
-      "acceptedFilenameRegex": "^(.*)\\.(?:ratatoskr)$",
-      "amStartArguments": "-n dev.kylobyte.ratatoskr/com.limelight.ShortcutTrampoline\n -a android.intent.action.VIEW\n -d {file.uri}\n",
+      "name": "Zefiro",
+      "uniqueId": "moonlight.dev.kylobyte.zefiro",
+      "description": "Supported extensions: zefiro",
+      "acceptedFilenameRegex": "^(.*)\\.(?:zefiro)$",
+      "amStartArguments": "-n dev.kylobyte.zefiro/com.limelight.ShortcutTrampoline\n -a android.intent.action.VIEW\n -d {file.uri}\n",
       "killPackageProcesses": true,
       "killPackageProcessesWarning": true,
       "extra": ""
     },
     {
-      "name": "Ratatoskr Debug",
-      "uniqueId": "moonlight.dev.kylobyte.ratatoskr.debug",
-      "description": "Supported extensions: ratatoskr",
-      "acceptedFilenameRegex": "^(.*)\\.(?:ratatoskr)$",
-      "amStartArguments": "-n dev.kylobyte.ratatoskr.debug/com.limelight.ShortcutTrampoline\n -a android.intent.action.VIEW\n -d {file.uri}\n",
+      "name": "Zefiro Debug",
+      "uniqueId": "moonlight.dev.kylobyte.zefiro.debug",
+      "description": "Supported extensions: zefiro",
+      "acceptedFilenameRegex": "^(.*)\\.(?:zefiro)$",
+      "amStartArguments": "-n dev.kylobyte.zefiro.debug/com.limelight.ShortcutTrampoline\n -a android.intent.action.VIEW\n -d {file.uri}\n",
       "killPackageProcesses": true,
       "killPackageProcessesWarning": true,
       "extra": ""

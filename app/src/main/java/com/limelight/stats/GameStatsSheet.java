@@ -24,7 +24,7 @@ import java.util.List;
 
 /**
  * One game's statistics and achievements, raised over the library or the statistics page:
- * CouchPilot's game sheet, minus what Ratatoskr already offers elsewhere (playing, installing).
+ * CouchPilot's game sheet, minus what Zefiro already offers elsewhere (playing, installing).
  *
  * <p>The play figures come from {@code /appstats?appuuid=} and the achievements from
  * {@code /appachievements}; either can be missing (a game SuccessStory doesn't follow, a game

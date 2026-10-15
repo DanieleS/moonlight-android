@@ -28,7 +28,7 @@ import java.util.Locale;
  * hunting above it. Steps up are fewer and larger than V+'s +2%/+5% every few seconds, because on
  * Vibepollo with NVENC every raise resets the rate control and forces a key frame, a burst of
  * traffic that is itself the kind of thing that loses frames on Wi-Fi. And besides loss it
- * watches the two other numbers Ratatoskr already measures. A round trip well above the stream's
+ * watches the two other numbers Zefiro already measures. A round trip well above the stream's
  * recent best, a queue building somewhere before any frame is lost, held for three samples, steps
  * down by 10% and keeps the bitrate from probing up until it clears. Decode times longer than a
  * frame are only a maybe: how long a hardware decoder takes depends far more on resolution and

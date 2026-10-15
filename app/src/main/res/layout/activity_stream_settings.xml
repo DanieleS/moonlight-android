@@ -24,7 +24,7 @@
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/settings_toolbar"
-            style="@style/Widget.Ratatoskr.Toolbar"
+            style="@style/Widget.Zefiro.Toolbar"
             android:layout_width="match_parent"
             android:layout_height="@dimen/settings_bar_height"
             app:navigationContentDescription="@string/settings_back"

@@ -43,11 +43,11 @@ import java.util.Set;
  */
 public final class CocoonSync {
 
-    /** Matches the {@code acceptedFilenameRegex} of the Ratatoskr player in the platform file. */
-    private static final String EXTENSION = ".ratatoskr";
+    /** Matches the {@code acceptedFilenameRegex} of the Zefiro player in the platform file. */
+    private static final String EXTENSION = ".zefiro";
 
     /** Stamped into every file we write, and the only reason we would ever delete one. */
-    private static final String GENERATED_BY = "ratatoskr-sync";
+    private static final String GENERATED_BY = "zefiro-sync";
 
     private static final String MIME_TYPE = "application/octet-stream";
 

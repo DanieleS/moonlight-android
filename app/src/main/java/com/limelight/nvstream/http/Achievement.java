@@ -5,7 +5,7 @@ import org.json.JSONObject;
 /**
  * One achievement, as SuccessStory keeps it on the host and Vibepollo serves it from
  * {@code /appachievements}, {@code /appachievements/recent} and the {@code achievements} block of
- * {@code /appstats}. Ratatoskr never fetches achievements from Steam, Xbox or anyone else: this is
+ * {@code /appstats}. Zefiro never fetches achievements from Steam, Xbox or anyone else: this is
  * only ever what SuccessStory already wrote down on the PC.
  *
  * <p>The game's own fields ({@link #getAppUuid()}, {@link #getGame()}) are present only in the

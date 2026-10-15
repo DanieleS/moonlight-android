@@ -1,10 +1,11 @@
-# Ratatoskr
+# Zefiro
 
-A fork of [Artemis](https://github.com/ClassicOldSong/moonlight-android) (itself a fork of Moonlight),
-an open source client for [Sunshine](https://github.com/LizardByte/Sunshine)/[Apollo](https://github.com/ClassicOldSong/Apollo)
-and the [Vibepollo](https://github.com/DanieleS/Vibepollo) fork.
+An open source game streaming client for [Sunshine](https://github.com/LizardByte/Sunshine)/[Apollo](https://github.com/ClassicOldSong/Apollo)
+and the [Vibepollo](https://github.com/DanieleS/Vibepollo) fork. It started as a fork of
+[Artemis](https://github.com/ClassicOldSong/moonlight-android) (itself a fork of Moonlight) and now goes
+its own way: it no longer merges from Artemis, and its version numbers start again from 1.0.0.
 
-Ratatoskr streams your collection of games from your Windows PC to your Android device, at home or over
+Zefiro streams your collection of games from your Windows PC to your Android device, at home or over
 the internet, and reworks how you *browse* that collection: a cover-flow library enriched with the
 Playnite metadata a Vibepollo host serves.
 
@@ -14,7 +15,7 @@ is what it is designed for.
 
 # Library
 
-Ratatoskr's main addition over upstream Artemis is the library. When paired with a
+Zefiro's main addition over Artemis is the library. When paired with a
 [Vibepollo](https://github.com/DanieleS/Vibepollo) host — which exposes Playnite metadata over its
 `/appmetadata` endpoint — the library becomes far richer than a plain grid of app names:
 
@@ -72,7 +73,7 @@ is not used on metered networks or in the 3D render modes.
 
 # Inherited features
 
-Ratatoskr carries the full Artemis feature set on top of upstream Moonlight, including:
+Zefiro carries the Artemis feature set, as it stood when it forked, on top of upstream Moonlight, including:
 
 1. Custom virtual buttons with import and export support.
 2. [Custom resolutions](https://github.com/moonlight-stream/moonlight-android/pull/1349).
@@ -108,8 +109,8 @@ Ratatoskr carries the full Artemis feature set on top of upstream Moonlight, inc
 
 ## Downloads
 
-* [Download the APK directly](https://github.com/DanieleS/moonlight-android/releases) — grab the `nonRoot` APK from the latest release.
-* [Use Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22dev.kylobyte.ratatoskr%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FDanieleS%2Fmoonlight-android%22%2C%22author%22%3A%22DanieleS%22%2C%22name%22%3A%22Ratatoskr%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22nonRoot%5C%22%2C%5C%22matchGroutToUse%5C%22%3A%5C%22%241%5C%22%2C%5C%22versionExtractionRegEx%5C%22%3A%5C%22v(.%2B)%5C%22%7D%22%7D) (recommended) — auto-updates from the GitHub releases.
+* [Download the APK directly](https://github.com/DanieleS/zefiro/releases) — grab the `nonRoot` APK from the latest release.
+* [Use Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22dev.kylobyte.zefiro%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FDanieleS%2Fzefiro%22%2C%22author%22%3A%22DanieleS%22%2C%22name%22%3A%22Zefiro%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22nonRoot%5C%22%2C%5C%22matchGroutToUse%5C%22%3A%5C%22%241%5C%22%2C%5C%22versionExtractionRegEx%5C%22%3A%5C%22v(.%2B)%5C%22%7D%22%7D) (recommended) — auto-updates from the GitHub releases.
 
 ## Building
 
@@ -120,7 +121,7 @@ Ratatoskr carries the full Artemis feature set on top of upstream Moonlight, inc
 
 ## Credits
 
-Ratatoskr builds on the work of:
+Zefiro builds on the work of:
 
 * [Artemis](https://github.com/ClassicOldSong/moonlight-android) by [ClassicOldSong](https://github.com/ClassicOldSong).
 * PyroWave by [Hans-Kristian Arntzen](https://github.com/Themaister/pyrowave); its streaming protocol and
