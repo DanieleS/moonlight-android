@@ -244,6 +244,54 @@ public class AdaptiveBitrateControllerTest {
         assertEquals(36000, step(c, rtt(30)).bitrateKbps);
     }
 
+    private static Sample queue(float ms) {
+        return new Sample(0f, 4, 3f, ms);
+    }
+
+    @Test
+    public void standingQueueOfTwoFramesStepsDownAfterThreeSamples() {
+        AdaptiveBitrateController c = balanced(40000);
+        // At 60 fps two frames are 33.3 ms.
+        assertNull(step(c, queue(34f)));
+        assertNull(step(c, queue(34f)));
+        assertEquals(36000, step(c, queue(34f)).bitrateKbps);
+    }
+
+    @Test
+    public void risingQueueStepsDownBeforeAnyLoss() {
+        AdaptiveBitrateController c = balanced(40000);
+        assertNull(step(c, queue(1f)));
+        assertNull(step(c, queue(13f)));
+        assertNull(step(c, queue(17f)));
+        assertEquals(36000, step(c, queue(21f)).bitrateKbps);
+    }
+
+    @Test
+    public void steadySmallQueueIsNotCongestionButBlocksProbing() {
+        AdaptiveBitrateController c = balanced(40000);
+        step(c, loss(3f));
+        step(c, loss(3f));
+        assertEquals(36000, c.getCurrentKbps());
+        for (int i = 0; i < 40; i++) {
+            assertNull(step(c, queue(9f)));
+        }
+        assertEquals(36000, c.getCurrentKbps());
+        Decision d = null;
+        for (int i = 0; i < 20 && d == null; i++) {
+            d = step(c, queue(1f));
+        }
+        assertNotNull(d);
+        assertTrue(d.bitrateKbps > 36000);
+    }
+
+    @Test
+    public void unknownQueueDelayKeepsTheOldBehavior() {
+        AdaptiveBitrateController c = balanced(40000);
+        for (int i = 0; i < 10; i++) {
+            assertNull(step(c, queue(-1f)));
+        }
+    }
+
     @Test
     public void aModestRiseInRoundTripIsNotPressure() {
         AdaptiveBitrateController c = balanced(40000);
