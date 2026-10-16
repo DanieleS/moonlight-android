@@ -42,7 +42,9 @@ import android.os.Process;
 import android.os.SystemClock;
 import android.util.Range;
 import android.view.Choreographer;
+import android.view.Display;
 import android.view.Surface;
+import android.widget.Toast;
 
 public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements Choreographer.FrameCallback {
     // Latency profile: favor minimal end-to-end delay over absolute smoothness, within the
@@ -65,6 +67,11 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
     // Helper: release with low-latency policy (immediate only when very near to now)
     private void releaseWithPolicy(int bufferIndex, long frameTimeNanos) {
+        if (upscaler != null) {
+            // The GPU path presents at the target time itself; "now" means as soon as possible
+            releaseOutputFrame(bufferIndex, frameTimeNanos);
+            return;
+        }
         try {
             long now = System.nanoTime();
             boolean immediate = preferLowerDelays && (frameTimeNanos <= now + 300_000L);
@@ -133,6 +140,11 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     private boolean invertResolution;
     private int videoFormat;
     private Surface renderTarget;
+    private int renderWidth, renderHeight;
+    // Client-side upscaling (see GlesUpscaler): the decoder renders into the upscaler's input
+    // surface and the GPU scales each frame into renderTarget. Null while frames go direct.
+    private volatile GlesUpscaler upscaler;
+    private volatile UpscalingPolicy upscalingPolicy;
     // A PyroWave session decodes and presents natively (jni/pyrowave-renderer): MediaCodec and
     // the Java render threads are not used, and decode units never reach submitDecodeUnit().
     private boolean pyroWave;
@@ -381,8 +393,148 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         this.decoderParking = decoderParking;
     }
 
-    public void setRenderTarget(Surface renderTarget) {
+    public void setRenderTarget(Surface renderTarget, int width, int height) {
         this.renderTarget = renderTarget;
+        renderWidth = width;
+        renderHeight = height;
+    }
+
+    private void setupUpscaling() {
+        Display display = activity.getWindowManager().getDefaultDisplay();
+        float panelHz = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ?
+                display.getMode().getRefreshRate() : display.getRefreshRate();
+        upscalingPolicy = new UpscalingPolicy(Math.max(1, Math.min(refreshRate, Math.round(panelHz))));
+        if (prefs.upscalingMode == UpscalingPolicy.Mode.OFF || prefs.renderMode != 0 ||
+                Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            // The 3D render modes hand the decoder a surface of their own, which stays direct
+            upscalingPolicy.fail(UpscalingPolicy.Reason.DISABLED);
+            return;
+        }
+        if (renderWidth <= 0 || renderHeight <= 0 || renderTarget == null) {
+            upscalingPolicy.fail(UpscalingPolicy.Reason.NO_UPSCALE);
+            return;
+        }
+        boolean stretch = prefs.videoScaleMode == PreferenceConfiguration.ScaleMode.STRETCH;
+        int[] viewport = UpscalingPolicy.viewport(initialWidth, initialHeight, renderWidth, renderHeight, stretch);
+        UpscalingPolicy.Reason reason = UpscalingPolicy.unavailableReason(prefs.upscalingMode,
+                initialWidth, initialHeight, viewport[2], viewport[3],
+                (videoFormat & MoonBridge.VIDEO_FORMAT_MASK_10BIT) != 0,
+                PyroWaveSupport.isPyroWave(videoFormat), true);
+        upscalingPolicy.fail(reason);
+        if (reason == UpscalingPolicy.Reason.NONE) {
+            upscaler = new GlesUpscaler(context, renderTarget, prefs.upscalingMode, initialWidth, initialHeight,
+                    stretch, prefs.upscalingSharpness, upscalingPolicy);
+            if (upscalingPolicy.getReason() != UpscalingPolicy.Reason.NONE) closeUpscaler();
+        } else {
+            notifyUpscalingFallback();
+        }
+    }
+
+    private void closeUpscaler() {
+        GlesUpscaler current = upscaler;
+        if (current != null) {
+            upscaler = null;
+            current.close();
+            notifyUpscalingFallback();
+        }
+    }
+
+    private void notifyUpscalingFallback() {
+        UpscalingPolicy.Reason reason = upscalingPolicy.getReason();
+        if (reason != UpscalingPolicy.Reason.NONE && reason != UpscalingPolicy.Reason.DISABLED &&
+                reason != UpscalingPolicy.Reason.NO_UPSCALE) {
+            String message = context.getString(R.string.upscaling_fallback, upscalingReason(reason));
+            LimeLog.info(message);
+            activity.runOnUiThread(() -> {
+                if (!stopping) Toast.makeText(context, message, Toast.LENGTH_LONG).show();
+            });
+        }
+    }
+
+    private String upscalingReason(UpscalingPolicy.Reason reason) {
+        switch (reason) {
+            case HDR: return context.getString(R.string.upscaling_hdr);
+            case PYROWAVE: return context.getString(R.string.upscaling_pyrowave);
+            case NO_UPSCALE: return context.getString(R.string.upscaling_native);
+            case UNSUPPORTED: return context.getString(R.string.upscaling_unsupported);
+            case GPU_ERROR: return context.getString(R.string.upscaling_gpu_error);
+            case SLOW: return context.getString(R.string.upscaling_slow);
+            case DROPPED: return context.getString(R.string.upscaling_dropped);
+            case SIZE_CHANGED: return context.getString(R.string.upscaling_size_changed);
+            default: return "";
+        }
+    }
+
+    // The overlay's upscaling lines, or an empty string when the setting is off
+    private String upscalingStats() {
+        UpscalingPolicy policy = upscalingPolicy;
+        if (prefs.upscalingMode == UpscalingPolicy.Mode.OFF || policy == null) return "";
+        boolean active = upscaler != null;
+        String mode = active ? context.getResources().getStringArray(R.array.upscaling_names)[prefs.upscalingMode.ordinal()] :
+                context.getString(R.string.upscaling_direct);
+        float addedMs = policy.getAddedMs();
+        String text = context.getString(R.string.perf_overlay_upscaling, mode,
+                String.format(java.util.Locale.US, "%.2f ms", active ? Math.max(addedMs, 0) : 0f));
+        if (active) text += '\n' + context.getString(R.string.upscaling_timing_estimate);
+        else if (addedMs >= 0) text += '\n' + context.getString(R.string.upscaling_last_timing,
+                String.format(java.util.Locale.US, "%.2f ms", addedMs));
+        String reason = upscalingReason(policy.getReason());
+        if (!reason.isEmpty()) text += '\n' + reason;
+        return text;
+    }
+
+    // Called from the render thread. A fallback needs the decoder pointed at the real surface,
+    // which only a restart does.
+    private void checkUpscaling() {
+        GlesUpscaler current = upscaler;
+        if (current == null || stopping) return;
+        current.checkHealth();
+        if (upscalingPolicy.getReason() != UpscalingPolicy.Reason.NONE) {
+            synchronized (codecRecoveryMonitor) {
+                if (stopping) return;
+                codecRecoveryAttempts = 0;
+                if (!codecRecoveryType.compareAndSet(CR_RECOVERY_TYPE_NONE, CR_RECOVERY_TYPE_RESTART)) {
+                    codecRecoveryType.compareAndSet(CR_RECOVERY_TYPE_FLUSH, CR_RECOVERY_TYPE_RESTART);
+                }
+            }
+        }
+    }
+
+    // Presents a decoded frame. On the GPU path the decoder renders at once into the upscaler's
+    // texture and targetNs is the time the upscaled frame goes to the display.
+    private void releaseOutputFrame(int index, long targetNs) {
+        GlesUpscaler current = upscaler;
+        if (current == null) {
+            videoDecoder.releaseOutputBuffer(index, targetNs);
+        } else if (upscalingPolicy.getReason() != UpscalingPolicy.Reason.NONE) {
+            // Falling back: drop frames until the restart points the decoder at the display
+            videoDecoder.releaseOutputBuffer(index, false);
+        } else {
+            videoDecoder.releaseOutputBuffer(index, current.releaseFrame(targetNs));
+        }
+    }
+
+    private void checkUpscalingOutputFormat() {
+        if (upscaler == null || outputFormat == null) return;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && outputFormat.containsKey(MediaFormat.KEY_COLOR_TRANSFER)) {
+            int transfer = outputFormat.getInteger(MediaFormat.KEY_COLOR_TRANSFER);
+            if (transfer == MediaFormat.COLOR_TRANSFER_ST2084 || transfer == MediaFormat.COLOR_TRANSFER_HLG) {
+                upscalingPolicy.fail(UpscalingPolicy.Reason.HDR);
+            }
+        }
+        if (outputFormat.containsKey(MediaFormat.KEY_COLOR_FORMAT) &&
+                outputFormat.getInteger(MediaFormat.KEY_COLOR_FORMAT) == MediaCodecInfo.CodecCapabilities.COLOR_FormatYUVP010) {
+            upscalingPolicy.fail(UpscalingPolicy.Reason.HDR);
+        }
+        int width = outputFormat.getInteger(MediaFormat.KEY_WIDTH);
+        int height = outputFormat.getInteger(MediaFormat.KEY_HEIGHT);
+        if (outputFormat.containsKey("crop-right") && outputFormat.containsKey("crop-left")) {
+            width = outputFormat.getInteger("crop-right") - outputFormat.getInteger("crop-left") + 1;
+        }
+        if (outputFormat.containsKey("crop-bottom") && outputFormat.containsKey("crop-top")) {
+            height = outputFormat.getInteger("crop-bottom") - outputFormat.getInteger("crop-top") + 1;
+        }
+        if (width != initialWidth || height != initialHeight) upscalingPolicy.fail(UpscalingPolicy.Reason.SIZE_CHANGED);
     }
 
     public MediaCodecDecoderRenderer(Activity activity, PreferenceConfiguration prefs,
@@ -630,7 +782,26 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
         LimeLog.info("Configuring with format: "+format);
 
-        videoDecoder.configure(format, renderTarget, null, 0);
+        if (upscaler != null) {
+            if ((videoFormat & MoonBridge.VIDEO_FORMAT_MASK_10BIT) != 0 || currentHdrMetadata != null) {
+                upscalingPolicy.fail(UpscalingPolicy.Reason.HDR);
+            }
+            if (upscalingPolicy.getReason() != UpscalingPolicy.Reason.NONE) closeUpscaler();
+        }
+        if (upscaler != null) {
+            try {
+                videoDecoder.configure(format, upscaler.getInputSurface(), null, 0);
+            } catch (IllegalArgumentException | IllegalStateException e) {
+                LimeLog.warning("Decoder rejected upscaling surface: " + e);
+                upscalingPolicy.fail(UpscalingPolicy.Reason.GPU_ERROR);
+                videoDecoder.reset();
+                closeUpscaler();
+                configureAndStartDecoder(format);
+                return;
+            }
+        } else {
+            videoDecoder.configure(format, renderTarget, null, 0);
+        }
 
         // NB: the frame rate hint for this surface is issued by Game.surfaceCreated() with
         // FRAME_RATE_COMPATIBILITY_FIXED_SOURCE + CHANGE_FRAME_RATE_ALWAYS. Don't re-issue it
@@ -687,7 +858,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         // already configured and started, only flushed, so it needs nothing but the new stream's
         // parameter sets, which the first IDR frame brings.
         DecoderParking parking = decoderParking;
-        if (parking != null) {
+        if (parking != null && upscaler == null) {
             DecoderParking.Taken kept = parking.take(selectedDecoderInfo.getName(), initialWidth, initialHeight, videoFormat, renderTarget);
             if (kept != null) {
                 videoDecoder = kept.codec;
@@ -830,7 +1001,8 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             }
         }
 
-        if (USE_FRAME_RENDER_TIME && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        // MediaCodec's callback on the GPU path refers to the intermediate texture, not the display
+        if (USE_FRAME_RENDER_TIME && upscaler == null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             videoDecoder.setOnFrameRenderedListener(new MediaCodec.OnFrameRenderedListener() {
                 @Override
                 public void onFrameRendered(MediaCodec mediaCodec, long presentationTimeUs, long renderTimeNanos) {
@@ -857,6 +1029,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
         if (PyroWaveSupport.isPyroWave(format)) {
             pyroWave = true;
+            setupUpscaling();
             LimeLog.info("Starting the PyroWave renderer: " + width + "x" + height);
             // NB: no frame rate hint here. Game.surfaceCreated() issues the one for this surface
             // (FRAME_RATE_COMPATIBILITY_FIXED_SOURCE + CHANGE_FRAME_RATE_ALWAYS), and a second,
@@ -872,6 +1045,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             return err;
         }
 
+        setupUpscaling();
         return initializeDecoder(false);
     }
 
@@ -895,6 +1069,11 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
             // This is the final thread to quiesce, so let's perform the codec recovery now.
             if (codecRecoveryThreadQuiescedFlags == CR_FLAG_ALL) {
+                if (upscaler != null) {
+                    // A flush can strand frames in the texture queue. Restart onto direct output.
+                    upscalingPolicy.fail(UpscalingPolicy.Reason.GPU_ERROR);
+                    codecRecoveryType.compareAndSet(CR_RECOVERY_TYPE_FLUSH, CR_RECOVERY_TYPE_RESTART);
+                }
                 // Input and output buffers are invalidated by stop() and reset().
                 nextInputBuffer = null;
                 nextInputBufferIndex = -1;
@@ -1177,7 +1356,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                             // ULL: present at next VSYNC (no scheduling)
                             releaseWithPolicy(nextOutputBuffer, System.nanoTime());} else {
                             // Smooth/Balanced: keep timestamp scheduling
-                            videoDecoder.releaseOutputBuffer(nextOutputBuffer, frameTimeNanos);
+                            releaseOutputFrame(nextOutputBuffer, frameTimeNanos);
                         }
 
                     }
@@ -1310,7 +1489,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                                     // In max smoothness or cap FPS mode, we want to never drop frames
                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                                         // Use a PTS that will cause this frame to never be dropped
-                                        videoDecoder.releaseOutputBuffer(lastIndex, 0);
+                                        releaseOutputFrame(lastIndex, 0);
                                     }
                                     else {
                                         videoDecoder.releaseOutputBuffer(lastIndex, true);
@@ -1371,6 +1550,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                                     LimeLog.info("Output format changed");
                                     outputFormat = videoDecoder.getOutputFormat();
                                     LimeLog.info("New output format: " + outputFormat);
+                                    checkUpscalingOutputFormat();
                                     break;
                                 default:
                                     break;
@@ -1379,6 +1559,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                     } catch (IllegalStateException e) {
                         handleDecoderException(e);
                     } finally {
+                        checkUpscaling();
                         doCodecRecoveryIfRequired(CR_FLAG_RENDER_THREAD);
                     }
                 }
@@ -1577,9 +1758,10 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             return;
         }
         // Reconnecting: keep the codec, and with it the last frame on the surface, for the next
-        // connection. Its pending buffers belong to the dead stream, so flush them first.
+        // connection. Its pending buffers belong to the dead stream, so flush them first. A codec
+        // that renders into the upscaler cannot be kept: the upscaler goes with this connection.
         DecoderParking parking = decoderParking;
-        if (parking != null && configuredCodecName != null) {
+        if (parking != null && configuredCodecName != null && upscaler == null) {
             try {
                 videoDecoder.flush();
                 if (parking.park(videoDecoder, configuredCodecName, initialWidth, initialHeight, videoFormat,
@@ -1593,6 +1775,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         }
 
         videoDecoder.release();
+        closeUpscaler();
     }
 
     @Override
@@ -1604,6 +1787,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         // HDR metadata is only supported in Android 7.0 and later, so don't bother
         // restarting the codec on anything earlier than that.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            if (enabled && upscaler != null) upscalingPolicy.fail(UpscalingPolicy.Reason.HDR);
             if (currentHdrMetadata != null && (!enabled || hdrMetadata == null)) {
                 currentHdrMetadata = null;
             }
@@ -1779,6 +1963,8 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                         minHostLatencyMs, maxHostLatencyMs, avgHostLatencyMs)).append('\n');
             }
             sb.append(context.getString(R.string.perf_overlay_dectime, decodeTimeMs));
+            String upscaling = upscalingStats();
+            if (!upscaling.isEmpty()) sb.append('\n').append(upscaling);
         }
         String fullLog = sb.toString();
         if(perfStatsRequested) {

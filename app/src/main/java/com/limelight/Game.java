@@ -27,6 +27,7 @@ import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardLayoutCon
 import com.limelight.binding.video.CrashListener;
 import com.limelight.binding.video.DisplayRefreshMeter;
 import com.limelight.binding.video.DecoderParking;
+import com.limelight.binding.video.UpscalingPolicy;
 import com.limelight.binding.video.MediaCodecDecoderRenderer;
 import com.limelight.binding.video.MediaCodecHelper;
 import com.limelight.binding.video.PerfOverlayListener;
@@ -1179,7 +1180,10 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 // Avoid resizes/glitches that break the compositor
                 int vw = (prefConfig != null && prefConfig.width > 0) ? prefConfig.width : displayWidth;
                 int vh = (prefConfig != null && prefConfig.height > 0) ? prefConfig.height : displayHeight;
-                try { streamSurfaceView.getHolder().setFixedSize(vw, vh); } catch (Throwable ignored) {}
+                // Upscaling needs a surface of the output size: the GPU scales the stream into it
+                if (prefConfig.upscalingMode == UpscalingPolicy.Mode.OFF) {
+                    try { streamSurfaceView.getHolder().setFixedSize(vw, vh); } catch (Throwable ignored) {}
+                }
                 try { streamSurfaceView.setZOrderOnTop(false); } catch (Throwable ignored) {}
                 try { streamSurfaceView.setZOrderMediaOverlay(false); } catch (Throwable ignored) {}
 
@@ -1207,7 +1211,8 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                 streamConfig.getClientRefreshRateX100());
 
         // Der Decoder erhält die jeweils aktive Oberfläche vom Container
-        decoderRenderer.setRenderTarget(streamContainer.getSurface());
+        decoderRenderer.setRenderTarget(streamContainer.getSurface(),
+                streamContainer.getSurfaceView().getWidth(), streamContainer.getSurfaceView().getHeight());
 
         // Starten Sie die NvConnection
         conn.start(new AndroidAudioRenderer(Game.this, prefConfig.playHostAudio),
@@ -4092,7 +4097,8 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
                     (SystemClock.elapsedRealtime() - outageStartMs) + " ms");
 
             decoderRenderer = createDecoderRenderer();
-            decoderRenderer.setRenderTarget(surface);
+            decoderRenderer.setRenderTarget(surface,
+                    streamContainer.getSurfaceView().getWidth(), streamContainer.getSurfaceView().getHeight());
             decoderRenderer.setDecoderParking(decoderParking);
             conn.setReconnectAttempt(true);
             conn.start(new AndroidAudioRenderer(Game.this, prefConfig.playHostAudio),

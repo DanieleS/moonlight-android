@@ -1039,4 +1039,25 @@
     <string name="toast_bitrate_failed">Couldn\'t change the bitrate to %1$s Mbps</string>
     <string name="toast_adaptive_bitrate_stopped">Adaptive bitrate turned off: the host stopped taking changes. Back to the chosen bitrate.</string>
     <string name="toast_adaptive_bitrate_stopped_stuck">Adaptive bitrate turned off: the host stopped taking changes. The bitrate may stay lower until you pick one from the menu.</string>
+    <string name="title_upscaling">Client-side upscaling</string>
+    <string name="upscaling_off">Off</string>
+    <string name="upscaling_bilinear">Bilinear</string>
+    <string name="upscaling_fsr1">FSR 1.0</string>
+    <string name="upscaling_sgsr1" translatable="false">SGSR 1 (Snapdragon Game Super Resolution)</string>
+    <string name="summary_upscaling">Upscale lower-resolution SDR streams on the GPU. FSR 1.0 uses EASU and RCAS sharpening. SGSR 1: single pass, fastest on Snapdragon/Adreno. Off lets Android scale the video directly. HDR/10-bit, PyroWave and the 3D render modes keep direct output. Sustained added latency or dropped frames switch back to direct output until reconnect. Uses more battery; timing and the current mode appear in the performance overlay.</string>
+    <string name="title_upscaling_sharpness">Upscaling sharpness</string>
+    <string name="summary_upscaling_sharpness" formatted="false">FSR/SGSR strength: 0% disables extra sharpening, 100% is maximum. SGSR keeps its spatial reconstruction at 0%. Applies when the next stream starts.</string>
+    <string name="upscaling_direct">Off (direct output)</string>
+    <string name="upscaling_fallback">Upscaling: direct output. %1$s</string>
+    <string name="upscaling_hdr">HDR/10-bit keeps direct output to preserve color and precision.</string>
+    <string name="upscaling_pyrowave">PyroWave keeps its Vulkan output; upscaling requires a MediaCodec stream.</string>
+    <string name="upscaling_native">The stream already fills the output resolution; no upscaling is needed.</string>
+    <string name="upscaling_unsupported">GLES 3.0 video textures or EGL presentation timing are unavailable.</string>
+    <string name="upscaling_gpu_error">The GPU path or decoder surface failed. Direct output stays active until reconnect.</string>
+    <string name="upscaling_slow">Added processing exceeded one frame repeatedly. Direct output stays active until reconnect.</string>
+    <string name="upscaling_dropped">The GPU path dropped frames repeatedly. Direct output stays active until reconnect.</string>
+    <string name="upscaling_size_changed">The video or output size changed. Direct output stays active until reconnect.</string>
+    <string name="perf_overlay_upscaling">Upscaling: %1$s · added %2$s</string>
+    <string name="upscaling_timing_estimate">Estimate includes texture handoff, GPU completion and swap wait (1 ms polling). Display presentation timing is unavailable.</string>
+    <string name="upscaling_last_timing">Last GPU path estimate: %1$s</string>
 </resources>

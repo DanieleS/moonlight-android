@@ -153,6 +153,26 @@
             android:title="@string/title_video_scale_mode"
             app:iconSpaceReserved="false" />
 
+        <ListPreference
+            android:defaultValue="off"
+            android:entries="@array/upscaling_names"
+            android:entryValues="@array/upscaling_values"
+            android:key="upscaling_mode"
+            android:summary="@string/summary_upscaling"
+            android:title="@string/title_upscaling"
+            app:iconSpaceReserved="false" />
+
+        <com.limelight.preferences.SeekBarPreference
+            android:defaultValue="50"
+            android:dialogMessage="@string/summary_upscaling_sharpness"
+            android:key="upscaling_sharpness"
+            android:max="100"
+            android:text="%"
+            android:title="@string/title_upscaling_sharpness"
+            app:iconSpaceReserved="false"
+            seekbar:min="0"
+            seekbar:step="1" />
+
         <EditTextPreference
             android:defaultValue="1920x1080"
             android:dialogTitle="@string/dialog_custom_resolution"

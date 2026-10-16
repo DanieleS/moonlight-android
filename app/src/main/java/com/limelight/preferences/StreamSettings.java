@@ -700,6 +700,21 @@ public class StreamSettings extends AppCompatActivity {
                 }
             }
 
+            // Sharpness only applies to FSR 1.0 and SGSR 1
+            final Preference upscalingMode = findPreference(PreferenceConfiguration.UPSCALING_PREF_STRING);
+            final Preference upscalingSharpness = findPreference(PreferenceConfiguration.UPSCALING_SHARPNESS_PREF_STRING);
+            if (upscalingMode instanceof ListPreference && upscalingSharpness != null) {
+                String mode = ((ListPreference) upscalingMode).getValue();
+                upscalingSharpness.setEnabled("fsr1".equals(mode) || "sgsr1".equals(mode));
+                upscalingMode.setOnPreferenceChangeListener(new Preference.OnPreferenceChangeListener() {
+                    @Override
+                    public boolean onPreferenceChange(Preference preference, Object newValue) {
+                        upscalingSharpness.setEnabled("fsr1".equals(newValue) || "sgsr1".equals(newValue));
+                        return true;
+                    }
+                });
+            }
+
             // Add a listener to the FPS and resolution preference
             // so the bitrate can be auto-adjusted
             findPreference(PreferenceConfiguration.RESOLUTION_PREF_STRING).setOnPreferenceChangeListener(new Preference.OnPreferenceChangeListener() {

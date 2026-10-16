@@ -6,6 +6,7 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.view.Display;
 
+import com.limelight.binding.video.UpscalingPolicy;
 import com.limelight.bitrate.AdaptiveBitrateController;
 import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.profiles.ProfilesManager;
@@ -97,6 +98,8 @@ public class PreferenceConfiguration {
 //    static final String TOUCHSCREEN_TRACKPAD_PREF_STRING = "checkbox_touchscreen_trackpad";
     private static final String LATENCY_TOAST_PREF_STRING = "checkbox_enable_post_stream_toast";
     private static final String FRAME_PACING_PREF_STRING = "frame_pacing";
+    static final String UPSCALING_PREF_STRING = "upscaling_mode";
+    static final String UPSCALING_SHARPNESS_PREF_STRING = "upscaling_sharpness";
     private static final String VIDEO_FEC_PREF_STRING = "list_video_fec";
     private static final String LOW_LATENCY_FRAME_BALANCE_PREF_STRING = "pref_low_latency_frame_balance";
     private static final String ABSOLUTE_MOUSE_MODE_PREF_STRING = "checkbox_absolute_mouse_mode";
@@ -290,6 +293,8 @@ public class PreferenceConfiguration {
     public boolean enableAdaptiveBitrate;
     public AdaptiveBitrateController.Mode adaptiveBitrateMode;
     public ScaleMode videoScaleMode;
+    public UpscalingPolicy.Mode upscalingMode = UpscalingPolicy.Mode.OFF;
+    public int upscalingSharpness = 50;
     public String language;
     public int renderMode;
     public boolean smallIconMode, multiController, usbDriver, flipFaceButtons;
@@ -995,6 +1000,9 @@ private static int getFramePacingValue(Context context) {
         String renderMode = prefs.getString("render_mode_list", "0");
         int renderModeInt = Integer.parseInt(renderMode);
         config.renderMode = renderModeInt;
+
+        config.upscalingMode = UpscalingPolicy.Mode.fromPreference(prefs.getString(UPSCALING_PREF_STRING, "off"));
+        config.upscalingSharpness = Math.max(0, Math.min(100, prefs.getInt(UPSCALING_SHARPNESS_PREF_STRING, 50)));
 
         // Read mouse mode and set touch settings accordingly
         String mouseMode = prefs.getString("mouse_mode_list", "0");

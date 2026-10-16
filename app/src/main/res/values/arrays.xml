@@ -238,4 +238,16 @@
         <item>balanced</item>
         <item>lowLatency</item>
     </string-array>
+    <string-array name="upscaling_names">
+        <item>@string/upscaling_off</item>
+        <item>@string/upscaling_bilinear</item>
+        <item>@string/upscaling_fsr1</item>
+        <item>@string/upscaling_sgsr1</item>
+    </string-array>
+    <string-array name="upscaling_values" translatable="false">
+        <item>off</item>
+        <item>bilinear</item>
+        <item>fsr1</item>
+        <item>sgsr1</item>
+    </string-array>
 </resources>
