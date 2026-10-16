@@ -1,14 +1,19 @@
 package com.limelight.binding.video;
 
 import org.junit.Test;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.regex.Pattern;
 import static org.junit.Assert.*;
 
 public class UpscalingShaderTest {
+    private static String read(Path path) throws Exception {
+        return new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
+    }
+
     private String source(String name) throws Exception {
-        return Files.readString(Path.of("src/main/assets/shaders", name)).replace("\r\n", "\n");
+        return read(Path.of("src/main/assets/shaders", name)).replace("\r\n", "\n");
     }
 
     @Test
@@ -52,7 +57,7 @@ public class UpscalingShaderTest {
         assertTrue(sgsr.contains("clamp(edgeSharpness * finalY, minY, maxY)"));
         assertTrue(sgsr.contains("-23.0 / 255.0, 23.0 / 255.0"));
         assertTrue(sgsr.contains("textureTransform * vec4(p, 0.0, 1.0)"));
-        String notice = Files.readString(Path.of("src/main/assets/NOTICE-SGSR1.txt"));
+        String notice = read(Path.of("src/main/assets/NOTICE-SGSR1.txt"));
         assertTrue(notice.contains("Copyright (c) 2025, Qualcomm Innovation Center, Inc."));
         assertTrue(notice.contains("Copyright (c) 2023, Qualcomm Innovation Center, Inc."));
         assertTrue(notice.contains("Redistributions in binary form"));
@@ -77,7 +82,7 @@ public class UpscalingShaderTest {
         assertTrue(rcas.contains("uniform float sharpness;"));
         assertTrue(rcas.contains("max(4.0 * mx4, vec3(1.0e-8))"));
         assertTrue(rcas.contains("min(4.0 * mn4 - 4.0, vec3(-1.0e-8))"));
-        String notice = Files.readString(Path.of("src/main/assets/NOTICE-FSR1.txt"));
+        String notice = read(Path.of("src/main/assets/NOTICE-FSR1.txt"));
         assertTrue(notice.contains("Copyright (c) 2021 Advanced Micro Devices"));
         assertTrue(notice.contains("Permission is hereby granted, free of charge"));
         assertTrue(notice.contains("a21ffb8f6c13233ba336352bdff293894c706575"));
