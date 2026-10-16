@@ -30,7 +30,9 @@ import java.util.Locale;
  * traffic that is itself the kind of thing that loses frames on Wi-Fi. And besides loss it
  * watches the two other numbers Zefiro already measures. A round trip well above the stream's
  * recent best, a queue building somewhere before any frame is lost, held for three samples, steps
- * down by 10% and keeps the bitrate from probing up until it clears. Decode times longer than a
+ * down by 10% and keeps the bitrate from probing up until it clears. The queue is also measured
+ * directly, from each frame's arrival against the host's capture time ({@link Sample#queueDelayMs}):
+ * two frames of it standing, or a rise of 3 ms a second, count the same as a swollen round trip. Decode times longer than a
  * frame are only a maybe: how long a hardware decoder takes depends far more on resolution and
  * frame rate than on bitrate. So three such samples buy one 10% step, and the decode time after it
  * decides the rest of the stream. If it fell, decode time keeps counting, both to step down and to
@@ -78,10 +80,21 @@ public class AdaptiveBitrateController {
         /** Average time the decoder took per frame, or 0 when no frame was decoded. */
         public final float decodeTimeMs;
 
+        /**
+         * The queue at the access point, from frame arrival against the host's capture time:
+         * the mean one-way delay above its recent minimum, or -1 when unknown.
+         */
+        public final float queueDelayMs;
+
         public Sample(float lossPercent, int rttMs, float decodeTimeMs) {
+            this(lossPercent, rttMs, decodeTimeMs, -1);
+        }
+
+        public Sample(float lossPercent, int rttMs, float decodeTimeMs, float queueDelayMs) {
             this.lossPercent = lossPercent;
             this.rttMs = rttMs;
             this.decodeTimeMs = decodeTimeMs;
+            this.queueDelayMs = queueDelayMs;
         }
     }
 
@@ -130,6 +143,14 @@ public class AdaptiveBitrateController {
     /** And needs this many before latency is judged at all. */
     static final int RTT_MIN_SAMPLES = 5;
 
+    /** A queue of this many frames (and at least {@link #QUEUE_BUILDING_MIN_MS}) is congestion. */
+    static final float QUEUE_STANDING_FRAMES = 2f;
+    static final float QUEUE_BUILDING_MIN_MS = 20f;
+    /** A queue this far above the best one-way delay, and rising this much a second, is building. */
+    static final float QUEUE_RISING_MS = 3f;
+    /** A queue of at least this share of a frame (and 4 ms) keeps the bitrate from probing up. */
+    static final float QUEUE_BUSY_FRAMES = 0.5f;
+
     /** A decoder taking longer than this share of a frame is overloaded. */
     static final float DECODE_OVERLOAD_FRACTION = 0.9f;
     /** Above this share there is no headroom left for a heavier stream, so no probing. */
@@ -172,6 +193,8 @@ public class AdaptiveBitrateController {
     private boolean holdIsGrace;
     /** The loss in the sample before this one, for the two-second view of heavy loss. */
     private float previousLossPercent;
+    /** The queue delay in the sample before this one, to see whether it is rising; -1 if unknown. */
+    private float previousQueueMs = -1;
 
     private DecodeVerdict decodeVerdict = DecodeVerdict.UNTRIED;
     /** The last decision returned was a decode-driven step, so its outcome is worth checking. */
@@ -224,6 +247,8 @@ public class AdaptiveBitrateController {
      */
     public Decision onSample(Sample sample, long nowMs) {
         float previousLoss = previousLossPercent;
+        float previousQueue = previousQueueMs;
+        previousQueueMs = sample.queueDelayMs;
         if (nowMs < holdUntilMs) {
             // The cooldown's samples are the stream after the change, and make a fair first half
             // of the next two seconds; the start's are not.
@@ -232,7 +257,10 @@ public class AdaptiveBitrateController {
         }
         previousLossPercent = sample.lossPercent;
 
-        boolean latencyHigh = isLatencyHigh(sample.rttMs);
+        boolean rttHigh = isLatencyHigh(sample.rttMs);
+        boolean queueBuilding = isQueueBuilding(sample.queueDelayMs, previousQueue);
+        boolean latencyHigh = rttHigh || queueBuilding;
+        boolean queueBusy = sample.queueDelayMs >= Math.max(4f, frameIntervalMs * QUEUE_BUSY_FRAMES);
         recordRtt(sample.rttMs);
         checkDecodeStep(sample.decodeTimeMs);
         boolean decodeCounts = decodeVerdict != DecodeVerdict.INDEPENDENT && !decodeCheckPending;
@@ -276,7 +304,9 @@ public class AdaptiveBitrateController {
 
             if (latencyStreak >= PRESSURE_SAMPLES) {
                 target = currentKbps * SUSTAINED_FACTOR;
-                reason = "round trip " + sample.rttMs + " ms, best " + rttBaseline() + " ms";
+                reason = rttHigh
+                        ? "round trip " + sample.rttMs + " ms, best " + rttBaseline() + " ms"
+                        : String.format(Locale.ROOT, "queue %.1f ms", sample.queueDelayMs);
                 stableSamples = 0;
             } else if (decodeStreak >= PRESSURE_SAMPLES) {
                 target = currentKbps * SUSTAINED_FACTOR;
@@ -284,7 +314,7 @@ public class AdaptiveBitrateController {
                 forDecode = true;
                 decodeBeforeStepMs = decodeStreakSumMs / decodeStreak;
                 stableSamples = 0;
-            } else if (latencyHigh || decodeBusy) {
+            } else if (latencyHigh || queueBusy || decodeBusy) {
                 // Not bad enough to step down, but no time to ask for more either.
                 stableSamples = 0;
             } else {
@@ -350,6 +380,7 @@ public class AdaptiveBitrateController {
         decidedForDecode = false;
         lastStepWasDown = false;
         previousLossPercent = 0;
+        previousQueueMs = -1;
         holdUntilMs = nowMs + START_GRACE_MS;
         holdIsGrace = true;
     }
@@ -430,6 +461,22 @@ public class AdaptiveBitrateController {
         int baseline = rttBaseline();
         int margin = mode == Mode.LOW_LATENCY ? Math.max(8, baseline / 2) : Math.max(15, baseline);
         return rttMs > baseline + margin;
+    }
+
+    /**
+     * Whether the queue at the access point is congestion: standing at two frames (and 20 ms),
+     * or at three-quarters of a frame and rising by 3 ms a second. It shows before any frame is
+     * lost, and is counted with the round trip's swelling, so three samples step down.
+     */
+    private boolean isQueueBuilding(float queueMs, float previousQueueMs) {
+        if (queueMs < 0) {
+            return false;
+        }
+        if (queueMs >= Math.max(QUEUE_BUILDING_MIN_MS, frameIntervalMs * QUEUE_STANDING_FRAMES)) {
+            return true;
+        }
+        return previousQueueMs >= 0 && queueMs >= Math.max(8f, frameIntervalMs * 0.75f)
+                && queueMs - previousQueueMs >= QUEUE_RISING_MS;
     }
 
     private void recordRtt(int rttMs) {

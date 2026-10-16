@@ -192,6 +192,8 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
     private long lastTimestampUs;
     private int lastFrameNumber;
+    // Network queueing delay from frame arrival against the host's capture time.
+    private final QueueDelayTracker queueDelay = new QueueDelayTracker();
     private int refreshRate;
     private PreferenceConfiguration prefs;
 
@@ -1891,7 +1893,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     @Override
     public int submitDecodeUnit(byte[] decodeUnitData, int decodeUnitLength, int decodeUnitType,
                                 int frameNumber, int frameType, char frameHostProcessingLatency,
-                                long receiveTimeUs, long enqueueTimeUs) {
+                                long receiveTimeUs, long enqueueTimeUs, long presentationTimeUs) {
         if (stopping) {
             // Don't bother if we're stopping
             return MoonBridge.DR_OK;
@@ -1918,6 +1920,9 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             ppsBuffers.clear();
         }
 
+        if (frameNumber != lastFrameNumber) {
+            queueDelay.onFrame(receiveTimeUs, presentationTimeUs);
+        }
         lastFrameNumber = frameNumber;
 
         // Flip stats windows roughly every second
@@ -1948,6 +1953,8 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                         hasHostLatency ? (float)lastTwo.maxHostProcessingLatency / 10 : 0,
                         hasHostLatency ? (float)lastTwo.totalHostProcessingLatency / 10 / lastTwo.framesWithHostProcessingLatency : 0);
             }
+            // Taken every window so the tracker's minimums keep rolling, listener or not.
+            float queueDelayMs = queueDelay.takeWindowMs();
             AdaptiveBitrateController.SampleListener sampleListener = bitrateSampleListener;
             if (sampleListener != null && activeWindowVideoStats.totalFrames > 0) {
                 // The one second just ended, not the two the overlay averages over, so each sample
@@ -1957,7 +1964,8 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                         (float) window.framesLost / window.totalFrames * 100,
                         (int) (MoonBridge.getEstimatedRttInfo() >> 32),
                         window.totalFramesReceived > 0
-                                ? (float) window.decoderTimeMs / window.totalFramesReceived : 0));
+                                ? (float) window.decoderTimeMs / window.totalFramesReceived : 0,
+                        queueDelayMs));
             }
             globalVideoStats.add(activeWindowVideoStats);
             lastWindowVideoStats.copy(activeWindowVideoStats);
