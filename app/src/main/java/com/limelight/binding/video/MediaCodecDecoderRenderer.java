@@ -65,6 +65,19 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
     public void setPreferLowerDelaysTimeoutUs(int us) { this.preferLowerDelaysTimeoutUs = Math.max(0, us); }
 
 
+    // Vsync-targeted presentation (opt-in): aim each release at a specific display vsync. The
+    // cadence comes from the Choreographer callbacks of the BALANCED pacing mode; in the other
+    // modes no period is ever observed and the original target is used unchanged.
+    private final VsyncTargeter vsyncTargeter = new VsyncTargeter();
+    private static final int PTS_BY_BUFFER_INDEX_SLOTS = 64;
+    private final long[] ptsUsByBufferIndex = new long[PTS_BY_BUFFER_INDEX_SLOTS];
+
+    private void notePtsForBuffer(int bufferIndex, long presentationTimeUs) {
+        if (bufferIndex >= 0 && bufferIndex < PTS_BY_BUFFER_INDEX_SLOTS) {
+            ptsUsByBufferIndex[bufferIndex] = presentationTimeUs;
+        }
+    }
+
     // Helper: release with low-latency policy (immediate only when very near to now)
     private void releaseWithPolicy(int bufferIndex, long frameTimeNanos) {
         if (upscaler != null) {
@@ -77,6 +90,13 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             boolean immediate = preferLowerDelays && (frameTimeNanos <= now + 300_000L);
             if (immediate) {
                 videoDecoder.releaseOutputBuffer(bufferIndex, true);
+            } else if (prefs != null && prefs.vsyncTargetPresent) {
+                long target = vsyncTargeter.targetFor(frameTimeNanos, now);
+                // Recorded before the release: the render callback can fire before it returns
+                if (bufferIndex >= 0 && bufferIndex < PTS_BY_BUFFER_INDEX_SLOTS) {
+                    vsyncTargeter.noteTarget(ptsUsByBufferIndex[bufferIndex], target);
+                }
+                videoDecoder.releaseOutputBuffer(bufferIndex, target);
             } else {
                 videoDecoder.releaseOutputBuffer(bufferIndex, frameTimeNanos);
             }
@@ -1002,10 +1022,13 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
         }
 
         // MediaCodec's callback on the GPU path refers to the intermediate texture, not the display
-        if (USE_FRAME_RENDER_TIME && upscaler == null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        if ((USE_FRAME_RENDER_TIME || prefs.vsyncTargetPresent) && upscaler == null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             videoDecoder.setOnFrameRenderedListener(new MediaCodec.OnFrameRenderedListener() {
                 @Override
                 public void onFrameRendered(MediaCodec mediaCodec, long presentationTimeUs, long renderTimeNanos) {
+                    // Where the frame landed against where we aimed; both on the nanoTime clock
+                    vsyncTargeter.noteRendered(presentationTimeUs, renderTimeNanos);
+
                     long delta = (renderTimeNanos / 1000000L) - (presentationTimeUs / 1000);
                     if (delta >= 0 && delta < 1000) {
                         if (USE_FRAME_RENDER_TIME) {
@@ -1321,6 +1344,9 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             return;
         }
 
+        // Learn the display cadence from the callbacks we already get
+        vsyncTargeter.noteVsync(frameTimeNanos);
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             frameTimeNanos -= activity.getWindowManager().getDefaultDisplay().getAppVsyncOffsetNanos();
         }
@@ -1462,6 +1488,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
                             long presentationTimeUs = info.presentationTimeUs;
                             int lastIndex = outIndex;
+                            notePtsForBuffer(outIndex, presentationTimeUs);
 
                             numFramesOut++;
 
@@ -1477,6 +1504,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                                     numFramesOut++;
                                     lastIndex = outIndex;
                                     presentationTimeUs = info.presentationTimeUs;
+                                    notePtsForBuffer(lastIndex, presentationTimeUs);
                                 }
 
                                 // NB: no frame age based drops here. They discarded the newest decoded
@@ -2513,6 +2541,16 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
     public Boolean performanceWasTracked() {
         return minDecodeTime < Float.MAX_VALUE;
+    }
+
+    /** Frames received this session. Read at session end, once the receive thread is joined. */
+    public int getTotalFramesReceived() {
+        return globalVideoStats.totalFramesReceived;
+    }
+
+    /** Frames the host produced that never arrived, counted from gaps in the frame numbers. */
+    public int getTotalFramesLost() {
+        return globalVideoStats.framesLost;
     }
 
     @SuppressLint("DefaultLocale")

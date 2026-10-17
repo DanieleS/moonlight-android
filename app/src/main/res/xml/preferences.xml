@@ -721,6 +721,13 @@
 
         <SwitchPreferenceCompat
             android:defaultValue="false"
+            android:key="checkbox_vsync_target_present"
+            android:summary="@string/summary_vsync_target_present"
+            android:title="@string/title_vsync_target_present"
+            app:iconSpaceReserved="false" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
             android:key="checkbox_enable_post_stream_toast"
             android:summary="@string/summary_enable_post_stream_toast"
             android:title="@string/title_enable_post_stream_toast"

@@ -97,6 +97,7 @@ public class PreferenceConfiguration {
     private static final String FLIP_FACE_BUTTONS_PREF_STRING = "checkbox_flip_face_buttons";
 //    static final String TOUCHSCREEN_TRACKPAD_PREF_STRING = "checkbox_touchscreen_trackpad";
     private static final String LATENCY_TOAST_PREF_STRING = "checkbox_enable_post_stream_toast";
+    private static final String VSYNC_TARGET_PREF_STRING = "checkbox_vsync_target_present";
     private static final String FRAME_PACING_PREF_STRING = "frame_pacing";
     static final String UPSCALING_PREF_STRING = "upscaling_mode";
     static final String UPSCALING_SHARPNESS_PREF_STRING = "upscaling_sharpness";
@@ -213,6 +214,7 @@ public class PreferenceConfiguration {
     private static final boolean DEFAULT_TOUCHSCREEN_TRACKPAD = true;
     private static final String DEFAULT_AUDIO_CONFIG = "2"; // Stereo
     private static final boolean DEFAULT_LATENCY_TOAST = false;
+    private static final boolean DEFAULT_VSYNC_TARGET = false;
     private static final String DEFAULT_FRAME_PACING = "latency";
     private static final String DEFAULT_VIDEO_FEC = "off";
     private static final boolean DEFAULT_ABSOLUTE_MOUSE_MODE = false;
@@ -332,6 +334,7 @@ public class PreferenceConfiguration {
     public boolean enablePerfOverlayBottom;
 
     public boolean enableLatencyToast;
+    public boolean vsyncTargetPresent;
     public boolean enableBackMenu;
     public boolean enableFloatingButton;
     public boolean showOverlayZoomToggleButton;
@@ -1050,6 +1053,7 @@ private static int getFramePacingValue(Context context) {
         config.flipFaceButtons = prefs.getBoolean(FLIP_FACE_BUTTONS_PREF_STRING, DEFAULT_FLIP_FACE_BUTTONS);
 //        config.touchscreenTrackpad = prefs.getBoolean(TOUCHSCREEN_TRACKPAD_PREF_STRING, DEFAULT_TOUCHSCREEN_TRACKPAD);
         config.enableLatencyToast = prefs.getBoolean(LATENCY_TOAST_PREF_STRING, DEFAULT_LATENCY_TOAST);
+        config.vsyncTargetPresent = prefs.getBoolean(VSYNC_TARGET_PREF_STRING, DEFAULT_VSYNC_TARGET);
         config.enableBackMenu = prefs.getBoolean(CHECKBOX_ENABLE_QUIT_DIALOG,true);
         config.enableFloatingButton = prefs.getBoolean(CHECKBOX_ENABLE_FLOATING_BUTTON,DEFAULT_ENABLE_FLOATING_BUTTON);
         config.showOverlayZoomToggleButton = prefs.getBoolean(CHECKBOX_SHOW_OVERLAY_ZOOM_TOGGLE_BUTTON, DEFAULT_SHOW_OVERLAY_TOGGLE_BUTTON);
