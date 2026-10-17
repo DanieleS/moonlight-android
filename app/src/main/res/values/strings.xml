@@ -369,6 +369,11 @@
     <string name="suffix_seconds">s</string>
     <string name="title_enable_perf_overlay">Show performance stats while streaming</string>
     <string name="summary_enable_perf_overlay">Display real-time stream performance information while streaming</string>
+    <string name="title_vsync_target_present">Aim each frame at a specific vsync</string>
+    <string name="summary_vsync_target_present">Present each decoded frame on a chosen display refresh instead of as soon as it is decoded. Can reduce judder at high refresh rates. Works with Balanced frame pacing, without client-side upscaling.</string>
+    <string name="link_health_notable">%1$d%% of video frames never arrived. The stream was dropping frames on the way to this device.</string>
+    <string name="link_health_severe">%1$d%% of video frames never arrived — the connection could not carry this stream.</string>
+    <string name="link_health_suggestion">You asked for %1$d Mbps. Try around %2$d Mbps, or use a lower resolution.</string>
     <string name="title_enable_post_stream_toast">Show latency message after streaming</string>
     <string name="summary_enable_post_stream_toast">Display a latency information message after the stream ends</string>
 

@@ -64,6 +64,7 @@ import com.limelight.ui.TextFocusKeyboard;
 import com.limelight.utils.CacheHelper;
 import com.limelight.utils.Dialog;
 import com.limelight.utils.ExternalDisplayControlActivity;
+import com.limelight.utils.LinkHealthSummary;
 import com.limelight.utils.MouseModeOption;
 import com.limelight.utils.PanZoomHandler;
 import com.limelight.utils.PerformanceDataTracker;
@@ -223,6 +224,8 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
     private boolean autoEnterPip = false;
     private boolean surfaceCreated = false;
     private boolean attemptedConnection = false;
+    // When the stream started, for the end-of-session link health report. UI thread only.
+    private long streamStartUptimeMs;
     private int suppressPipRefCount = 0;
     private String pcName;
     private String appName;
@@ -1093,6 +1096,7 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             // back when it's back.
             if (!attemptedConnection && streamContainer.getSurface() != null) {
                 attemptedConnection = true;
+                streamStartUptimeMs = SystemClock.uptimeMillis();
 
                 // Measure the display's actual refresh rate first, now that its mode is set, so the
                 // host can be asked for a frame rate that lines up with our vsyncs
@@ -2145,6 +2149,23 @@ public class Game extends AppCompatActivity implements SurfaceHolder.Callback,
             if (message != null) {
                 if (prefConfig.enableLatencyToast) {
                     Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+                }
+            }
+
+            // Frame loss report. Not behind the post-stream toast preference: it only fires when
+            // a large share of the video never arrived, which is not something to opt into
+            // hearing about. It still honours disableWarnings.
+            if (!prefConfig.disableWarnings) {
+                LinkHealthSummary health = new LinkHealthSummary(
+                        decoderRenderer.getTotalFramesReceived(),
+                        decoderRenderer.getTotalFramesLost(),
+                        prefConfig.bitrate,
+                        SystemClock.uptimeMillis() - streamStartUptimeMs);
+
+                String healthMessage = health.buildMessage(this);
+                if (healthMessage != null) {
+                    Toast.makeText(this, healthMessage, Toast.LENGTH_LONG).show();
+                    LimeLog.info("Link health: " + health.toDiagnosticString());
                 }
             }
 
